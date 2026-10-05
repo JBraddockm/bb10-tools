@@ -1,0 +1,22 @@
+[
+  {
+    "name": "org.apache.commons.logging.impl.LogFactoryImpl",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.commons.logging.impl.NoOpLog",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.commons.logging.impl.Jdk14Logger",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.apache.commons.logging.impl.SimpleLog",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  }
+]

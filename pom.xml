@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.jbraddockm</groupId>
+    <artifactId>blackberry-tools</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <modules>
+        <module>blackberry-deploy</module>
+        <module>blackberry-connect</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <blackberry.tls.security>
+            ${maven.multiModuleProjectDirectory}/tls.security
+        </blackberry.tls.security>
+
+        <blackberry.libs.repo>
+            ${maven.multiModuleProjectDirectory}/libs-repo
+        </blackberry.libs.repo>
+
+        <native.maven.plugin.version>0.11.0</native.maven.plugin.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>project-libs</id>
+            <url>file://${blackberry.libs.repo}</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- BlackBerry / QNX tools -->
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>jqconnDoor</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarDeploy</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarLibrary</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarAir</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarChecker</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarPackager</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarSigner</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>DebugTokenRequest</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>KeyTool</artifactId>
+            <version>1.0</version>
+        </dependency>
+
+        <!-- Crypto providers -->
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>EccpressoAll</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>EccpressoJDK15ECC</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>TrustpointAll</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>TrustpointJDK15</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>TrustpointProviders</artifactId>
+            <version>1.0</version>
+        </dependency>
+
+        <!-- Apache HTTP stack -->
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>4.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>httpmime</artifactId>
+            <version>4.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>apache-mime4j</artifactId>
+            <version>0.6</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.4</version>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>1.1.1</version>
+        </dependency>
+    </dependencies>
+
+
+    <!-- ============================================================ -->
+    <!-- Shared plugin configuration                                  -->
+    <!-- ============================================================ -->
+
+    <build>
+        <pluginManagement>
+            <plugins>
+
+                <!-- Ordinary JAR -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.4.2</version>
+
+                    <configuration>
+                        <archive>
+                            <manifest>
+                                <mainClass>${main.class}</mainClass>
+                            </manifest>
+                        </archive>
+                    </configuration>
+                </plugin>
+
+
+                <!-- GraalVM Native Image -->
+                <plugin>
+                    <groupId>org.graalvm.buildtools</groupId>
+                    <artifactId>native-maven-plugin</artifactId>
+                    <version>${native.maven.plugin.version}</version>
+
+                    <extensions>true</extensions>
+
+                    <executions>
+                        <execution>
+                            <id>build-native</id>
+
+                            <goals>
+                                <goal>compile-no-fork</goal>
+                            </goals>
+
+                            <phase>package</phase>
+                        </execution>
+                    </executions>
+
+                    <configuration>
+                        <imageName>${native.image.name}</imageName>
+                        <mainClass>${main.class}</mainClass>
+
+                        <buildArgs>
+                            <buildArg>-Os</buildArg>
+
+                            <buildArg>--gc=serial</buildArg>
+
+                            <buildArg>
+                                --enable-url-protocols=https
+                            </buildArg>
+
+                            <buildArg>
+                                -J-Djava.security.properties=${blackberry.tls.security}
+                            </buildArg>
+
+                            <buildArg>
+                                -J-Djdk.tls.client.protocols=TLSv1
+                            </buildArg>
+
+                            <buildArg>
+                                -H:+PrintAnalysisCallTree
+                            </buildArg>
+                        </buildArgs>
+                    </configuration>
+                </plugin>
+
+            </plugins>
+        </pluginManagement>
+    </build>
+
+</project>
