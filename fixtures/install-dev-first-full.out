@@ -1,0 +1,12 @@
+Info: Obtained qconn connection
+Info: [ERROR] Archive-Manifest-Version 1.5 is not supported by version 1.6.4 of BAR Library.
+Info: Sending request: INSTALL
+Info: Action: Install
+Info: File size: 2036042
+Info: Installing ...
+Info: Processing 2036042 bytes
+Info: Progress 100%...
+actual_dname::com.example.TLSDeBug.testDev_le_TLSDeBugc09806e9
+actual_id::testDev_le_TLSDeBugc09806e9
+actual_version::1.0.0.1
+result::success

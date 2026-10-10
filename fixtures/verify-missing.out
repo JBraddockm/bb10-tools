@@ -1,0 +1,8 @@
+Info: Sending request: VERIFY
+Info: Action: Verify
+Info: Validating no.such.app.aaaaaaaaaaaaaaaaaaaaaaaaaaa...
+Info: Processing 0 bytes
+actual_dname::
+actual_id::
+actual_version::
+result::failure 500 cannot determine package name

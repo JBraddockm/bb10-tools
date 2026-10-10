@@ -1,0 +1,9 @@
+Info: Sending request: INSTALL
+Info: Action: Install
+Info: File size: 2032873
+Info: Installing ...
+Info: Processing 2032873 bytes
+actual_dname::
+actual_id::
+actual_version::
+result::failure 810 /var/tmp/cgic96877a: cannot access member 'META-INF/MANIFEST.MF'

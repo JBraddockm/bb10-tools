@@ -1,0 +1,5 @@
+{"id":0,"type":"log","level":"info","message":"Sending request: TERMINATE"}
+{"id":0,"type":"log","level":"info","message":"Action: Terminate"}
+{"id":0,"type":"log","level":"info","message":"Terminating no.such.app.aaaaaaaaaaaaaaaaaaaaaaaaaaa..."}
+{"id":0,"type":"log","level":"info","message":"done"}
+{"id":0,"type":"done","ok":false,"error":{"code":"COMMAND_FAILED","message":"Terminate failed: the device reported 'Invalid'","details":{"result":"Invalid"}}}

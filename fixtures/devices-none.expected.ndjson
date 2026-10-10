@@ -1,0 +1,4 @@
+{"id":0,"type":"log","level":"info","message":"List Devices"}
+{"id":0,"type":"log","level":"info","message":"END"}
+{"id":0,"type":"result","command":"listDevices","data":{"devices":[],"unparsed":[]},"raw":["Info: List Devices","Info: END"]}
+{"id":0,"type":"done","ok":true}

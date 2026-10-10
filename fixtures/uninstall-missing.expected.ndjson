@@ -1,0 +1,5 @@
+{"id":0,"type":"log","level":"info","message":"Sending request: UNINSTALL"}
+{"id":0,"type":"log","level":"info","message":"Action: Uninstall"}
+{"id":0,"type":"log","level":"info","message":"Uninstalling testRel_le_TLSDeBugc09806e9..."}
+{"id":0,"type":"log","level":"info","message":"Processing 0 bytes"}
+{"id":0,"type":"done","ok":false,"error":{"code":"COMMAND_FAILED","message":"cannot determine package name","details":{"line":"result::failure 500 cannot determine package name","deviceCode":500}}}

@@ -1,0 +1,4 @@
+{"id":0,"type":"log","level":"info","message":"List Devices"}
+{"id":0,"type":"log","level":"info","message":"END"}
+{"id":0,"type":"result","command":"listDevices","data":{"devices":[{"hostname":"blackberry-0000.local","address":"169.254.15.173","connection":"USB","unknownFields":[""]}],"unparsed":[]},"raw":["Info: List Devices","blackberry-0000.local,169.254.15.173,USB,","Info: END"]}
+{"id":0,"type":"done","ok":true}

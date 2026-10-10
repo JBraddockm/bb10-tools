@@ -1,0 +1,6 @@
+{"id":0,"type":"log","level":"info","message":"Obtained qconn connection"}
+{"id":0,"type":"log","level":"info","message":"Begin device to host file sync"}
+{"id":0,"type":"log","level":"info","message":"All files already in sync"}
+{"id":0,"type":"log","level":"info","message":"File sync complete in 123ms"}
+{"id":0,"type":"result","command":"installApp","data":{"success":true,"strategy":"sync","nothingToSync":true,"launched":false,"fellBackToFull":false},"raw":["Info: Obtained qconn connection","Info: Begin device to host file sync            ","Info: All files already in sync                 ","Info: File sync complete in 123ms","result::success"]}
+{"id":0,"type":"done","ok":true}

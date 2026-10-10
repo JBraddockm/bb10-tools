@@ -1,0 +1,8 @@
+Info: Sending request: VERIFY
+Info: Action: Verify
+Info: Validating ru.myblackberry.blackberryworld.testDev_kberryworld76ddd87b...
+Info: Processing 0 bytes
+actual_dname::ru.myblackberry.blackberryworld.testDev_kberryworld76ddd87b
+actual_id::testDev_kberryworld76ddd87b
+actual_version::0.1.0.188
+result::success

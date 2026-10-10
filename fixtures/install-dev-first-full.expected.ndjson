@@ -1,0 +1,10 @@
+{"id":0,"type":"log","level":"info","message":"Obtained qconn connection"}
+{"id":0,"type":"log","level":"warn","message":"[ERROR] Archive-Manifest-Version 1.5 is not supported by version 1.6.4 of BAR Library."}
+{"id":0,"type":"log","level":"info","message":"Sending request: INSTALL"}
+{"id":0,"type":"log","level":"info","message":"Action: Install"}
+{"id":0,"type":"log","level":"info","message":"File size: 2036042"}
+{"id":0,"type":"log","level":"info","message":"Installing ..."}
+{"id":0,"type":"log","level":"info","message":"Processing 2036042 bytes"}
+{"id":0,"type":"progress","percent":100,"phase":"install"}
+{"id":0,"type":"result","command":"installApp","data":{"success":true,"fullName":"com.example.TLSDeBug.testDev_le_TLSDeBugc09806e9","name":"com.example.TLSDeBug","id":"testDev_le_TLSDeBugc09806e9","version":"1.0.0.1","strategy":"full","nothingToSync":false,"launched":false,"fellBackToFull":false,"syncFailureReason":"Archive-Manifest-Version 1.5 is not supported by version 1.6.4 of BAR Library."},"raw":["Info: Obtained qconn connection","Info: [ERROR] Archive-Manifest-Version 1.5 is not supported by version 1.6.4 of BAR Library.","Info: Sending request: INSTALL","Info: Action: Install","Info: File size: 2036042","Info: Installing ...","Info: Processing 2036042 bytes","Info: Progress 100%...","actual_dname::com.example.TLSDeBug.testDev_le_TLSDeBugc09806e9","actual_id::testDev_le_TLSDeBugc09806e9","actual_version::1.0.0.1","result::success"]}
+{"id":0,"type":"done","ok":true}

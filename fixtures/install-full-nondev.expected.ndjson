@@ -1,0 +1,13 @@
+{"id":0,"type":"log","level":"info","message":"Application-Development-Mode is false, sync disabled"}
+{"id":0,"type":"log","level":"info","message":"Sending request: INSTALL"}
+{"id":0,"type":"log","level":"info","message":"Action: Install"}
+{"id":0,"type":"log","level":"info","message":"File size: 46659729"}
+{"id":0,"type":"log","level":"info","message":"Installing ..."}
+{"id":0,"type":"log","level":"info","message":"Processing 46659729 bytes"}
+{"id":0,"type":"progress","percent":0,"phase":"install"}
+{"id":0,"type":"progress","percent":1,"phase":"install"}
+{"id":0,"type":"progress","percent":89,"phase":"install"}
+{"id":0,"type":"progress","percent":92,"phase":"install"}
+{"id":0,"type":"progress","percent":100,"phase":"install"}
+{"id":0,"type":"result","command":"installApp","data":{"success":true,"fullName":"doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0","name":"doctorrokter.BBTube","id":"testRel_kter_BBTubeb4cb52e0","version":"1.11.0.272","strategy":"full","nothingToSync":false,"launched":false,"fellBackToFull":false,"syncDisabledReason":"Application-Development-Mode is false, sync disabled"},"raw":["Info: Application-Development-Mode is false, sync disabled","Info: Sending request: INSTALL","Info: Action: Install","Info: File size: 46659729","Info: Installing ...","Info: Processing 46659729 bytes","Info: Progress 0%...","Info: Progress 1%...","Info: Progress 89%...","Info: Progress 92%...","Info: Progress 100%...","actual_dname::doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0","actual_id::testRel_kter_BBTubeb4cb52e0","actual_version::1.11.0.272","result::success"]}
+{"id":0,"type":"done","ok":true}

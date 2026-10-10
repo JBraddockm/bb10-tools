@@ -1,0 +1,6 @@
+{"id":0,"type":"log","level":"info","message":"Sending request: VERIFY"}
+{"id":0,"type":"log","level":"info","message":"Action: Verify"}
+{"id":0,"type":"log","level":"info","message":"Validating doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0..."}
+{"id":0,"type":"log","level":"info","message":"Processing 0 bytes"}
+{"id":0,"type":"result","command":"verifyApp","data":{"fullName":"doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0","name":"doctorrokter.BBTube","id":"testRel_kter_BBTubeb4cb52e0","version":"1.11.0.272","result":"success"},"raw":["Info: Sending request: VERIFY","Info: Action: Verify","Info: Validating doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0...","Info: Processing 0 bytes","actual_dname::doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0","actual_id::testRel_kter_BBTubeb4cb52e0","actual_version::1.11.0.272","result::success"]}
+{"id":0,"type":"done","ok":true}

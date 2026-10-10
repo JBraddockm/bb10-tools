@@ -1,0 +1,7 @@
+{"id":0,"type":"log","level":"info","message":"Sending request: INSTALL"}
+{"id":0,"type":"log","level":"info","message":"Action: Install"}
+{"id":0,"type":"log","level":"info","message":"File size: 2032873"}
+{"id":0,"type":"log","level":"info","message":"Installing ..."}
+{"id":0,"type":"log","level":"info","message":"Processing 2032873 bytes"}
+{"id":0,"type":"result","command":"installApp","data":{"success":false,"strategy":"full","nothingToSync":false,"launched":false,"fellBackToFull":false,"failureLine":"result::failure 810 /var/tmp/cgic96877a: cannot access member 'META-INF/MANIFEST.MF'"},"raw":["Info: Sending request: INSTALL","Info: Action: Install","Info: File size: 2032873","Info: Installing ...","Info: Processing 2032873 bytes","actual_dname::","actual_id::","actual_version::","result::failure 810 /var/tmp/cgic96877a: cannot access member 'META-INF/MANIFEST.MF'"]}
+{"id":0,"type":"done","ok":false,"error":{"code":"COMMAND_FAILED","message":"/var/tmp/cgic96877a: cannot access member 'META-INF/MANIFEST.MF'","details":{"line":"result::failure 810 /var/tmp/cgic96877a: cannot access member 'META-INF/MANIFEST.MF'","deviceCode":810}}}

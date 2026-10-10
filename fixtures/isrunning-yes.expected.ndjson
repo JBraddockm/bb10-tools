@@ -1,0 +1,6 @@
+{"id":0,"type":"log","level":"info","message":"Sending request: IS_RUNNING"}
+{"id":0,"type":"log","level":"info","message":"Action: Is Running"}
+{"id":0,"type":"log","level":"info","message":"Retrieving run status doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0..."}
+{"id":0,"type":"log","level":"info","message":"done"}
+{"id":0,"type":"result","command":"isAppRunning","data":{"running":true},"raw":["Info: Sending request: IS_RUNNING","Info: Action: Is Running","Info: Retrieving run status doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0...","result::true","Info: done"]}
+{"id":0,"type":"done","ok":true}

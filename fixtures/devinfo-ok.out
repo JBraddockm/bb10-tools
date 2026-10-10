@@ -1,0 +1,48 @@
+Info: Sending request: DEVICE_INFO
+Info: Action: List Device Info
+[n]@deviceproperties
+defaultTheme::white
+device_os::BlackBerry 10
+devicename::RIM BlackBerry Device
+drmhwfp::REDACTED
+du::12
+fingerprint::REDACTED
+hardwareid::0x87002c0a
+icon_res::90x90
+modelfamily::Passport
+modelfullname::BlackBerry Passport
+modelname::Passport
+modelnumber::SQW100-1
+radiofingerprint::REDACTED
+sar_body::0.00
+sar_head::0.00
+scmbundle::10.3.3.3216
+scmbundle0::10.3.3.3216
+scmbundle1::10.3.3.3216
+screen_dimensions::3.18x3.18x4.5
+screen_dpi::453
+screen_res::1440x1440
+vendorid::?
+wlan_standard::wifi
+[n]@deviceproperties
+IMEI::REDACTED
+devicepin::REDACTED
+deviceserialnumber::REDACTED
+drmhwfp::REDACTED
+[n]@devmode
+[n]debug_token_author::
+[n]debug_token_expiration::
+[n]debug_token_installed:b:false
+[n]debug_token_timeout::10d
+[n]debug_token_valid:b:
+[n]debug_token_validation_error::no debug token found
+[n]debug_token_validation_error_code:n:1
+[n]dev_mode_enabled:b:true
+[n]dev_mode_expiration::10d
+[n]dev_mode_waiting:b:true
+@versions
+build_id:: 911537
+Build Branch: BB10_3_3
+production_device:b:true
+perimeter::personal
+hostname::REDACTED

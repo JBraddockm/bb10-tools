@@ -1,0 +1,6 @@
+{"id":0,"type":"log","level":"info","message":"Sending request: UNINSTALL"}
+{"id":0,"type":"log","level":"info","message":"Action: Uninstall"}
+{"id":0,"type":"log","level":"info","message":"Uninstalling testRel_le_TLSDeBugc09806e9..."}
+{"id":0,"type":"log","level":"info","message":"Processing 0 bytes"}
+{"id":0,"type":"result","command":"uninstallApp","data":{"fullName":"com.example.TLSDeBug.testRel_le_TLSDeBugc09806e9","name":"com.example.TLSDeBug","id":"testRel_le_TLSDeBugc09806e9","version":"1.0.0.1","result":"success"},"raw":["Info: Sending request: UNINSTALL","Info: Action: Uninstall","Info: Uninstalling testRel_le_TLSDeBugc09806e9...","Info: Processing 0 bytes","actual_dname::com.example.TLSDeBug.testRel_le_TLSDeBugc09806e9","actual_id::testRel_le_TLSDeBugc09806e9","actual_version::1.0.0.1","result::success"]}
+{"id":0,"type":"done","ok":true}

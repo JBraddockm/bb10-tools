@@ -1,19 +1,22 @@
 package com.jbraddockm;
 
-import java.util.Arrays;
+import java.io.IOException;
 
-public class Deploy {
-  static void main(String[] args) {
+/**
+ * Entry point under the name the build configuration already uses, so that nothing there has to
+ * change. Everything happens in {@link Launcher}.
+ */
+public final class Deploy {
 
-    System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog");
+  private Deploy() {}
 
-    if (Arrays.asList(args).contains("-gui")) {
-      System.err.println("Error: -gui is not supported in the native build.");
-      System.exit(1);
-    }
-
-    System.setProperty("jdk.tls.client.protocols", "TLSv1");
-
-    com.qnx.bbt.deploy.Deploy.main(args);
+  /**
+   * Starts the application.
+   *
+   * @param arguments the command-line arguments
+   * @throws IOException if reading the daemon's input fails
+   */
+  static void main(String[] arguments) throws IOException {
+    Launcher.main(arguments);
   }
 }

@@ -1,0 +1,11 @@
+{"id":0,"type":"log","level":"info","message":"Application-Development-Mode is false, sync disabled"}
+{"id":0,"type":"log","level":"info","message":"Sending request: INSTALL_AND_LAUNCH"}
+{"id":0,"type":"log","level":"info","message":"Action: Install and Launch"}
+{"id":0,"type":"log","level":"info","message":"File size: 1816710"}
+{"id":0,"type":"log","level":"info","message":"Installing com.example.TLSDeBug.testRel_le_TLSDeBugc09806e9..."}
+{"id":0,"type":"log","level":"info","message":"Processing 1816710 bytes"}
+{"id":0,"type":"progress","percent":100,"phase":"install"}
+{"id":0,"type":"log","level":"info","message":"Launching com.example.TLSDeBug.testRel_le_TLSDeBugc09806e9..."}
+{"id":0,"type":"log","level":"info","message":"done"}
+{"id":0,"type":"result","command":"installApp","data":{"success":true,"fullName":"com.example.TLSDeBug.testRel_le_TLSDeBugc09806e9","name":"com.example.TLSDeBug","id":"testRel_le_TLSDeBugc09806e9","version":"1.0.0.1","strategy":"full","nothingToSync":false,"launched":true,"launchResult":"188989588","fellBackToFull":false,"syncDisabledReason":"Application-Development-Mode is false, sync disabled"},"raw":["Info: Application-Development-Mode is false, sync disabled","Info: Sending request: INSTALL_AND_LAUNCH","Info: Action: Install and Launch","Info: File size: 1816710","Info: Installing com.example.TLSDeBug.testRel_le_TLSDeBugc09806e9...","Info: Processing 1816710 bytes","Info: Progress 100%...","actual_dname::com.example.TLSDeBug.testRel_le_TLSDeBugc09806e9","actual_id::testRel_le_TLSDeBugc09806e9","actual_version::1.0.0.1","result::success","Info: Launching com.example.TLSDeBug.testRel_le_TLSDeBugc09806e9...","result::188989588","Info: done"]}
+{"id":0,"type":"done","ok":true}
