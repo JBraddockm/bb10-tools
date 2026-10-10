@@ -5,12 +5,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.jbraddockm</groupId>
-    <artifactId>blackberry-tools</artifactId>
+    <artifactId>bb-tools</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>blackberry-deploy</module>
-        <module>blackberry-connect</module>
+        <module>bb-deploy</module>
+        <module>bb-connect</module>
     </modules>
 
     <properties>
