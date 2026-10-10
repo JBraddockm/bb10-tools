@@ -124,11 +124,11 @@ For example:
 
 ```text
 .
-├── blackberry-connect/
+├── bb-connect/
 │   ├── src/
 │   ├── pom.xml
 │   └── target/
-├── blackberry-deploy/
+├── bb-deploy/
 │   ├── src/
 │   ├── pom.xml
 │   └── target/
@@ -179,16 +179,16 @@ native executable for each module.
 
 ### Build an individual module
 
-To build the `blackberry-connect` module:
+To build the `bb-connect` module:
 
 ```bash
-mvn -pl blackberry-connect package
+mvn -pl bb-connect package
 ```
 
-To build the `blackberry-deploy` module:
+To build the `bb-deploy` module:
 
 ```bash
-mvn -pl blackberry-deploy package
+mvn -pl bb-deploy package
 ```
 
 ### Build Output
@@ -197,13 +197,13 @@ The resulting native executables are placed in the `target` directory of the cor
 For example, after building:
 
 ```bash 
-mvn -pl blackberry-connect package
+mvn -pl bb-connect package
 ```
 
 the executable will be located under:
 
 ```text
-blackberry-connect/
+bb-connect/
 └── target/
 └── ...
 ```

@@ -1,4 +1,4 @@
-# blackberry-deploy
+# bb-deploy
 
 A native build of BlackBerry's `blackberry-deploy` tool for BlackBerry 10 devices, compiled with GraalVM
 Native Image, with an added daemon mode for building device-management applications.
@@ -8,7 +8,7 @@ Native Image, with an added daemon mode for building device-management applicati
 - **Built on BlackBerry's tool.** It wraps the original `blackberry-deploy` classes (`com.qnx.bbt.deploy`).
   Neither `blackberry-deploy` nor any other BlackBerry tool is modified.
 - **Same tool by default.** Without the new flags, it has the original feature set and command-line usage.
-- **Adds a daemon mode.** `blackberry-deploy -daemon` keeps device sessions open and accepts commands one after
+- **Adds a daemon mode.** `bb-deploy -daemon` keeps device sessions open and accepts commands one after
   another, so the slow login happens once per device rather than once per command. It is meant for developers
   building applications that manage BlackBerry 10 devices.
 
@@ -37,7 +37,7 @@ data and the tool's raw output, and a final `done`:
 List the devices on the network (no login needed):
 
 ```sh
-printf '%s\n' '{"id":1,"method":"listDevices"}' | ./target/blackberry-deploy -daemon
+printf '%s\n' '{"id":1,"method":"listDevices"}' | ./target/bb-deploy -daemon
 ```
 
 Connect to a device, then list its installed apps over the same session. The first `connect` creates session `s1`,
@@ -48,7 +48,7 @@ network):
 ( printf '%s\n' '{"id":1,"method":"connect","params":{"host":"192.168.1.82","password":"12345"}}'
   sleep 8
   printf '%s\n' '{"id":2,"method":"listInstalledApps","params":{"session":"s1"}}'
-) | ./target/blackberry-deploy -daemon
+) | ./target/bb-deploy -daemon
 ```
 
 When stdin closes, the daemon finishes the requests it has already accepted and then exits.

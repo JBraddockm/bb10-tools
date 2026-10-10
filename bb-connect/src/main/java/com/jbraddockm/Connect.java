@@ -14,7 +14,7 @@ public class Connect extends AbstractQConnDoorCommandLine {
   }
 
   static void main(String[] args) {
-    new Connect("<blackberry-connect>", List.of()).run(args);
+    new Connect("<bb-connect>", List.of()).run(args);
   }
 
   @Override

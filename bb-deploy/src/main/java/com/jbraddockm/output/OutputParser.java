@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Interprets the output of one {@code blackberry-deploy} command.
+ * Interprets the output of one {@code bb-deploy} command.
  *
  * <p>An implementation is a pure function of text: it holds no state between calls and needs no
  * device. Lines are passed without line terminators.

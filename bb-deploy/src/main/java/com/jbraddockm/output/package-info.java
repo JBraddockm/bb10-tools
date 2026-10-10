@@ -1,5 +1,5 @@
 /**
- * Parsers for the text that {@code blackberry-deploy} prints, producing typed results.
+ * Parsers for the text that {@code bb-deploy} prints, producing typed results.
  *
  * <p>This package is the reusable part of the project. It does not run the tool and does not depend
  * on it: it only interprets lines of text, so it can be used by any tool that captures that output,

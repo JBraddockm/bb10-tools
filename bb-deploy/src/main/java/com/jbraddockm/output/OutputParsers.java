@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The parsers for the commands of {@code blackberry-deploy}.
+ * The parsers for the commands of {@code bb-deploy}.
  *
  * <p>Each constant is stateless and safe to share between threads.
  */

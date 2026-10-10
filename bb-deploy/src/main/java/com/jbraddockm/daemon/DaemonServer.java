@@ -166,7 +166,7 @@ public final class DaemonServer {
       inFlight.awaitAdvanceInterruptibly(phase, DRAIN_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
     } catch (TimeoutException _) {
       System.err.println(
-          "blackberry-deploy: requests still running after "
+          "bb-deploy: requests still running after "
               + DRAIN_TIMEOUT.toSeconds()
               + " s, exiting without their reply");
     } catch (InterruptedException _) {

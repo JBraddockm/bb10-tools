@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * The application entry point. Without a special first argument it behaves exactly like the
- * original {@code blackberry-deploy}; two extra modes are added:
+ * original {@code bb-deploy}; two extra modes are added:
  *
  * <ul>
  *   <li>{@code -daemon} serves the JSON protocol on standard input and output (see {@link

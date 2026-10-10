@@ -1,5 +1,5 @@
 /**
- * Running {@code blackberry-deploy} commands against a device.
+ * Running {@code bb-deploy} commands against a device.
  *
  * <p>A {@link com.jbraddockm.device.DeviceSession} owns one login to one device. Commands are
  * described by the sealed {@link com.jbraddockm.device.DeviceCommand} hierarchy; running one yields
