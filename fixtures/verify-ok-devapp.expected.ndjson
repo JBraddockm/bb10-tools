@@ -1,6 +1,0 @@
-{"id":0,"type":"log","level":"info","message":"Sending request: VERIFY"}
-{"id":0,"type":"log","level":"info","message":"Action: Verify"}
-{"id":0,"type":"log","level":"info","message":"Validating ru.myblackberry.blackberryworld.testDev_kberryworld76ddd87b..."}
-{"id":0,"type":"log","level":"info","message":"Processing 0 bytes"}
-{"id":0,"type":"result","command":"verifyApp","data":{"fullName":"ru.myblackberry.blackberryworld.testDev_kberryworld76ddd87b","name":"ru.myblackberry.blackberryworld","id":"testDev_kberryworld76ddd87b","version":"0.1.0.188","result":"success"},"raw":["Info: Sending request: VERIFY","Info: Action: Verify","Info: Validating ru.myblackberry.blackberryworld.testDev_kberryworld76ddd87b...","Info: Processing 0 bytes","actual_dname::ru.myblackberry.blackberryworld.testDev_kberryworld76ddd87b","actual_id::testDev_kberryworld76ddd87b","actual_version::0.1.0.188","result::success"]}
-{"id":0,"type":"done","ok":true}

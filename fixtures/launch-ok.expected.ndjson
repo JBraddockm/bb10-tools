@@ -1,6 +1,0 @@
-{"id":0,"type":"log","level":"info","message":"Sending request: LAUNCH"}
-{"id":0,"type":"log","level":"info","message":"Action: Launch"}
-{"id":0,"type":"log","level":"info","message":"Launching doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0..."}
-{"id":0,"type":"log","level":"info","message":"done"}
-{"id":0,"type":"result","command":"launchApp","data":{"result":"36503658"},"raw":["Info: Sending request: LAUNCH","Info: Action: Launch","Info: Launching doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0...","result::36503658","Info: done"]}
-{"id":0,"type":"done","ok":true}

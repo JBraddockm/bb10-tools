@@ -1,5 +1,0 @@
-{"id":0,"type":"log","level":"info","message":"Sending request: VERIFY"}
-{"id":0,"type":"log","level":"info","message":"Action: Verify"}
-{"id":0,"type":"log","level":"info","message":"Validating no.such.app.aaaaaaaaaaaaaaaaaaaaaaaaaaa..."}
-{"id":0,"type":"log","level":"info","message":"Processing 0 bytes"}
-{"id":0,"type":"done","ok":false,"error":{"code":"COMMAND_FAILED","message":"cannot determine package name","details":{"line":"result::failure 500 cannot determine package name","deviceCode":500}}}

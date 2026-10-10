@@ -1,8 +1,0 @@
-Info: Sending request: VERIFY
-Info: Action: Verify
-Info: Validating doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0...
-Info: Processing 0 bytes
-actual_dname::doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0
-actual_id::testRel_kter_BBTubeb4cb52e0
-actual_version::1.11.0.272
-result::success

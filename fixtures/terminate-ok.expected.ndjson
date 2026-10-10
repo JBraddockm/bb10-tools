@@ -1,6 +1,0 @@
-{"id":0,"type":"log","level":"info","message":"Sending request: TERMINATE"}
-{"id":0,"type":"log","level":"info","message":"Action: Terminate"}
-{"id":0,"type":"log","level":"info","message":"Terminating doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0..."}
-{"id":0,"type":"log","level":"info","message":"done"}
-{"id":0,"type":"result","command":"terminateApp","data":{"result":"Terminated"},"raw":["Info: Sending request: TERMINATE","Info: Action: Terminate","Info: Terminating doctorrokter.BBTube.testRel_kter_BBTubeb4cb52e0...","result::Terminated","Info: done"]}
-{"id":0,"type":"done","ok":true}

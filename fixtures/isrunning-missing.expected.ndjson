@@ -1,6 +1,0 @@
-{"id":0,"type":"log","level":"info","message":"Sending request: IS_RUNNING"}
-{"id":0,"type":"log","level":"info","message":"Action: Is Running"}
-{"id":0,"type":"log","level":"info","message":"Retrieving run status no.such.app.aaaaaaaaaaaaaaaaaaaaaaaaaaa..."}
-{"id":0,"type":"log","level":"info","message":"done"}
-{"id":0,"type":"result","command":"isAppRunning","data":{"running":false},"raw":["Info: Sending request: IS_RUNNING","Info: Action: Is Running","Info: Retrieving run status no.such.app.aaaaaaaaaaaaaaaaaaaaaaaaaaa...","result::false","Info: done"]}
-{"id":0,"type":"done","ok":true}

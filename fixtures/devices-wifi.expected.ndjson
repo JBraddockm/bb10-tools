@@ -1,4 +1,0 @@
-{"id":0,"type":"log","level":"info","message":"List Devices"}
-{"id":0,"type":"log","level":"info","message":"END"}
-{"id":0,"type":"result","command":"listDevices","data":{"devices":[{"hostname":"blackberry-0000.lan","address":"192.168.1.82","connection":"WiFi","unknownFields":[""]}],"unparsed":[]},"raw":["Info: List Devices","blackberry-0000.lan,192.168.1.82,WiFi,","Info: END"]}
-{"id":0,"type":"done","ok":true}

@@ -1,8 +1,0 @@
-Info: Sending request: UNINSTALL
-Info: Action: Uninstall
-Info: Uninstalling testRel_le_TLSDeBugc09806e9...
-Info: Processing 0 bytes
-actual_dname::
-actual_id::
-actual_version::
-result::failure 500 cannot determine package name

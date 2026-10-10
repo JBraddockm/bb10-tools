@@ -1,2 +1,0 @@
-{"id":0,"type":"log","level":"info","message":"Sending request: DEVICE_INFO"}
-{"id":0,"type":"done","ok":false,"error":{"code":"DEVMODE_DISABLED","message":"Device is not in the Development Mode. Switch to Development Mode from Security settings on the device.","details":{"line":"Error: Device is not in the Development Mode. Switch to Development Mode from Security settings on the device."}}}
