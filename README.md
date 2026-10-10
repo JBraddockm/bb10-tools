@@ -6,7 +6,8 @@ This repository builds Java-based tools from the **BlackBerry 10 NDK** into stan
 The project uses the **Community Edition of GraalVM 25**.
 
 > **Important:** This repository does not contain any proprietary BlackBerry tools or libraries. You must provide the
-> required libraries from your own BlackBerry 10 NDK installation.
+> required libraries from your own BlackBerry 10 NDK installation. Neither blackberry-deploy nor any other BlackBerry
+> tool is modified.
 
 ## Requirements
 
