@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The parsers for the commands of {@code bb-deploy}.
+ * The parsers for the commands of {@code blackberry-deploy}.
  *
  * <p>Each constant is stateless and safe to share between threads.
  */
@@ -37,6 +37,12 @@ public final class OutputParsers {
   /** Parser for {@code -devices}. */
   public static final OutputParser<DetectedDevices> DETECTED_DEVICES = new DeviceListParser();
 
+  /** Parser for {@code -getFile}. */
+  public static final OutputParser<FileDownload> FILE_DOWNLOAD = new FileDownloadParser();
+
+  /** Parser for {@code -putFile}. */
+  public static final OutputParser<FileUpload> FILE_UPLOAD = new FileUploadParser();
+
   /**
    * For commands whose output has no structure worth parsing; always yields {@link
    * NoData#INSTANCE}.
@@ -54,8 +60,8 @@ public final class OutputParsers {
           Map.entry("verifyApp", VERIFY_APP),
           Map.entry("uninstallApp", UNINSTALL_APP),
           Map.entry("test", NO_DATA),
-          Map.entry("getFile", NO_DATA),
-          Map.entry("putFile", NO_DATA),
+          Map.entry("getFile", FILE_DOWNLOAD),
+          Map.entry("putFile", FILE_UPLOAD),
           Map.entry("installDebugToken", NO_DATA),
           Map.entry("listDevices", DETECTED_DEVICES));
 

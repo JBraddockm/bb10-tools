@@ -1,5 +1,5 @@
 /**
- * Tooling around the {@code bb-deploy} command line tool for BlackBerry 10 devices.
+ * Tooling around the {@code blackberry-deploy} command line tool for BlackBerry 10 devices.
  *
  * <p>The code is organised by feature:
  *

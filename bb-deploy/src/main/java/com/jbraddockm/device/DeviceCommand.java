@@ -4,6 +4,8 @@ import com.jbraddockm.output.AppRunState;
 import com.jbraddockm.output.CommandResult;
 import com.jbraddockm.output.DetectedDevices;
 import com.jbraddockm.output.DeviceInfo;
+import com.jbraddockm.output.FileDownload;
+import com.jbraddockm.output.FileUpload;
 import com.jbraddockm.output.InstallResult;
 import com.jbraddockm.output.InstalledApps;
 import com.jbraddockm.output.NoData;
@@ -325,10 +327,10 @@ public sealed interface DeviceCommand<T extends CommandResult> {
    *
    * @param app the application; a name-and-id reference must carry the name
    * @param path the file, relative to the sandbox
-   * @param saveAs where to store it locally, or {@code null} to receive the content in the output
-   *     (text files only)
+   * @param saveAs where to store it locally, or {@code null} to receive the content in the result
+   *     (text files only; a binary file must be saved to a path)
    */
-  record GetFile(PackageRef app, String path, Path saveAs) implements DeviceCommand<NoData> {
+  record GetFile(PackageRef app, String path, Path saveAs) implements DeviceCommand<FileDownload> {
 
     /**
      * Creates the command.
@@ -350,8 +352,8 @@ public sealed interface DeviceCommand<T extends CommandResult> {
     }
 
     @Override
-    public OutputParser<NoData> parser() {
-      return OutputParsers.NO_DATA;
+    public OutputParser<FileDownload> parser() {
+      return OutputParsers.FILE_DOWNLOAD;
     }
 
     @Override
@@ -368,7 +370,7 @@ public sealed interface DeviceCommand<T extends CommandResult> {
    * @param localPath the local file to upload
    * @param path the destination file, relative to the sandbox; not a directory
    */
-  record PutFile(PackageRef app, Path localPath, String path) implements DeviceCommand<NoData> {
+  record PutFile(PackageRef app, Path localPath, String path) implements DeviceCommand<FileUpload> {
 
     /**
      * Creates the command.
@@ -394,8 +396,8 @@ public sealed interface DeviceCommand<T extends CommandResult> {
     }
 
     @Override
-    public OutputParser<NoData> parser() {
-      return OutputParsers.NO_DATA;
+    public OutputParser<FileUpload> parser() {
+      return OutputParsers.FILE_UPLOAD;
     }
   }
 
