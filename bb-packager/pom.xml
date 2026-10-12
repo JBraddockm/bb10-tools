@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.jbraddockm</groupId>
+        <artifactId>bb-tools</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>bb-packager</artifactId>
+
+    <properties>
+        <main.class>com.jbraddockm.Packager</main.class>
+        <native.image.name>bb-packager</native.image.name>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.graalvm.nativeimage</groupId>
+            <artifactId>svm</artifactId>
+            <version>25.0.1</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.graalvm.buildtools</groupId>
+                <artifactId>native-maven-plugin</artifactId>
+
+                <configuration>
+                    <buildArgs combine.children="append">
+                        <buildArg>--add-exports=java.xml/com.sun.org.apache.xerces.internal.parsers=ALL-UNNAMED
+                        </buildArg>
+                        <buildArg>--add-exports=java.xml/com.sun.org.apache.xerces.internal.xni=ALL-UNNAMED</buildArg>
+                        <buildArg>--add-exports=java.xml/com.sun.org.apache.xerces.internal.xni.parser=ALL-UNNAMED
+                        </buildArg>
+                        <buildArg>--add-exports=java.xml/com.sun.org.apache.xerces.internal.util=ALL-UNNAMED</buildArg>
+                        <buildArg>--add-exports=java.xml/com.sun.org.apache.xerces.internal.impl=ALL-UNNAMED</buildArg>
+                        <buildArg>-J--add-exports=java.xml/com.sun.org.apache.xerces.internal.parsers=ALL-UNNAMED
+                        </buildArg>
+                    </buildArgs>
+                </configuration>
+
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

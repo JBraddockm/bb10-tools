@@ -11,6 +11,7 @@
     <modules>
         <module>bb-deploy</module>
         <module>bb-connect</module>
+        <module>bb-packager</module>
     </modules>
 
     <properties>
