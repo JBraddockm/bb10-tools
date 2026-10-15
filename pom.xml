@@ -9,7 +9,9 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
+        <module>bb-core</module>
         <module>bb-deploy</module>
+        <module>bb-link</module>
         <module>bb-connect</module>
         <module>bb-packager</module>
     </modules>
