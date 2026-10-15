@@ -13,7 +13,11 @@ public enum AuthenticationType {
   /** The client logs in with the device password. */
   PASSWORD("password"),
 
-  /** The client offers a client certificate and does not log in. */
+  /**
+   * The client offers a client certificate and logs in without a password. The device is expected
+   * to log a certificate holder in; if it asks for a password instead, the session carries on with
+   * the certificate alone.
+   */
   CERTIFICATE("certificate"),
 
   /** The client offers a client certificate and logs in with the device password as well. */

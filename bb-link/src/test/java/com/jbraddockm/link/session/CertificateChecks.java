@@ -50,6 +50,21 @@ public final class CertificateChecks {
         : "FAILED: " + outcome;
   }
 
+  /** Collects what a command reports. */
+  private static final class Collected implements CommandListener {
+    final List<String> warnings = new java.util.ArrayList<>();
+
+    @Override
+    public void onLog(com.jbraddockm.core.command.LogLevel level, String message) {
+      if (level == com.jbraddockm.core.command.LogLevel.WARN) {
+        warnings.add(message);
+      }
+    }
+
+    @Override
+    public void onProgress(com.jbraddockm.core.command.Progress progress) {}
+  }
+
   private static CommandOutcome.Failed<?> failed(CommandOutcome<?> outcome) {
     check(outcome instanceof CommandOutcome.Failed<?>, "should have failed: " + outcome);
     return (CommandOutcome.Failed<?>) outcome;
@@ -71,8 +86,8 @@ public final class CertificateChecks {
             .getSubjectX500Principal()
             .getName();
 
-    // the certificate reaches the device, whichever form the key has, with no login at all, and
-    // although the device lists another authority than the one that issued it
+    // the certificate reaches the device, whichever form the key has, with a login that sends no
+    // password, and although the device lists another authority than the one that issued it
     for (var form : List.of("pkcs8", "pkcs1")) {
       var key =
           write(
@@ -84,11 +99,20 @@ public final class CertificateChecks {
         var outcome = session.execute(new GetDeviceProperties(), CommandListener.SILENT);
         equal(
             subject, deviceName(outcome), "the device saw the client certificate: key as " + form);
+        check(
+            device.paths().size() == 2
+                && device.paths().getFirst().equals("/cgi-bin/login.cgi?request_version=1")
+                && device.paths().getLast().equals("/cgi-bin/dynamicProperties.cgi"),
+            "a session with a certificate asks for the login once, without a password, then reads: "
+                + form);
         equal(
-            List.of("/cgi-bin/dynamicProperties.cgi"),
-            device.paths(),
-            "a session with a certificate and no password does not log in: " + form);
-        check(session.smbCredentials().isEmpty(), "and so has no share credentials: " + form);
+            "TLS-SHARE",
+            session.smbCredentials().orElseThrow().password(),
+            "and brings the share credentials: " + form);
+        equal(
+            List.of(subject, subject),
+            device.peers(),
+            "the certificate was on both requests: " + form);
       }
     }
 
@@ -165,11 +189,32 @@ public final class CertificateChecks {
       check(error.message().contains("invalid password"), "is still refused as before");
     }
 
+    // a device that asks for a password at the login although the certificate would do: a warning,
+    // no answer to the question, and the session carries on with the certificate alone
+    try (var device = new TlsTestDevice();
+        var session = certificateOnly(device, certificate, key)) {
+      device.behaviour = TlsTestDevice.Behaviour.LOGIN_ASKS_FOR_PASSWORD;
+      var collected = new Collected();
+      equal(
+          subject,
+          deviceName(session.execute(new GetDeviceProperties(), collected)),
+          "the commands work with the certificate alone");
+      check(
+          collected.warnings.size() == 1
+              && collected.warnings.getFirst().contains("asked for a password"),
+          "and the question is reported as a warning: " + collected.warnings);
+      check(session.smbCredentials().isEmpty(), "without share credentials");
+      check(
+          device.paths().stream().noneMatch(path -> path.contains("challenge_data")),
+          "and no answer to the challenge was ever sent");
+    }
+
     // a device that does not accept the certificate: the message says so, and nothing is guessed
     try (var device = new TlsTestDevice();
         var session = certificateOnly(device, certificate, key)) {
       device.behaviour = TlsTestDevice.Behaviour.REFUSES_EVERYONE;
-      var outcome = failed(session.execute(new GetDeviceProperties(), CommandListener.SILENT));
+      var collected = new Collected();
+      var outcome = failed(session.execute(new GetDeviceProperties(), collected));
       equal(
           "AUTH_FAILED",
           ((CommandOutcome.Failed<?>) outcome).error().code().wireName(),
@@ -181,8 +226,22 @@ public final class CertificateChecks {
               .contains("did not accept the client certificate"),
           "its message names the certificate");
       check(
-          device.paths().stream().noneMatch(path -> path.contains("login.cgi")),
-          "no login was tried");
+          device.paths().stream().noneMatch(path -> path.contains("challenge_data")),
+          "no password was ever sent");
+    }
+
+    // the type none still treats a password question as an error: it never carries on
+    try (var device = new TlsTestDevice();
+        var session =
+            DeviceSession.forTarget(
+                new DeviceTarget(
+                    HOST, device.port(), TransportScheme.HTTPS, new Authentication.NoPassword()))) {
+      device.behaviour = TlsTestDevice.Behaviour.LOGIN_ASKS_FOR_PASSWORD;
+      var error =
+          ((CommandOutcome.Failed<?>)
+                  failed(session.execute(new GetDeviceProperties(), CommandListener.SILENT)))
+              .error();
+      equal("PASSWORD_REQUIRED", error.code().wireName(), "none: a password question is an error");
     }
 
     // a device that ends the handshake for a certificate it does not trust. How the client sees
@@ -308,9 +367,9 @@ public final class CertificateChecks {
         "certificateAndPassword",
         target.authentication().type().wireName(),
         "the type of a combined login");
-    check(combined.logsIn(), "a password means a login");
-    check(!new Authentication.Certificate(offered).logsIn(), "a certificate alone means no login");
-    check(new Authentication.NoPassword().logsIn(), "a device without a password still logs in");
+    check(!combined.certificateAlone(), "a password can be given to the device");
+    check(new Authentication.Certificate(offered).certificateAlone(), "a certificate alone cannot");
+    check(!new Authentication.NoPassword().certificateAlone(), "no password is not a certificate");
     equal(
         Optional.of("hunter2"),
         combined.passwordForChallenge(),

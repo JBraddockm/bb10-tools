@@ -89,10 +89,24 @@ public final class DeviceSession implements ServiceSession {
           },
           listener);
     } catch (StaleSessionException stale) {
-      return CommandOutcome.failed(rejectedSession(stale, true));
+      return CommandOutcome.failed(rejectedSession(stale, false));
     } catch (IOException failure) {
       return CommandOutcome.failed(FailureClassifier.classify(failure));
     }
+  }
+
+  private static ServiceError rejectedSession(
+      StaleSessionException stale, boolean certificateAlone) {
+    if (certificateAlone) {
+      return new ServiceError(
+          CoreErrorCode.AUTH_FAILED,
+          "The device did not accept the client certificate as authentication");
+    }
+    return new ServiceError(
+        CoreErrorCode.AUTH_FAILED,
+        stale.firstExchange()
+            ? "The device rejected the session right after a new login"
+            : "The device ended the session while the command was running");
   }
 
   /**
@@ -145,7 +159,7 @@ public final class DeviceSession implements ServiceSession {
     var connectionRenewed = false;
     while (true) {
       try {
-        ensureLoggedIn();
+        ensureLoggedIn(listener);
         return ConversationRunner.run(
             command.conversation(), request -> transport.send(request), listener);
       } catch (StaleSessionException stale) {
@@ -155,7 +169,8 @@ public final class DeviceSession implements ServiceSession {
           listener.onLog(LogLevel.DEBUG, "The device forgot the session; logging in again");
           continue;
         }
-        return CommandOutcome.failed(rejectedSession(stale, target.authentication().logsIn()));
+        return CommandOutcome.failed(
+            rejectedSession(stale, target.authentication().certificateAlone()));
       } catch (LoginException | IOException | RuntimeException failure) {
         if (!FailureClassifier.leavesSessionUsable(failure)) {
           discardTransport();
@@ -174,33 +189,41 @@ public final class DeviceSession implements ServiceSession {
     }
   }
 
-  private static ServiceError rejectedSession(StaleSessionException stale, boolean loggedIn) {
-    if (!loggedIn) {
-      return new ServiceError(
-          CoreErrorCode.AUTH_FAILED,
-          "The device did not accept the client certificate as authentication");
-    }
-    return new ServiceError(
-        CoreErrorCode.AUTH_FAILED,
-        stale.firstExchange()
-            ? "The device rejected the session right after a new login"
-            : "The device ended the session while the command was running");
-  }
-
-  private void ensureLoggedIn() throws LoginException, IOException {
+  private void ensureLoggedIn(CommandListener listener) throws LoginException, IOException {
     if (closed) {
       throw new IllegalStateException("the session is closed");
     }
     if (transport == null) {
       var fresh = new CgiTransport(target, observer);
       try {
-        smbCredentials =
-            target.authentication().logsIn() ? Login.perform(fresh).orElse(null) : null;
+        smbCredentials = login(fresh, listener);
       } catch (LoginException | IOException | RuntimeException failure) {
         fresh.close();
         throw failure;
       }
       transport = fresh;
+    }
+  }
+
+  /**
+   * Logs in. A session that relies on the certificate alone never answers a password challenge: if
+   * the device asks for a password, that is reported as a warning and the session carries on with
+   * the certificate, without share credentials. For every other kind of session the question is an
+   * error.
+   */
+  private SmbCredentials login(CgiTransport fresh, CommandListener listener)
+      throws LoginException, IOException {
+    try {
+      return Login.perform(fresh).orElse(null);
+    } catch (PasswordRequiredException asked) {
+      if (!target.authentication().certificateAlone()) {
+        throw asked;
+      }
+      listener.onLog(
+          LogLevel.WARN,
+          "The device asked for a password during the login; continuing with the certificate alone,"
+              + " without share credentials");
+      return null;
     }
   }
 

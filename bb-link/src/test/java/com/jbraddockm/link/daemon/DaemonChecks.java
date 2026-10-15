@@ -612,7 +612,18 @@ public final class DaemonChecks {
           String.valueOf(((Map<?, ?>) notAccepted.get("error")).get("message"))
               .contains("client certificate"),
           "says it is the certificate");
-      equal(loginsBefore, device.loginRequests.get(), "the type certificate does not log in");
+      equal(
+          loginsBefore + 2,
+          device.loginRequests.get(),
+          "the type certificate asks for the login (twice: once more after the rejection)");
+      equal(failedBefore, device.failedAttempts, "and never answers the password question");
+      check(
+          eventsOf(sink, 152, "log").stream()
+              .anyMatch(
+                  event ->
+                      "warn".equals(event.get("level"))
+                          && String.valueOf(event.get("message")).contains("asked for a password")),
+          "the question is reported as a warning");
       send.accept(
           authenticate(
               153,

@@ -16,7 +16,9 @@ import java.util.Optional;
  *       session stops without sending an answer, so no failed attempt is counted against the
  *       device's lock.
  *   <li>{@link Password}: logs in with the password.
- *   <li>{@link Certificate}: offers the certificate and does not log in at all.
+ *   <li>{@link Certificate}: offers the certificate and logs in without a password: the login
+ *       request is sent, and if the device asks for a password after all, the session carries on
+ *       with the certificate alone and never answers the question.
  *   <li>{@link CertificateAndPassword}: offers the certificate and logs in.
  * </ul>
  *
@@ -55,7 +57,7 @@ public sealed interface Authentication {
   }
 
   /**
-   * The client offers a certificate and does not log in.
+   * The client offers a certificate and logs in without a password.
    *
    * @param certificate where the certificate and its key are
    */
@@ -116,13 +118,13 @@ public sealed interface Authentication {
   }
 
   /**
-   * Tells whether the session logs in. Without a login the session has no cookie and no share
-   * credentials, and the client certificate alone has to be accepted by the device.
+   * Tells whether the client relies on the certificate alone, with no password that it could give
+   * to the device.
    *
-   * @return {@code false} only for {@link Certificate}
+   * @return {@code true} only for {@link Certificate}
    */
-  default boolean logsIn() {
-    return !(this instanceof Certificate);
+  default boolean certificateAlone() {
+    return this instanceof Certificate;
   }
 
   /**

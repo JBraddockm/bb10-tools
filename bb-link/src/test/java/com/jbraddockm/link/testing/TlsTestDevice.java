@@ -35,8 +35,16 @@ public final class TlsTestDevice implements AutoCloseable {
     ANSWERS_EVERYONE,
     /** Answers with status 200 and nothing at all to a request without a certificate. */
     REFUSES_WITHOUT_CERTIFICATE,
-    /** Answers with status 200 and nothing at all, whatever the client presented. */
+    /**
+     * Does not accept the certificate: the login asks for a password, and every other request is
+     * answered with status 200 and nothing at all, whatever the client presented.
+     */
     REFUSES_EVERYONE,
+    /**
+     * Accepts the certificate for requests, but the login still asks for a password, as a device
+     * might that does not log a certificate holder in.
+     */
+    LOGIN_ASKS_FOR_PASSWORD,
     /**
      * Ends the handshake when a client presents any certificate, as a real device does with one
      * that its own authority did not issue, and answers a client that presents none.
@@ -190,17 +198,31 @@ public final class TlsTestDevice implements AutoCloseable {
     }
   }
 
+  private static final String CHALLENGE =
+      "<RimTabletResponse><AuthChallenge><Status>PasswdChallenge</Status><Challenge>c</Challenge>"
+          + "<Algorithm>2</Algorithm><Salt>0102030405060708</Salt><ICount>10</ICount>"
+          + "<FailedAttempts>0</FailedAttempts><RetriesRemaining>5</RetriesRemaining></AuthChallenge>"
+          + "</RimTabletResponse>";
+
   private String answerTo(String path, String peer) {
-    var refuse =
-        behaviour == Behaviour.REFUSES_EVERYONE
-            || (behaviour == Behaviour.REFUSES_WITHOUT_CERTIFICATE && peer.equals("none"));
-    if (refuse) {
-      return "";
-    }
+    var noCertificate = peer.equals("none");
     if (path.startsWith("/cgi-bin/login.cgi")) {
+      if (behaviour == Behaviour.REFUSES_EVERYONE
+          || behaviour == Behaviour.LOGIN_ASKS_FOR_PASSWORD) {
+        return CHALLENGE;
+      }
+      if (behaviour == Behaviour.REFUSES_WITHOUT_CERTIFICATE && noCertificate) {
+        return "";
+      }
       return "<RimTabletResponse><Auth><Status>Success</Status><Smb><Credentials User='dtm'"
                  + " Password='TLS-SHARE'/><User>dtm</User><Pwd>TLS-SHARE</Pwd>"
                  + "<Workgroup>WORKGROUP</Workgroup><NetBios>%h</NetBios></Smb></Auth></RimTabletResponse>";
+    }
+    var refuse =
+        behaviour == Behaviour.REFUSES_EVERYONE
+            || (behaviour == Behaviour.REFUSES_WITHOUT_CERTIFICATE && noCertificate);
+    if (refuse) {
+      return "";
     }
     if (path.startsWith("/cgi-bin/wipe.cgi")) {
       return "<RimTabletResponse><DevicePIN><Status>Success</Status><PIN>PINX2A3B4C5D</PIN></DevicePIN></RimTabletResponse>";
