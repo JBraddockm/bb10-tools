@@ -11,6 +11,7 @@ import com.jbraddockm.link.cgi.ResponseElement;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.ResponseFailures;
 import com.jbraddockm.link.cgi.Step;
+import com.jbraddockm.link.cgi.XmlConversation;
 import com.jbraddockm.link.session.DeviceCommand;
 
 /**
@@ -21,7 +22,7 @@ public record GetPin() implements DeviceCommand<DevicePin> {
 
   @Override
   public Conversation<DevicePin> conversation() {
-    return new Conversation<>() {
+    return new XmlConversation<>() {
       @Override
       public Step<DevicePin> start() {
         return new Step.Send<>(
@@ -31,7 +32,7 @@ public record GetPin() implements DeviceCommand<DevicePin> {
       }
 
       @Override
-      public Step<DevicePin> onResponse(ResponseEnvelope response) {
+      protected Step<DevicePin> onResponse(ResponseEnvelope response) {
         var reported = ResponseFailures.reportedError(response);
         if (reported.isPresent()) {
           return new Step.Fail<>(reported.get());
