@@ -63,8 +63,11 @@ public final class SessionChecks {
         new DeviceTarget(
             InetAddress.getLoopbackAddress().getHostAddress(),
             device.port(),
-            password,
-            TransportScheme.HTTP),
+            TransportScheme.HTTP,
+            // an empty password stands for a device without one, in these tests only
+            password.isEmpty()
+                ? new Authentication.NoPassword()
+                : new Authentication.Password(password)),
         observer);
   }
 

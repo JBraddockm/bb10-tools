@@ -171,7 +171,7 @@ public final class FakeDevice implements AutoCloseable {
   /** The number of upcoming CGI requests to drop without an answer. */
   public volatile int dropNext;
 
-  /** Run once after the next CGI request was answered; then cleared. */
+  /** Run once while the next CGI request is answered, before the answer is sent; then cleared. */
   public volatile Runnable afterNextCgiRequest;
 
   /** Whether the device rejects every cookie, never accepting a session. */
@@ -361,24 +361,39 @@ public final class FakeDevice implements AutoCloseable {
       exchange.close();
       return;
     }
+    int status = 200;
+    String answer;
+    String renewal = null;
     if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
       switch (staleStyle) {
-        case EMPTY -> respond(exchange, 200, "", null);
-        case UNAUTHORIZED -> respond(exchange, 401, "unauthorized", null);
+        case EMPTY -> answer = "";
+        case UNAUTHORIZED -> {
+          status = 401;
+          answer = "unauthorized";
+        }
         case AUTH_CHALLENGE ->
-            respond(
-                exchange,
-                200,
-                "<RimTabletResponse><AuthChallenge><Status>PasswdChallenge</Status></AuthChallenge></RimTabletResponse>",
-                null);
+            answer =
+                "<RimTabletResponse><AuthChallenge><Status>PasswdChallenge</Status></AuthChallenge></RimTabletResponse>";
+        default -> throw new IllegalStateException();
       }
     } else if (!"POST".equals(exchange.getRequestMethod()) || !expectedBody.equals(body)) {
-      respond(
-          exchange, 400, "unexpected request: " + exchange.getRequestMethod() + " " + body, null);
+      status = 400;
+      answer = "unexpected request: " + exchange.getRequestMethod() + " " + body;
     } else {
-      var renewal = "dtmauth=" + token + "; " + (cgiCookie == CgiCookie.RENEW ? FUTURE : PAST);
-      respond(exchange, 200, expectedBody.equals(PIN_BODY) ? pinXml : propertiesXml, renewal);
+      renewal = "dtmauth=" + token + "; " + (cgiCookie == CgiCookie.RENEW ? FUTURE : PAST);
+      answer = expectedBody.equals(PIN_BODY) ? pinXml : propertiesXml;
     }
+    fireHook();
+    respond(exchange, status, answer, renewal);
+  }
+
+  /**
+   * Runs the hook that a test set for "after the next request", once. It runs after the device has
+   * decided what to answer and before the answer is sent: the client cannot send its next request
+   * before it has this answer, so the hook has always run by then. Running it after the answer is
+   * sent would race with that next request.
+   */
+  private void fireHook() {
     var callback = afterNextCgiRequest;
     if (callback != null) {
       afterNextCgiRequest = null;
@@ -435,16 +450,12 @@ public final class FakeDevice implements AutoCloseable {
       exchange.close();
       return;
     }
-    if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
-      respond(exchange, 200, UNAUTHENTICATED_PAIRING, null);
-    } else {
-      respond(exchange, 200, pairingAnswer != null ? pairingAnswer : judge(body), null);
-    }
-    var callback = afterNextCgiRequest;
-    if (callback != null) {
-      afterNextCgiRequest = null;
-      callback.run();
-    }
+    var answer =
+        alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)
+            ? UNAUTHENTICATED_PAIRING
+            : pairingAnswer != null ? pairingAnswer : judge(body);
+    fireHook();
+    respond(exchange, 200, answer, null);
   }
 
   /** The device is described as rejecting only a certificate that does not parse. */

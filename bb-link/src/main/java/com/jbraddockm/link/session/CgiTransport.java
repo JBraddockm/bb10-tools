@@ -6,6 +6,7 @@ import com.jbraddockm.link.cgi.CgiResponse;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import javax.net.ssl.KeyManager;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpVersion;
@@ -40,7 +41,7 @@ final class CgiTransport implements AutoCloseable {
   private final BasicHttpContext context = new BasicHttpContext();
   private final BasicCookieStore cookies = new BasicCookieStore();
 
-  CgiTransport(DeviceTarget target, ExchangeObserver observer) {
+  CgiTransport(DeviceTarget target, ExchangeObserver observer) throws IOException {
     this.target = target;
     this.observer = observer;
     client.getParams().setParameter("http.protocol.version", HttpVersion.HTTP_1_1);
@@ -50,8 +51,16 @@ final class CgiTransport implements AutoCloseable {
     // a dropped connection, even a POST. Only the session may decide that, because repeating a
     // command can change the device twice.
     client.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(0, false));
-    client.getConnectionManager().getSchemeRegistry().register(TrustAllTls.scheme());
+    var keyManagers =
+        target.authentication().certificateToOffer().isPresent()
+            ? clientKeyManagers(target.authentication().certificateToOffer().get())
+            : null;
+    client.getConnectionManager().getSchemeRegistry().register(TrustAllTls.scheme(keyManagers));
     context.setAttribute("http.cookie-store", cookies);
+  }
+
+  private static KeyManager[] clientKeyManagers(ClientCertificate source) throws IOException {
+    return new KeyManager[] {new FixedClientKeyManager(PemIdentity.load(source))};
   }
 
   DeviceTarget target() {

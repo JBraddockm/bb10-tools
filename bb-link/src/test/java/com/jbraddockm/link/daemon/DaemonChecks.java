@@ -10,6 +10,7 @@ import com.jbraddockm.link.discovery.DiscoveredDevice;
 import com.jbraddockm.link.session.ExchangeObserver;
 import com.jbraddockm.link.session.TransportScheme;
 import com.jbraddockm.link.testing.FakeDevice;
+import com.jbraddockm.link.testing.TestPki;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PipedInputStream;
@@ -187,6 +188,23 @@ public final class DaemonChecks {
       send.accept(
           "{\"id\":3,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"port\":0}}");
       equal("INVALID_ARGUMENT", errorCode(done(sink, 3)), "port range");
+      send.accept(
+          "{\"id\":90,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"clientCertificate\":\"c.pem\"}}");
+      send.accept(
+          "{\"id\":91,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"password\":\"x\"}}");
+      for (var legacy :
+          List.of(new Object[] {90, "clientCertificate"}, new Object[] {91, "password"})) {
+        var moved = done(sink, (Integer) legacy[0]);
+        equal("INVALID_ARGUMENT", errorCode(moved), "an old top-level parameter: " + legacy[1]);
+        equal(
+            legacy[1],
+            ((Map<?, ?>) ((Map<?, ?>) moved.get("error")).get("details")).get("param"),
+            "names the parameter that moved: " + legacy[1]);
+        check(
+            String.valueOf(((Map<?, ?>) moved.get("error")).get("message"))
+                .contains("'authentication'"),
+            "and says where it went: " + legacy[1]);
+      }
       send.accept("{\"id\":4,\"method\":\"getPin\",\"params\":{\"session\":\"s1\"}}");
       equal("UNKNOWN_SESSION", errorCode(done(sink, 4)), "no session yet");
 
@@ -205,9 +223,10 @@ public final class DaemonChecks {
       equal(Boolean.TRUE, done(sink, 6).get("ok"), "connect");
       var connected = resultData(sink, 6);
       equal(
-          List.of("session", "host", "port", "device", "smb"),
+          List.of("session", "host", "port", "authentication", "device", "smb"),
           List.copyOf((java.util.Set<?>) connected.keySet()),
           "result fields in order");
+      equal("password", connected.get("authentication"), "connect echoes the way it authenticated");
       var summary = (Map<?, ?>) connected.get("device");
       equal("Test Z10", summary.get("name"), "device name");
       check(
@@ -498,6 +517,119 @@ public final class DaemonChecks {
                           && String.valueOf(event.get("message")).contains("PIN")),
           "a warning explains it");
 
+      // the authentication object: every way it can be wrong is refused before anything is sent
+      var deviceRequestsBefore = device.cgiRequests.get();
+      var loginsBefore = device.loginRequests.get();
+      var invalidObjects =
+          List.of(
+              new String[] {"\"password\"", "authentication"},
+              new String[] {"{}", "authentication.type"},
+              new String[] {"{\"type\":5}", "authentication.type"},
+              new String[] {"{\"type\":\"Password\",\"password\":\"x\"}", "authentication.type"},
+              new String[] {"{\"type\":\"none\",\"password\":\"x\"}", "authentication.password"},
+              new String[] {"{\"type\":\"password\"}", "authentication.password"},
+              new String[] {
+                "{\"type\":\"password\",\"password\":\"  \"}", "authentication.password"
+              },
+              new String[] {
+                "{\"type\":\"password\",\"password\":\"x\",\"clientKey\":\"k.pem\"}",
+                "authentication.clientKey"
+              },
+              new String[] {
+                "{\"type\":\"certificate\",\"clientCertificate\":\"c.pem\"}",
+                "authentication.clientKey"
+              },
+              new String[] {
+                "{\"type\":\"certificate\",\"clientKey\":\"k.pem\"}",
+                "authentication.clientCertificate"
+              },
+              new String[] {
+                "{\"type\":\"certificate\",\"clientCertificate\":\"c.pem\",\"clientKey\":\"k.pem\",\"password\":\"x\"}",
+                "authentication.password"
+              },
+              new String[] {
+                "{\"type\":\"certificateAndPassword\",\"clientCertificate\":\"c.pem\",\"clientKey\":\"k.pem\"}",
+                "authentication.password"
+              },
+              new String[] {
+                "{\"type\":\"certificate\",\"clientCertificate\":5,\"clientKey\":\"k.pem\"}",
+                "authentication.clientCertificate"
+              });
+      var invalidId = 100;
+      for (var entry : invalidObjects) {
+        send.accept(authenticate(invalidId, device, entry[0]));
+        var refusal = done(sink, invalidId);
+        equal("INVALID_ARGUMENT", errorCode(refusal), "refused: " + entry[0]);
+        equal(
+            entry[1],
+            ((Map<?, ?>) ((Map<?, ?>) refusal.get("error")).get("details")).get("param"),
+            "names " + entry[1] + " for: " + entry[0]);
+        invalidId++;
+      }
+      send.accept(
+          "{\"id\":%d,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"port\":%d}}"
+              .formatted(invalidId, device.port()));
+      var missing = done(sink, invalidId);
+      equal(
+          "authentication",
+          ((Map<?, ?>) ((Map<?, ?>) missing.get("error")).get("details")).get("param"),
+          "a connect without authentication is refused, with nothing assumed");
+      equal(
+          deviceRequestsBefore, device.cgiRequests.get(), "no refused request reached the device");
+      equal(loginsBefore, device.loginRequests.get(), "and none made a login");
+
+      // a device that asks for a password nobody gave: no answer is sent, no attempt is counted
+      var failedBefore = device.failedAttempts;
+      send.accept(authenticate(150, device, "{\"type\":\"none\"}"));
+      var passwordRequired = done(sink, 150);
+      equal(
+          "PASSWORD_REQUIRED",
+          errorCode(passwordRequired),
+          "a password is needed and none was given");
+      equal(loginsBefore + 1, device.loginRequests.get(), "the login stopped at the challenge");
+      equal(failedBefore, device.failedAttempts, "no failed attempt was counted");
+
+      // a device without a password: the type none works, and says so
+      device.loginMode = FakeDevice.LoginMode.NO_PASSWORD;
+      send.accept(authenticate(151, device, "{\"type\":\"none\"}"));
+      equal(Boolean.TRUE, done(sink, 151).get("ok"), "connect to a device without a password");
+      equal("none", resultData(sink, 151).get("authentication"), "and the type is echoed");
+      device.loginMode = FakeDevice.LoginMode.CHALLENGE;
+
+      // the certificate types reach the session: files are read, and the login happens or not
+      var directory = java.nio.file.Files.createTempDirectory("bb-link-daemon-certificates");
+      var certificateFile =
+          java.nio.file.Files.writeString(directory.resolve("c.pem"), TestPki.LEAF_CERTIFICATE);
+      var keyFile =
+          java.nio.file.Files.writeString(directory.resolve("k.pem"), TestPki.LEAF_KEY_PKCS8);
+      var files =
+          "\"clientCertificate\":\"%s\",\"clientKey\":\"%s\"".formatted(certificateFile, keyFile);
+      loginsBefore = device.loginRequests.get();
+      send.accept(authenticate(152, device, "{\"type\":\"certificate\"," + files + "}"));
+      var notAccepted = done(sink, 152);
+      equal("AUTH_FAILED", errorCode(notAccepted), "a device that does not take the certificate");
+      check(
+          String.valueOf(((Map<?, ?>) notAccepted.get("error")).get("message"))
+              .contains("client certificate"),
+          "says it is the certificate");
+      equal(loginsBefore, device.loginRequests.get(), "the type certificate does not log in");
+      send.accept(
+          authenticate(
+              153,
+              device,
+              "{\"type\":\"certificateAndPassword\"," + files + ",\"password\":\"secret\"}"));
+      equal(Boolean.TRUE, done(sink, 153).get("ok"), "a certificate and a password");
+      equal("certificateAndPassword", resultData(sink, 153).get("authentication"), "echoed");
+      check(resultData(sink, 153).containsKey("smb"), "and the login brings the share credentials");
+      check(device.loginRequests.get() > loginsBefore, "because it logged in");
+      send.accept(
+          authenticate(
+              154,
+              device,
+              "{\"type\":\"certificate\",\"clientCertificate\":\"%s\",\"clientKey\":\"%s\"}"
+                  .formatted(directory.resolve("nothing.pem"), keyFile)));
+      equal("IO_ERROR", errorCode(done(sink, 154)), "a certificate file that is not there");
+
       check(
           !sink.everything.toString().contains("secret"),
           "the password never appears in the output");
@@ -513,7 +645,13 @@ public final class DaemonChecks {
   }
 
   private static String connect(int id, FakeDevice device, String password) {
-    return "{\"id\":%d,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"port\":%d,\"password\":\"%s\"}}"
-        .formatted(id, device.port(), password);
+    return authenticate(
+        id, device, "{\"type\":\"password\",\"password\":\"%s\"}".formatted(password));
+  }
+
+  /** A connect request with the given {@code authentication} object, as JSON text. */
+  private static String authenticate(int id, FakeDevice device, String authentication) {
+    return "{\"id\":%d,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"port\":%d,\"authentication\":%s}}"
+        .formatted(id, device.port(), authentication);
   }
 }

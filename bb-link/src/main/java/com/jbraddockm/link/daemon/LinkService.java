@@ -65,8 +65,8 @@ public final class LinkService implements Service<DeviceSession> {
         new DeviceTarget(
             params.requireString("host"),
             params.integer("port", DeviceTarget.DEFAULT_PORT, 1, 65_535),
-            params.optionalString("password").orElse(""),
-            scheme);
+            scheme,
+            AuthenticationReader.read(params));
     return DeviceSession.forTarget(target, observer);
   }
 
@@ -83,6 +83,7 @@ public final class LinkService implements Service<DeviceSession> {
             Json.object(
                 "host", session.target().host(),
                 "port", session.target().port(),
+                "authentication", session.target().authentication().type().wireName(),
                 "device", summary.toJson(),
                 "smb", session.smbCredentials().map(SmbCredentials::toJson).orElse(null)));
       }

@@ -4,14 +4,15 @@ import com.jbraddockm.core.error.InvalidArgumentException;
 import java.util.Objects;
 
 /**
- * Where a session connects and with what password.
+ * Where a session connects and how it proves who it is.
  *
  * @param host the host name or IP address
  * @param port the TCP port
- * @param password the device password; empty if the device has none
  * @param scheme how to reach the device
+ * @param authentication how the session proves who it is
  */
-public record DeviceTarget(String host, int port, String password, TransportScheme scheme) {
+public record DeviceTarget(
+    String host, int port, TransportScheme scheme, Authentication authentication) {
 
   /** The port devices serve their web interface on. */
   public static final int DEFAULT_PORT = 443;
@@ -22,25 +23,14 @@ public record DeviceTarget(String host, int port, String password, TransportSche
    * @throws InvalidArgumentException if the host is blank or the port is out of range
    */
   public DeviceTarget {
-    Objects.requireNonNull(password, "password");
     Objects.requireNonNull(scheme, "scheme");
+    Objects.requireNonNull(authentication, "authentication");
     if (host == null || host.isBlank()) {
       throw new InvalidArgumentException("host", "is required");
     }
     if (port < 1 || port > 65_535) {
       throw new InvalidArgumentException("port", "must be between 1 and 65535");
     }
-  }
-
-  /**
-   * Creates a target that is reached over HTTPS.
-   *
-   * @param host the host name or IP address
-   * @param port the TCP port
-   * @param password the device password; empty if the device has none
-   */
-  public DeviceTarget(String host, int port, String password) {
-    this(host, port, password, TransportScheme.HTTPS);
   }
 
   /**
@@ -54,9 +44,17 @@ public record DeviceTarget(String host, int port, String password, TransportSche
     return scheme.urlScheme() + "://" + hostPart + ":" + port + pathAndQuery;
   }
 
-  /** Never reveals the password. */
+  /** Never reveals the password; the location of the key is not shown either. */
   @Override
   public String toString() {
-    return "DeviceTarget[host=" + host + ", port=" + port + ", scheme=" + scheme + "]";
+    return "DeviceTarget[host="
+        + host
+        + ", port="
+        + port
+        + ", scheme="
+        + scheme
+        + ", authentication="
+        + authentication.type().wireName()
+        + "]";
   }
 }

@@ -5,6 +5,7 @@ import com.jbraddockm.core.error.ErrorCode;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
+import com.jbraddockm.link.LinkErrorCode;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.MalformedURLException;
@@ -21,6 +22,17 @@ final class FailureClassifier {
   private FailureClassifier() {}
 
   static ServiceError classify(Throwable failure) {
+    return classify(failure, false);
+  }
+
+  /**
+   * Maps a failure to an error.
+   *
+   * @param failure what went wrong
+   * @param certificateOffered whether a client certificate was offered to the device; a failed
+   *     handshake is then explained with that in mind
+   */
+  static ServiceError classify(Throwable failure, boolean certificateOffered) {
     return switch (failure) {
       case InvalidArgumentException invalid -> invalid.toServiceError();
       case PasswordRejectedException rejected when rejected.isLocked() ->
@@ -38,6 +50,8 @@ final class FailureClassifier {
                   "maxAttempts", rejected.failedAttempts() + rejected.remainingAttempts()));
       case InvalidPasswordException invalid ->
           new ServiceError(CoreErrorCode.AUTH_FAILED, describe(invalid));
+      case PasswordRequiredException required ->
+          new ServiceError(LinkErrorCode.PASSWORD_REQUIRED, describe(required));
       case ClockOutOfSyncException clock ->
           new ServiceError(CoreErrorCode.CLOCK_OUT_OF_SYNC, describe(clock));
       case UnusableLoginResponseException unusable ->
@@ -50,6 +64,14 @@ final class FailureClassifier {
           connection(CoreErrorCode.CONNECTION_FAILED, "timeout", failure);
       case UnknownHostException _ ->
           connection(CoreErrorCode.CONNECTION_FAILED, "unknown_host", failure);
+      case SSLException _ when certificateOffered ->
+          new ServiceError(
+              CoreErrorCode.CONNECTION_FAILED,
+              "The TLS handshake failed while a client certificate was offered; the device may have"
+                  + " refused it (original message: "
+                  + describe(failure)
+                  + ")",
+              Json.object("cause", "tls", "certificate", true));
       case SSLException _ -> connection(CoreErrorCode.CONNECTION_FAILED, "tls", failure);
       case SocketTimeoutException _ ->
           connection(CoreErrorCode.CONNECTION_LOST, "timeout", failure);

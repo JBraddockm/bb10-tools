@@ -54,7 +54,11 @@ final class Login {
     if (algorithm == 0) {
       throw legacyLogin();
     }
-    var answerData = hash(transport.target().password(), algorithm, challenge);
+    var password = transport.target().authentication().passwordForChallenge();
+    if (password.isEmpty()) {
+      throw new PasswordRequiredException();
+    }
+    var answerData = hash(password.get(), algorithm, challenge);
     var answer = transport.get(LOGIN_PATH + "?challenge_data=" + answerData + "&request_version=1");
     var document = LoginDocument.of(answer);
     return switch (document.status()) {
@@ -98,6 +102,12 @@ final class Login {
   private static void acceptCookie(CgiTransport transport, CgiResponse response)
       throws LoginException {
     if (response.setCookie() == null) {
+      // A device that recognises the client certificate logs the client in without a password and
+      // without issuing a cookie; the certificate then authenticates every request **[verified]**.
+      // Without a certificate, a success that brings no cookie is not a login.
+      if (transport.target().authentication().certificateToOffer().isPresent()) {
+        return;
+      }
       throw new InvalidPasswordException();
     }
     for (Cookie cookie : transport.cookies().getCookies()) {

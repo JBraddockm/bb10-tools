@@ -3,6 +3,7 @@ package com.jbraddockm.link.session;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
@@ -25,10 +26,17 @@ final class TrustAllTls {
 
   private TrustAllTls() {}
 
-  static Scheme scheme() {
+  /**
+   * Creates the scheme.
+   *
+   * @param keyManagers what to offer if the device asks for a client certificate, or {@code null}
+   *     to offer none
+   */
+  static Scheme scheme(KeyManager[] keyManagers) {
     try {
       var context = SSLContext.getInstance("SSL");
-      context.init(null, new TrustManager[] {new AcceptAnyCertificate()}, new SecureRandom());
+      context.init(
+          keyManagers, new TrustManager[] {new AcceptAnyCertificate()}, new SecureRandom());
       var factory = new SSLSocketFactory(context);
       factory.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
       return new Scheme("https", factory, HTTPS_PORT);

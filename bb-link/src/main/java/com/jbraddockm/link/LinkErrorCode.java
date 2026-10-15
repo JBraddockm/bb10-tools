@@ -15,7 +15,13 @@ public enum LinkErrorCode implements ErrorCode {
    * The confirmation PIN of a command that changes who the device trusts does not match the PIN the
    * device reports. Nothing was sent to change the device.
    */
-  PIN_MISMATCH;
+  PIN_MISMATCH,
+
+  /**
+   * The device asked for a password during the login and none was given. No answer was sent, so no
+   * failed attempt was counted. A client can prompt for the password and connect again.
+   */
+  PASSWORD_REQUIRED;
 
   @Override
   public String wireName() {

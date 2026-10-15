@@ -89,7 +89,7 @@ public final class DeviceSession implements ServiceSession {
           },
           listener);
     } catch (StaleSessionException stale) {
-      return CommandOutcome.failed(rejectedSession(stale));
+      return CommandOutcome.failed(rejectedSession(stale, true));
     } catch (IOException failure) {
       return CommandOutcome.failed(FailureClassifier.classify(failure));
     }
@@ -155,7 +155,7 @@ public final class DeviceSession implements ServiceSession {
           listener.onLog(LogLevel.DEBUG, "The device forgot the session; logging in again");
           continue;
         }
-        return CommandOutcome.failed(rejectedSession(stale));
+        return CommandOutcome.failed(rejectedSession(stale, target.authentication().logsIn()));
       } catch (LoginException | IOException | RuntimeException failure) {
         if (!FailureClassifier.leavesSessionUsable(failure)) {
           discardTransport();
@@ -167,12 +167,19 @@ public final class DeviceSession implements ServiceSession {
           listener.onLog(LogLevel.DEBUG, "The connection was closed; connecting again");
           continue;
         }
-        return CommandOutcome.failed(FailureClassifier.classify(failure));
+        return CommandOutcome.failed(
+            FailureClassifier.classify(
+                failure, target.authentication().certificateToOffer().isPresent()));
       }
     }
   }
 
-  private static ServiceError rejectedSession(StaleSessionException stale) {
+  private static ServiceError rejectedSession(StaleSessionException stale, boolean loggedIn) {
+    if (!loggedIn) {
+      return new ServiceError(
+          CoreErrorCode.AUTH_FAILED,
+          "The device did not accept the client certificate as authentication");
+    }
     return new ServiceError(
         CoreErrorCode.AUTH_FAILED,
         stale.firstExchange()
@@ -187,7 +194,8 @@ public final class DeviceSession implements ServiceSession {
     if (transport == null) {
       var fresh = new CgiTransport(target, observer);
       try {
-        smbCredentials = Login.perform(fresh).orElse(null);
+        smbCredentials =
+            target.authentication().logsIn() ? Login.perform(fresh).orElse(null) : null;
       } catch (LoginException | IOException | RuntimeException failure) {
         fresh.close();
         throw failure;

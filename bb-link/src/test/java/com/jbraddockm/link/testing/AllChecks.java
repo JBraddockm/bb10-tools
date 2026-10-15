@@ -2,6 +2,7 @@ package com.jbraddockm.link.testing;
 
 import com.jbraddockm.link.cgi.WireChecks;
 import com.jbraddockm.link.daemon.DaemonChecks;
+import com.jbraddockm.link.session.CertificateChecks;
 import com.jbraddockm.link.session.SessionChecks;
 
 /** Runs every check of bb-link and sets the exit status. */
@@ -19,6 +20,7 @@ public final class AllChecks {
     System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog");
     WireChecks.run();
     SessionChecks.run();
+    CertificateChecks.run();
     DaemonChecks.run();
     System.exit(Checks.finish("bb-link checks"));
   }

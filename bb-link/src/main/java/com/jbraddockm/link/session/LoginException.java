@@ -7,6 +7,7 @@ public abstract sealed class LoginException extends Exception
     permits PasswordRejectedException,
         InvalidPasswordException,
         ClockOutOfSyncException,
+        PasswordRequiredException,
         UnusableLoginResponseException {
 
   @Serial private static final long serialVersionUID = 1L;
