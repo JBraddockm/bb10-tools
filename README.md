@@ -192,6 +192,18 @@ To build the `bb-deploy` module:
 mvn -pl bb-deploy package
 ```
 
+To build the `bb-packager` module:
+
+```bash
+mvn -pl bb-packager package
+```
+
+To build the `bb-link` module:
+
+```bash
+mvn -pl bb-link -am package
+```
+
 ### Build Output
 
 The resulting native executables are placed in the `target` directory of the corresponding Maven module.
