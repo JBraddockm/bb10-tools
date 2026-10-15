@@ -206,6 +206,25 @@ public final class DaemonConformanceCheck {
     return done.get("error") instanceof Map<?, ?> error ? error.get("code") : null;
   }
 
+  /** The typed readers of request parameters. */
+  private static void parameters() {
+    var params =
+        new RequestParams(Map.of("count", 5L, "text", "five", "big", 99L, "flag", Boolean.TRUE));
+    equal(5, params.optionalInteger("count", 1, 10).getAsInt(), "an optional integer");
+    check(params.optionalInteger("missing", 1, 10).isEmpty(), "an absent optional integer");
+    for (var name : List.of("big", "text")) {
+      var rejected = false;
+      try {
+        params.optionalInteger(name, 1, 10);
+      } catch (com.jbraddockm.core.error.InvalidArgumentException failure) {
+        rejected = failure.parameter().equals(name);
+      }
+      check(rejected, "an optional integer that is out of range or not a number: " + name);
+    }
+    check(params.flag("flag"), "a flag that is set");
+    check(!params.flag("missing"), "a flag that is absent");
+  }
+
   /**
    * Runs all checks.
    *
@@ -213,6 +232,7 @@ public final class DaemonConformanceCheck {
    * @throws Exception if the harness itself fails
    */
   public static void main(String[] arguments) throws Exception {
+    parameters();
     var service = new StubService();
     var sink = new EventSink();
     var toServer = new PipedOutputStream();

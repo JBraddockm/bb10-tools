@@ -140,6 +140,27 @@ public final class RequestParams {
   }
 
   /**
+   * Reads an optional integer with a range.
+   *
+   * @param name the parameter name
+   * @param minimum the smallest accepted value
+   * @param maximum the largest accepted value
+   * @return the value, or empty if the parameter is absent
+   * @throws InvalidArgumentException if the value is not an integer or outside the range
+   */
+  public java.util.OptionalInt optionalInteger(String name, int minimum, int maximum) {
+    return switch (values.get(name)) {
+      case null -> java.util.OptionalInt.empty();
+      case Long number when number >= minimum && number <= maximum ->
+          java.util.OptionalInt.of(number.intValue());
+      case Long _ ->
+          throw new InvalidArgumentException(
+              name, "must be between " + minimum + " and " + maximum);
+      default -> throw new InvalidArgumentException(name, "must be an integer");
+    };
+  }
+
+  /**
    * Reads an integer with a default and a range.
    *
    * @param name the parameter name
