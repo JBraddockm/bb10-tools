@@ -26,6 +26,45 @@ public final class RequestParams {
   }
 
   /**
+   * Returns the names of all parameters that were sent, so that a command can refuse the ones it
+   * does not know instead of ignoring them.
+   *
+   * @return the parameter names
+   */
+  public java.util.Set<String> names() {
+    var names = new java.util.LinkedHashSet<String>();
+    values.keySet().forEach(name -> names.add(String.valueOf(name)));
+    return names;
+  }
+
+  /**
+   * Reads an optional nested object.
+   *
+   * @param name the parameter name
+   * @return the object's members, or empty if the parameter is absent or {@code null}
+   * @throws InvalidArgumentException if the value is present but not an object
+   */
+  public Optional<RequestParams> optionalObject(String name) {
+    return switch (values.get(name)) {
+      case null -> Optional.empty();
+      case Map<?, ?> members -> Optional.of(new RequestParams(members));
+      default -> throw new InvalidArgumentException(name, "must be an object");
+    };
+  }
+
+  /**
+   * Reads a required nested object.
+   *
+   * @param name the parameter name
+   * @return the object's members
+   * @throws InvalidArgumentException if the parameter is absent or not an object
+   */
+  public RequestParams requireObject(String name) {
+    return optionalObject(name)
+        .orElseThrow(() -> new InvalidArgumentException(name, "is required"));
+  }
+
+  /**
    * Reads an optional string.
    *
    * @param name the parameter name

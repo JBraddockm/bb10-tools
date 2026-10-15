@@ -221,6 +221,23 @@ public final class DaemonConformanceCheck {
       }
       check(rejected, "an optional integer that is out of range or not a number: " + name);
     }
+    var nested = new RequestParams(Map.of("inner", Map.of("a", "x", "b", 1L), "text", "no"));
+    equal(
+        java.util.Set.of("a", "b"),
+        nested.requireObject("inner").names(),
+        "a nested object and the names in it");
+    equal(
+        "x", nested.requireObject("inner").requireString("a"), "its members are read the same way");
+    check(nested.optionalObject("missing").isEmpty(), "an absent object");
+    for (var name : List.of("text", "missing")) {
+      var rejected = false;
+      try {
+        nested.requireObject(name);
+      } catch (com.jbraddockm.core.error.InvalidArgumentException failure) {
+        rejected = failure.parameter().equals(name);
+      }
+      check(rejected, "a required object that is absent or not an object: " + name);
+    }
     check(params.flag("flag"), "a flag that is set");
     check(!params.flag("missing"), "a flag that is absent");
   }
