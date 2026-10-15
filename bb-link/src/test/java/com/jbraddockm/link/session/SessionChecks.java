@@ -9,6 +9,8 @@ import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.command.NoData;
 import com.jbraddockm.core.command.Progress;
 import com.jbraddockm.core.error.InvalidArgumentException;
+import com.jbraddockm.link.actions.ConfirmedByPin;
+import com.jbraddockm.link.cgi.BodyFormat;
 import com.jbraddockm.link.cgi.CgiRequest;
 import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.Conversation;
@@ -17,6 +19,8 @@ import com.jbraddockm.link.cgi.FormField;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.Step;
 import com.jbraddockm.link.cgi.XmlConversation;
+import com.jbraddockm.link.pairing.PairDevice;
+import com.jbraddockm.link.pairing.PairingAnswer;
 import com.jbraddockm.link.pimsync.FindPimAccount;
 import com.jbraddockm.link.pimsync.GetPimItems;
 import com.jbraddockm.link.pimsync.ListPimAccounts;
@@ -43,6 +47,9 @@ import java.util.stream.Collectors;
 
 /** Checks the login, the retry rules and the failure mapping against a fake device. */
 public final class SessionChecks {
+
+  private static final String GOOD_CERTIFICATE =
+      "-----BEGIN CERTIFICATE-----\nQUFB\n-----END CERTIFICATE-----\n";
 
   private SessionChecks() {}
 
@@ -91,6 +98,7 @@ public final class SessionChecks {
     emptyAnswers();
     shareCredentials();
     pimSync();
+    pairing();
   }
 
   private static Optional<ResponseEnvelope> envelopeOf(String body) {
@@ -136,11 +144,20 @@ public final class SessionChecks {
       var logs = new Logs();
       var listed = answered(session.execute(new ListPimAccounts(), logs)).result();
       equal(PimCommand.LIST_ACCOUNTS, listed.command(), "list: command");
+      check(
+          listed.contentType().startsWith("application/json"),
+          "list: the content type says the body is JSON");
+      equal(
+          listed.contentType(), listed.toJson().get("contentType"), "list: and it is on the wire");
       check(listed.service() == null, "list: no service");
       equal(0, listed.code(), "list: code");
       equal("OK", listed.message(), "list: message");
       equal(200, listed.httpStatus(), "list: HTTP status");
-      equal(FakeDevice.DEFAULT_PIM_ANSWER, listed.body(), "list: body as sent");
+      equal(BodyFormat.JSON, listed.body().format(), "list: the answer is JSON");
+      equal(
+          com.jbraddockm.core.json.Json.parse(FakeDevice.DEFAULT_PIM_ANSWER),
+          listed.body().value(),
+          "list: the body is the JSON itself, not a string");
       check(
           logs.mentions("Listing the PIM accounts") && !logs.mentions(".cgi"),
           "list: announced by what it does");
@@ -171,26 +188,47 @@ public final class SessionChecks {
     }
 
     // the answer is passed on untouched, whatever it looks like
+    var invalidJson =
+        "{\"version\":\"1.0\",\"status\":{\"code\":0,\"msg\":\"say \\\"hi\\\"\"},\"data\":oops &"
+            + " <x>}";
+    var json = com.jbraddockm.core.json.Json.class;
     var cases =
         Map.of(
-            "{\"version\":\"1.0\",\"status\":{\"code\":0,\"msg\":\"say \\\"hi\\\"\"},\"data\":oops"
-                + " & <x>}",
-            new Object[] {0, "say \"hi\""},
+            invalidJson,
+            new Object[] {0, "say \"hi\"", BodyFormat.TEXT, invalidJson},
             "[1,2,3]",
-            new Object[] {null, null},
+            new Object[] {
+              null, null, BodyFormat.JSON, com.jbraddockm.core.json.Json.parse("[1,2,3]")
+            },
             "not json at all\r\n",
-            new Object[] {null, null},
+            new Object[] {null, null, BodyFormat.TEXT, "not json at all\r\n"},
             "{\"status\":{\"code\":7}}",
-            new Object[] {7, null});
+            new Object[] {
+              7,
+              null,
+              BodyFormat.JSON,
+              com.jbraddockm.core.json.Json.parse("{\"status\":{\"code\":7}}")
+            });
     for (var entry : cases.entrySet()) {
       try (var device = new FakeDevice("secret");
           var session = session(device, "secret")) {
         device.pimResponses.put("list_accounts", entry.getKey());
         var answer = answered(session.execute(new ListPimAccounts(), new Logs())).result();
-        equal(entry.getKey(), answer.body(), "the body is exactly what the device sent");
+        equal(
+            entry.getValue()[2],
+            answer.body().format(),
+            "what the body was made into: " + entry.getKey());
+        equal(
+            entry.getValue()[3],
+            answer.body().value(),
+            "the body: JSON if it parses, otherwise the text as sent");
         equal(entry.getValue()[0], answer.code(), "code read from: " + entry.getKey());
         equal(entry.getValue()[1], answer.message(), "message read from: " + entry.getKey());
-        check(answer.toJson().get("body").equals(entry.getKey()), "and so is the wire body");
+        equal(entry.getValue()[3], answer.toJson().get("body"), "and so is the wire body");
+        equal(
+            ((BodyFormat) entry.getValue()[2]).wireName(),
+            answer.toJson().get("bodyFormat"),
+            "with its format on the wire");
       }
     }
 
@@ -212,7 +250,8 @@ public final class SessionChecks {
         equal(code, outcome.error().details().get("code"), "and its code " + code);
         check(
             outcome.partialResult().isPresent()
-                && ((PimAnswer) outcome.partialResult().get()).body().contains("no thanks"),
+                && String.valueOf(((PimAnswer) outcome.partialResult().get()).body().value())
+                    .contains("no thanks"),
             "the answer is kept, so the body can still be read: " + code);
       }
     }
@@ -296,6 +335,176 @@ public final class SessionChecks {
             "with its cookie by name");
       }
     }
+  }
+
+  private static CommandOutcome<PairingAnswer> pair(
+      DeviceSession session, String certificate, String confirmPin, Logs logs) {
+    return session.execute(
+        new ConfirmedByPin<>(new PairDevice("PEER-1", certificate, Optional.empty()), confirmPin),
+        logs);
+  }
+
+  /**
+   * Enrolling a certificate: the guard, what is sent, what comes back and what is never repeated.
+   */
+  private static void pairing() throws Exception {
+    // a wrong PIN sends nothing that could change the device, and does not reveal the real PIN
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      var outcome = failed(pair(session, "not a certificate", "00000000", new Logs()));
+      equal("PIN_MISMATCH", code(outcome), "a wrong confirmation PIN");
+      check(!outcome.error().message().contains("2A3B4C5D"), "the error does not reveal the PIN");
+      equal(List.of(), device.pairingBodies(), "nothing was sent to pairing");
+      equal(1, device.cgiRequests.get(), "only the PIN was read");
+    }
+
+    // the PIN may be written in either case and with 0x; a certificate that is not one is forwarded
+    // as is
+    for (var confirmation : List.of("2A3B4C5D", "2a3b4c5d", "0x2A3B4C5D", " 2A3B4C5D ")) {
+      try (var device = new FakeDevice("secret");
+          var session = session(device, "secret")) {
+        var logs = new Logs();
+        var outcome = failed(pair(session, "not a certificate", confirmation, logs));
+        equal("COMMAND_FAILED", code(outcome), "the device rejects the text: " + confirmation);
+        equal(
+            "Error - insert certificate failed.", outcome.error().message(), "with its own words");
+        equal(7, outcome.error().details().get("errorIdentifier"), "and its error number");
+        equal(
+            List.of("certdata=not%20a%20certificate&deviceid=PEER-1"),
+            device.pairingBodies(),
+            "the text reached the device unchanged");
+        check(
+            logs.mentions("Enrolling a client certificate")
+                && !logs.mentions("not a certificate")
+                && !logs.mentions(".cgi"),
+            "the log says what is done and never shows the certificate");
+        if (outcome.partialResult().orElseThrow() instanceof PairingAnswer answer) {
+          equal("Error", answer.status(), "the answer is kept: status");
+          check(
+              answer.contentType().startsWith("text/xml"),
+              "the answer is kept: the content type says the body is XML");
+          equal(answer.contentType(), answer.toJson().get("contentType"), "and it is on the wire");
+          check(
+              answer.body().format() == BodyFormat.XML
+                  && String.valueOf(answer.body().value())
+                      .contains("Error - insert certificate failed."),
+              "the answer is kept: body");
+        }
+      }
+    }
+
+    // a certificate, with the optional account identifier
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      var outcome =
+          session.execute(
+              new ConfirmedByPin<>(
+                  new PairDevice("PEER-1", GOOD_CERTIFICATE, Optional.of("EC-1")), "2A3B4C5D"),
+              new Logs());
+      if (outcome instanceof CommandOutcome.Succeeded<PairingAnswer>(var answer, _)) {
+        equal("Success", answer.status(), "a certificate that parses");
+      } else {
+        check(false, "a certificate that parses should succeed: " + outcome);
+      }
+      equal(
+          List.of(
+              "certdata=-----BEGIN%20CERTIFICATE-----%0AQUFB%0A-----END%20CERTIFICATE-----%0A"
+                  + "&deviceid=PEER-1&ecoid=EC-1"),
+          device.pairingBodies(),
+          "the certificate is encoded with its line breaks, then the identifier, then the account");
+    }
+
+    // answers that are not understood are failures that still carry the body
+    var odd =
+        Map.of(
+            "<RimTabletResponse><Pairing><Status>Odd</Status></Pairing></RimTabletResponse>",
+                "UNEXPECTED_RESPONSE",
+            "<RimTabletResponse><Other/></RimTabletResponse>", "UNEXPECTED_RESPONSE",
+            "ok", "UNEXPECTED_RESPONSE");
+    for (var entry : odd.entrySet()) {
+      try (var device = new FakeDevice("secret");
+          var session = session(device, "secret")) {
+        device.pairingAnswer = entry.getKey();
+        var outcome = failed(pair(session, GOOD_CERTIFICATE, "2A3B4C5D", new Logs()));
+        equal(
+            entry.getValue(), code(outcome), "an answer that is not understood: " + entry.getKey());
+        check(
+            outcome.partialResult().isPresent()
+                && ((PairingAnswer) outcome.partialResult().get()).body().format()
+                    == (entry.getKey().equals("ok") ? BodyFormat.TEXT : BodyFormat.XML),
+            "and its body is kept: " + entry.getKey());
+      }
+    }
+
+    // a session the device has forgotten before the first request is renewed
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      properties(session, new Logs());
+      device.expireSessions();
+      var logs = new Logs();
+      var outcome = pair(session, GOOD_CERTIFICATE, "2A3B4C5D", logs);
+      equal("SUCCEEDED", code(outcome), "a forgotten session is renewed before anything is sent");
+      check(logs.mentions("forgot the session"), "and the renewal is logged");
+      equal(1, device.pairingBodies().size(), "the request was sent once");
+    }
+
+    // a session lost between reading the PIN and enrolling: no second try
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      properties(session, new Logs());
+      device.afterNextCgiRequest = device::expireSessions;
+      var outcome = failed(pair(session, GOOD_CERTIFICATE, "2A3B4C5D", new Logs()));
+      equal("AUTH_FAILED", code(outcome), "a session lost in the middle of the command");
+      check(outcome.error().message().contains("while the command was running"), "its message");
+      equal(1, device.pairingBodies().size(), "the pairing request was not repeated");
+    }
+
+    // a dropped connection on the pairing request: no second try
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      properties(session, new Logs());
+      var before = device.cgiRequests.get();
+      device.afterNextCgiRequest = () -> device.dropNext = 1;
+      var outcome = failed(pair(session, GOOD_CERTIFICATE, "2A3B4C5D", new Logs()));
+      equal("CONNECTION_LOST", code(outcome), "a dropped connection");
+      equal(before + 2, device.cgiRequests.get(), "the PIN and one pairing request, nothing more");
+      equal(1, device.pairingBodies().size(), "the pairing request was not repeated");
+    }
+
+    // the real answer of a device to pairing without a session is recognised
+    var unauthenticated =
+        new CgiResponse(200, "text/xml", FakeDevice.UNAUTHENTICATED_PAIRING, null);
+    check(
+        StaleSession.indicatedBy(
+            CgiRequest.Form.to(Endpoint.PAIRING),
+            unauthenticated,
+            envelopeOf(unauthenticated.body())),
+        "the real answer to a missing session is recognised");
+
+    // arguments are checked before anything is sent
+    for (var identifier :
+        java.util.Arrays.asList("", " ", "a/b", "a b", "a".repeat(65), "é", null)) {
+      check(
+          rejects(() -> new PairDevice(identifier, "x", Optional.empty())),
+          "a device identifier that is not accepted: " + identifier);
+    }
+    check(
+        new PairDevice("A".repeat(64), "x", Optional.empty()).deviceId().length() == 64,
+        "64 characters are fine");
+    check(rejects(() -> new PairDevice("A", " ", Optional.empty())), "a blank certificate");
+    check(
+        rejects(() -> new PairDevice("A", "x".repeat(16 * 1024 + 1), Optional.empty())),
+        "a certificate over 16 KiB");
+    check(rejects(() -> new PairDevice("A", "x", Optional.of(" "))), "a blank account identifier");
+    check(
+        rejects(() -> new ConfirmedByPin<>(new PairDevice("A", "x", Optional.empty()), " ")),
+        "a blank confirmation PIN");
+    check(
+        !new PairDevice("A", "x".repeat(1024), Optional.empty()).exceedsDeviceLimit(),
+        "1024 bytes are within the device's limit");
+    check(
+        new PairDevice("A", "x".repeat(1025), Optional.empty()).exceedsDeviceLimit(),
+        "1025 bytes are over it");
   }
 
   /** The file share credentials come from the login and change with every login. */

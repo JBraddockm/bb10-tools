@@ -163,6 +163,7 @@ public final class DaemonChecks {
               "listPimAccounts",
               "findPimAccount",
               "getPimItems",
+              "pairDevice",
               "listDevices"),
           hello.get("methods"),
           "advertised methods");
@@ -261,10 +262,17 @@ public final class DaemonChecks {
       equal(Boolean.TRUE, done(sink, 60).get("ok"), "listPimAccounts");
       var listed = resultData(sink, 60);
       equal("listAccounts", listed.get("command"), "list: command");
+      check(
+          String.valueOf(listed.get("contentType")).startsWith("application/json"),
+          "list: the content type of the answer");
       equal(200L, listed.get("httpStatus"), "list: HTTP status");
       equal(0L, listed.get("code"), "list: code");
       equal("OK", listed.get("message"), "list: message");
-      equal(FakeDevice.DEFAULT_PIM_ANSWER, listed.get("body"), "list: body as sent");
+      equal("json", listed.get("bodyFormat"), "list: the answer is JSON");
+      equal(
+          Json.parse(FakeDevice.DEFAULT_PIM_ANSWER),
+          listed.get("body"),
+          "list: the body is the JSON itself, not a string");
       check(!listed.containsKey("service"), "list: no service");
       check(
           eventsOf(sink, 60, "log").stream()
@@ -289,6 +297,7 @@ public final class DaemonChecks {
           "{\"status\":{\"code\":0},\"data\":DTM odd & <x>}",
           resultData(sink, 62).get("body"),
           "get: a body that is not JSON is passed on as text");
+      equal("text", resultData(sink, 62).get("bodyFormat"), "get: and says so");
       equal(
           "GET /cgi-bin/pimsync.cgi?command=get&workstation_id=W1&service=contacts&updated_time=T"
               + "&limit=5&dirty_only=true&local_only=true&offset=10",
@@ -339,6 +348,109 @@ public final class DaemonChecks {
               .contains("must be one of: contacts, events, calendars"),
           "the accepted services are listed");
       equal(before, device.pimRequests().size(), "nothing was sent to the device");
+
+      // enrolling a certificate
+      var pairingBefore = device.pairingBodies().size();
+      var requestsBefore = device.cgiRequests.get();
+      send.accept(
+          request(80, "pairDevice", session, ",\"deviceId\":\"PEER-1\",\"certificate\":\"x\""));
+      send.accept(
+          request(81, "pairDevice", session, ",\"certificate\":\"x\",\"confirmPin\":\"2A3B4C5D\""));
+      send.accept(
+          request(
+              82,
+              "pairDevice",
+              session,
+              ",\"deviceId\":\"a/b\",\"certificate\":\"x\",\"confirmPin\":\"2A3B4C5D\""));
+      send.accept(
+          request(
+              83, "pairDevice", session, ",\"deviceId\":\"PEER-1\",\"confirmPin\":\"2A3B4C5D\""));
+      for (var id = 80; id <= 83; id++) {
+        equal("INVALID_ARGUMENT", errorCode(done(sink, id)), "pairDevice refused: request " + id);
+      }
+      equal(
+          requestsBefore,
+          device.cgiRequests.get(),
+          "nothing was sent to the device, not even a PIN read");
+
+      send.accept(
+          request(
+              84,
+              "pairDevice",
+              session,
+              ",\"deviceId\":\"PEER-1\",\"certificate\":\"x\",\"confirmPin\":\"00000000\""));
+      var mismatch = done(sink, 84);
+      equal("PIN_MISMATCH", errorCode(mismatch), "a wrong confirmation PIN");
+      check(eventsOf(sink, 84, "result").isEmpty(), "and no result");
+      equal(pairingBefore, device.pairingBodies().size(), "nothing reached pairing");
+
+      var invalid = "not a certificate";
+      send.accept(
+          request(
+              85,
+              "pairDevice",
+              session,
+              ",\"deviceId\":\"PEER-1\",\"certificate\":\""
+                  + invalid
+                  + "\",\"confirmPin\":\"2A3B4C5D\""));
+      var rejectedPairing = done(sink, 85);
+      equal(
+          Boolean.FALSE,
+          rejectedPairing.get("ok"),
+          "the device rejects text that is not a certificate");
+      equal("COMMAND_FAILED", errorCode(rejectedPairing), "as a failed command");
+      equal(
+          7L,
+          ((Map<?, ?>) ((Map<?, ?>) rejectedPairing.get("error")).get("details"))
+              .get("errorIdentifier"),
+          "with the device's error number");
+      equal(
+          List.of("log", "log", "result", "done"),
+          eventsOf(sink, 85, "*").stream().map(event -> (String) event.get("type")).toList(),
+          "the PIN is read, the certificate is sent, and the answer arrives before the failure");
+      var pairingAnswer = resultData(sink, 85);
+      equal("Error", pairingAnswer.get("status"), "answer: status");
+      check(
+          String.valueOf(pairingAnswer.get("contentType")).startsWith("text/xml"),
+          "answer: the pairing service answers with XML");
+      equal(7L, pairingAnswer.get("errorIdentifier"), "answer: error number");
+      equal(
+          "Error - insert certificate failed.",
+          pairingAnswer.get("errorDescription"),
+          "answer: description");
+      check(
+          pairingAnswer.get("body") instanceof Map<?, ?> body
+              && body.get("Pairing") instanceof Map<?, ?> pairing
+              && "Error".equals(pairing.get("Status"))
+              && pairing.get("Error") instanceof Map<?, ?> error
+              && "7".equals(error.get("ErrorIdentifier")),
+          "answer: the XML body as JSON, with the values as text");
+      equal("xml", pairingAnswer.get("bodyFormat"), "answer: and says it was XML");
+      check(
+          eventsOf(sink, 85, "log").stream()
+              .noneMatch(event -> String.valueOf(event.get("message")).contains(invalid)),
+          "the certificate is not logged");
+      equal(
+          "certdata=not%20a%20certificate&deviceid=PEER-1",
+          device.pairingBodies().getLast(), "the device received the text unchanged");
+
+      send.accept(
+          request(
+              86,
+              "pairDevice",
+              session,
+              ",\"deviceId\":\"PEER-1\",\"certificate\":\""
+                  + "x".repeat(1025)
+                  + "\",\"confirmPin\":\"2A3B4C5D\""));
+      done(sink, 86);
+      check(
+          eventsOf(sink, 86, "log").stream()
+              .anyMatch(
+                  event ->
+                      "warn".equals(event.get("level"))
+                          && String.valueOf(event.get("message"))
+                              .contains("longer than 1024 bytes")),
+          "a certificate over the device's limit is sent, with a warning");
 
       // the share credentials can be asked for again
       send.accept(

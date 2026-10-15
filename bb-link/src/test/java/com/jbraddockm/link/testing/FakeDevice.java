@@ -109,8 +109,40 @@ public final class FakeDevice implements AutoCloseable {
   private final List<String> cookiesSeen = Collections.synchronizedList(new ArrayList<>());
   private final List<String> pimRequests = Collections.synchronizedList(new ArrayList<>());
 
+  /**
+   * What pairing.cgi answers to a request with a valid session; by default it judges the
+   * certificate.
+   */
+  public volatile String pairingAnswer;
+
+  private final List<String> pairingBodies = Collections.synchronizedList(new ArrayList<>());
+
   /** What pimsync answers to a request with a valid session, by command; the default otherwise. */
   public final Map<String, String> pimResponses = new ConcurrentHashMap<>();
+
+  /** What a real device answers to pairing.cgi without a session. */
+  public static final String UNAUTHENTICATED_PAIRING =
+      """
+      <RimTabletResponse>
+        <Pairing>
+          <Status>Error</Status>
+          <Error>
+            <ErrorIdentifier>6</ErrorIdentifier>
+            <ErrorDescription>Error - authorization.</ErrorDescription>
+          </Error>
+        </Pairing>
+      </RimTabletResponse>
+      """;
+
+  /** What a real device answers to a certificate that is not one (captured). */
+  public static final String PAIRING_REJECTED =
+      "<RimTabletResponse><Pairing><Status>Error</Status><Error><ErrorIdentifier>7</ErrorIdentifier><ErrorDescription>Error"
+          + " - insert certificate"
+          + " failed.</ErrorDescription></Error></Pairing></RimTabletResponse>";
+
+  /** The shape of a successful pairing is not known; this is made up. */
+  public static final String PAIRING_SUCCESS =
+      "<RimTabletResponse><Pairing><Status>Success</Status></Pairing></RimTabletResponse>";
 
   /** The answer to a command that has no entry in {@link #pimResponses}. */
   public static final String DEFAULT_PIM_ANSWER =
@@ -162,6 +194,7 @@ public final class FakeDevice implements AutoCloseable {
         "/cgi-bin/dynamicProperties.cgi", exchange -> cgi(exchange, PROPERTIES_BODY));
     server.createContext("/cgi-bin/wipe.cgi", exchange -> cgi(exchange, PIN_BODY));
     server.createContext("/cgi-bin/pimsync.cgi", this::pimSync);
+    server.createContext("/cgi-bin/pairing.cgi", this::pairing);
     server.start();
   }
 
@@ -187,6 +220,17 @@ public final class FakeDevice implements AutoCloseable {
   public List<String> cgiBodies() {
     synchronized (cgiBodies) {
       return List.copyOf(cgiBodies);
+    }
+  }
+
+  /**
+   * Returns the body of every request that reached pairing.cgi, even those that were not answered.
+   *
+   * @return a snapshot of the form bodies
+   */
+  public List<String> pairingBodies() {
+    synchronized (pairingBodies) {
+      return List.copyOf(pairingBodies);
     }
   }
 
@@ -375,6 +419,47 @@ public final class FakeDevice implements AutoCloseable {
           null,
           "application/json");
     }
+  }
+
+  /**
+   * pairing: a POST with the certificate; a real device's answer when there is no valid session.
+   */
+  private void pairing(HttpExchange exchange) throws IOException {
+    cgiRequests.incrementAndGet();
+    var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.US_ASCII);
+    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+    pairingBodies.add(body);
+    cookiesSeen.add(cookie == null ? "" : cookie);
+    if (dropNext > 0) {
+      dropNext--;
+      exchange.close();
+      return;
+    }
+    if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
+      respond(exchange, 200, UNAUTHENTICATED_PAIRING, null);
+    } else {
+      respond(exchange, 200, pairingAnswer != null ? pairingAnswer : judge(body), null);
+    }
+    var callback = afterNextCgiRequest;
+    if (callback != null) {
+      afterNextCgiRequest = null;
+      callback.run();
+    }
+  }
+
+  /** The device is described as rejecting only a certificate that does not parse. */
+  private static String judge(String body) {
+    for (var pair : body.split("&")) {
+      if (pair.startsWith("certdata=")) {
+        var certificate =
+            java.net.URLDecoder.decode(
+                pair.substring("certdata=".length()), StandardCharsets.UTF_8);
+        return certificate.contains("-----BEGIN CERTIFICATE-----")
+            ? PAIRING_SUCCESS
+            : PAIRING_REJECTED;
+      }
+    }
+    return PAIRING_REJECTED;
   }
 
   private static String commandOf(String query) {

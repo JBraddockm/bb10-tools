@@ -16,7 +16,16 @@ public enum FormField implements WireValue {
   VALUE("value"),
 
   /** A wipe-endpoint command such as reading the PIN. */
-  WIPE("wipe");
+  WIPE("wipe"),
+
+  /** The client certificate to enrol, as PEM text. */
+  CERT_DATA("certdata"),
+
+  /** The identifier of the peer that is being paired. */
+  DEVICE_ID("deviceid"),
+
+  /** The BlackBerry account identifier. The device records it and does nothing with it. */
+  ECOID("ecoid");
 
   private final String wireName;
 

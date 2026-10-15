@@ -21,6 +21,9 @@ public enum Endpoint {
   /** Support logs. */
   SUPPORT("support.cgi"),
 
+  /** Enrolling a client certificate, so that the device recognises the client later. */
+  PAIRING("pairing.cgi"),
+
   /**
    * The synchronisation of personal information: contacts, calendars and events. Unlike the other
    * programs it answers with JSON-like text instead of XML.

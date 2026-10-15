@@ -22,6 +22,9 @@ final class StaleSession {
   /** What pimsync.cgi says to a client without a session; the text is not valid JSON. */
   private static final String NOT_LOGGED_IN = "DTM NOT LOGGED IN";
 
+  /** What pairing.cgi answers to a request without a session, in {@code ErrorDescription}. */
+  private static final String NOT_AUTHORIZED = "Error - authorization.";
+
   private static final int UNAUTHORIZED = 401;
   private static final int FORBIDDEN = 403;
 
@@ -38,6 +41,12 @@ final class StaleSession {
       return true;
     }
     if (response.body().contains(NOT_LOGGED_IN)) {
+      return true;
+    }
+    if (envelope
+        .flatMap(found -> found.payload().textAt("Error", "ErrorDescription"))
+        .filter(NOT_AUTHORIZED::equals)
+        .isPresent()) {
       return true;
     }
     return envelope

@@ -2,13 +2,16 @@ package com.jbraddockm.link.daemon;
 
 import com.jbraddockm.core.command.CommandOutcome;
 import com.jbraddockm.core.command.CommandResult;
+import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.daemon.CommandSpec;
 import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.ServiceError;
+import com.jbraddockm.link.actions.ConfirmedByPin;
 import com.jbraddockm.link.actions.GetPin;
 import com.jbraddockm.link.discovery.DeviceDiscovery;
 import com.jbraddockm.link.discovery.DeviceScanner;
+import com.jbraddockm.link.pairing.PairDevice;
 import com.jbraddockm.link.pimsync.FindPimAccount;
 import com.jbraddockm.link.pimsync.GetPimItems;
 import com.jbraddockm.link.pimsync.ListPimAccounts;
@@ -47,6 +50,11 @@ enum LinkMethod {
 
   /** Reads contacts, events or calendars. */
   GET_PIM_ITEMS("getPimItems"),
+
+  /**
+   * Enrols a client certificate on the device. Changes the device, so it runs behind the PIN guard.
+   */
+  PAIR_DEVICE("pairDevice"),
 
   /** Scans for devices; needs no session. */
   LIST_DEVICES("listDevices");
@@ -87,6 +95,10 @@ enum LinkMethod {
           argument.isEmpty()
               ? Optional.of(new FindPimAccount(REPLAY_WORKSTATION))
               : Optional.empty();
+      case PAIR_DEVICE ->
+          argument.isEmpty()
+              ? Optional.of(new PairDevice(REPLAY_WORKSTATION, "replay", Optional.empty()))
+              : Optional.empty();
       case GET_PIM_ITEMS ->
           argument.map(
               name -> new GetPimItems(REPLAY_WORKSTATION, PimService.of(name), PimFilters.none()));
@@ -102,6 +114,29 @@ enum LinkMethod {
       case FIND_PIM_ACCOUNT ->
           onSession(params -> new FindPimAccount(params.requireString("workstationId")));
       case GET_PIM_ITEMS -> onSession(LinkMethod::getPimItems);
+      case PAIR_DEVICE ->
+          new CommandSpec.SessionScoped<>(
+              wireName,
+              params -> {
+                var pairing =
+                    new PairDevice(
+                        params.optionalString("deviceId").orElse(null),
+                        params.optionalString("certificate").orElse(null),
+                        params.optionalString("ecoid"));
+                var command =
+                    new ConfirmedByPin<>(pairing, params.optionalString("confirmPin").orElse(null));
+                var includeRaw = params.flag("raw");
+                return (session, reply) -> {
+                  if (pairing.exceedsDeviceLimit()) {
+                    reply.onLog(
+                        LogLevel.WARN,
+                        "The certificate is longer than "
+                            + PairDevice.DEVICE_LIMIT_BYTES
+                            + " bytes, which the device is said to accept; it may cut it off");
+                  }
+                  reply.complete(wireName, session.execute(command, reply), includeRaw);
+                };
+              });
       case GET_SMB_CREDENTIALS ->
           new CommandSpec.SessionScoped<>(
               wireName,

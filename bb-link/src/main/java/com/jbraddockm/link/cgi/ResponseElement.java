@@ -15,6 +15,9 @@ public enum ResponseElement {
   /** The device PIN. */
   DEVICE_PIN("DevicePIN"),
 
+  /** The answer of the pairing service. */
+  PAIRING("Pairing"),
+
   /** The device wants the client to authenticate again. */
   AUTH_CHALLENGE("AuthChallenge"),
 

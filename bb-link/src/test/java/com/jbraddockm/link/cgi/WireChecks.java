@@ -5,6 +5,7 @@ import static com.jbraddockm.link.testing.Checks.equal;
 
 import com.jbraddockm.link.internal.Scrub;
 import com.jbraddockm.link.xml.MalformedXmlException;
+import com.jbraddockm.link.xml.XmlJson;
 import com.jbraddockm.link.xml.XmlParser;
 import java.util.List;
 
@@ -22,8 +23,68 @@ public final class WireChecks {
     }
   }
 
+  /** The mapping of XML to JSON, and what a body is turned into. */
+  private static void bodies() {
+    var tree =
+        (java.util.Map<?, ?>)
+            XmlJson.convert(
+                XmlParser.parse(
+                    "<R><A>1</A><B/><C><D>x</D><D>y</D><E k=\"v\"/></C><F"
+                        + " k=\"v\">text</F><G>one</G><G>two</G><G>three</G><!-- ignored --></R>"));
+    equal(
+        List.of("A", "B", "C", "F", "G"),
+        List.copyOf((java.util.Set<?>) tree.keySet()),
+        "members in document order; the root's name is dropped");
+    equal("1", tree.get("A"), "a number stays text");
+    equal("", tree.get("B"), "an empty element is an empty string");
+    var c = (java.util.Map<?, ?>) tree.get("C");
+    equal(List.of("x", "y"), c.get("D"), "a repeated name becomes an array");
+    equal(java.util.Map.of("@k", "v"), c.get("E"), "an attribute is a member starting with @");
+    equal(
+        java.util.Map.of("@k", "v", "#text", "text"),
+        tree.get("F"),
+        "attributes and text: the text is #text");
+    equal(List.of("one", "two", "three"), tree.get("G"), "three of a name make an array of three");
+    equal(
+        "only",
+        XmlJson.convert(XmlParser.parse("<R>only</R>")),
+        "an element with text only is a string");
+
+    var xml =
+        ResponseBody.of(
+            "<?xml version=\"1.0\"?>\n"
+                + "<RimTabletResponse><Pairing><Status>Error</Status></Pairing></RimTabletResponse>\n");
+    equal(BodyFormat.XML, xml.format(), "XML is recognised by its content");
+    equal(
+        java.util.Map.of("Pairing", java.util.Map.of("Status", "Error")),
+        xml.value(),
+        "and becomes JSON");
+    var object = ResponseBody.of(" {\"a\":[1,2.5,\"x\",null,true]}\n");
+    equal(BodyFormat.JSON, object.format(), "JSON is recognised by its content");
+    equal(
+        java.util.Map.of("a", java.util.Arrays.asList(1L, 2.5, "x", null, true)),
+        object.value(),
+        "and is the tree itself");
+    equal(BodyFormat.JSON, ResponseBody.of("[]").format(), "an array");
+    for (var text :
+        List.of(
+            "",
+            "ok",
+            "{\"data\":DTM NOT LOGGED IN}",
+            "<html><body>unclosed",
+            "{\"a\":1} trailing",
+            "12345678901234567890123",
+            "<a/> trailing")) {
+      var body = ResponseBody.of(text);
+      check(
+          body.format() == BodyFormat.TEXT && body.value().equals(text),
+          "kept as text, unchanged: " + text);
+    }
+  }
+
   /** Runs the checks. */
   public static void run() {
+    bodies();
     encoding();
     xml();
     envelopes();
