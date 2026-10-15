@@ -1,0 +1,295 @@
+package com.jbraddockm.link.daemon;
+
+import static com.jbraddockm.link.testing.Checks.check;
+import static com.jbraddockm.link.testing.Checks.equal;
+
+import com.jbraddockm.core.daemon.DaemonServer;
+import com.jbraddockm.core.json.Json;
+import com.jbraddockm.link.discovery.ConnectionKind;
+import com.jbraddockm.link.discovery.DiscoveredDevice;
+import com.jbraddockm.link.session.ExchangeObserver;
+import com.jbraddockm.link.session.TransportScheme;
+import com.jbraddockm.link.testing.FakeDevice;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+
+/** Drives the real daemon with bb-link's service against a fake device, through pipes. */
+public final class DaemonChecks {
+
+  private DaemonChecks() {}
+
+  /** Collects the output lines as parsed JSON objects and as raw text. */
+  private static final class EventSink extends ByteArrayOutputStream {
+    final List<Map<?, ?>> events = new ArrayList<>();
+    final StringBuilder everything = new StringBuilder();
+    private final StringBuilder partial = new StringBuilder();
+
+    @Override
+    public synchronized void write(byte[] bytes, int offset, int length) {
+      var text = new String(bytes, offset, length, StandardCharsets.UTF_8);
+      everything.append(text);
+      partial.append(text);
+      int newline;
+      while ((newline = partial.indexOf("\n")) >= 0) {
+        events.add((Map<?, ?>) Json.parse(partial.substring(0, newline)));
+        partial.delete(0, newline + 1);
+      }
+      notifyAll();
+    }
+
+    synchronized List<Map<?, ?>> snapshot() {
+      return List.copyOf(events);
+    }
+
+    synchronized boolean await(Predicate<List<Map<?, ?>>> condition) throws InterruptedException {
+      var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+      while (!condition.test(events)) {
+        var remaining = deadline - System.nanoTime();
+        if (remaining <= 0) {
+          return false;
+        }
+        TimeUnit.NANOSECONDS.timedWait(this, remaining);
+      }
+      return true;
+    }
+  }
+
+  private static Map<?, ?> done(EventSink sink, long id) throws InterruptedException {
+    check(
+        sink.await(
+            events ->
+                events.stream()
+                    .anyMatch(
+                        e -> "done".equals(e.get("type")) && Long.valueOf(id).equals(e.get("id")))),
+        "done for " + id);
+    return sink.snapshot().stream()
+        .filter(e -> "done".equals(e.get("type")) && Long.valueOf(id).equals(e.get("id")))
+        .findFirst()
+        .orElse(Map.of());
+  }
+
+  private static List<Map<?, ?>> eventsOf(EventSink sink, long id, String type) {
+    return sink.snapshot().stream()
+        .filter(e -> type.equals(e.get("type")) && Long.valueOf(id).equals(e.get("id")))
+        .toList();
+  }
+
+  private static Map<?, ?> resultData(EventSink sink, long id) {
+    return (Map<?, ?>) eventsOf(sink, id, "result").getFirst().get("data");
+  }
+
+  private static Object errorCode(Map<?, ?> done) {
+    return done.get("error") instanceof Map<?, ?> error ? error.get("code") : null;
+  }
+
+  /**
+   * Runs the checks.
+   *
+   * @throws Exception if the harness itself fails
+   */
+  public static void run() throws Exception {
+    var found =
+        List.of(
+            new DiscoveredDevice("blackberry-0000.lan", "192.168.1.82", ConnectionKind.WIFI, null),
+            new DiscoveredDevice(
+                "BlackBerry 10 10.3.3.2205", "169.254.0.1", ConnectionKind.USB, "10.3.3.2205"));
+    var service =
+        new LinkService(
+            TransportScheme.HTTP, consumer -> found.forEach(consumer), ExchangeObserver.NONE);
+    var sink = new EventSink();
+    var toServer = new PipedOutputStream();
+    var fromClient = new PipedInputStream(toServer, 1 << 16);
+    var server =
+        Thread.ofPlatform()
+            .start(
+                () -> {
+                  try {
+                    DaemonServer.serve(service, fromClient, sink, Duration.ofSeconds(10));
+                  } catch (IOException failure) {
+                    failure.printStackTrace();
+                  }
+                });
+    java.util.function.Consumer<String> send =
+        line -> {
+          try {
+            toServer.write((line + "\n").getBytes(StandardCharsets.UTF_8));
+            toServer.flush();
+          } catch (IOException failure) {
+            throw new IllegalStateException(failure);
+          }
+        };
+
+    try (var device = new FakeDevice("secret")) {
+      check(sink.await(events -> !events.isEmpty()), "hello");
+      var hello = sink.snapshot().getFirst();
+      equal("bb-link", hello.get("tool"), "tool name");
+      equal(
+          List.of(
+              "connect",
+              "disconnect",
+              "shutdown",
+              "getDeviceProperties",
+              "getPin",
+              "getSmbCredentials",
+              "listDevices"),
+          hello.get("methods"),
+          "advertised methods");
+
+      // discovery needs no session and streams devices as they are found
+      send.accept("{\"id\":1,\"method\":\"listDevices\"}");
+      equal(Boolean.TRUE, done(sink, 1).get("ok"), "listDevices");
+      equal(2, eventsOf(sink, 1, "device").size(), "one event per device");
+      equal(
+          "WiFi",
+          eventsOf(sink, 1, "device").getFirst().get("connection"),
+          "connection kind spelling");
+      var devices = (List<?>) resultData(sink, 1).get("devices");
+      equal(2, devices.size(), "result lists both");
+      check(!((Map<?, ?>) devices.getFirst()).containsKey("version"), "unknown version is omitted");
+      equal("10.3.3.2205", ((Map<?, ?>) devices.getLast()).get("version"), "known version");
+
+      // argument problems
+      send.accept("{\"id\":2,\"method\":\"connect\",\"params\":{}}");
+      equal("INVALID_ARGUMENT", errorCode(done(sink, 2)), "host is required");
+      send.accept(
+          "{\"id\":3,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"port\":0}}");
+      equal("INVALID_ARGUMENT", errorCode(done(sink, 3)), "port range");
+      send.accept("{\"id\":4,\"method\":\"getPin\",\"params\":{\"session\":\"s1\"}}");
+      equal("UNKNOWN_SESSION", errorCode(done(sink, 4)), "no session yet");
+
+      // connect: a wrong password leaves nothing behind
+      send.accept(connect(5, device, "wrong"));
+      var rejected = done(sink, 5);
+      equal("AUTH_FAILED", errorCode(rejected), "wrong password");
+      equal(
+          1L,
+          ((Map<?, ?>) ((Map<?, ?>) rejected.get("error")).get("details")).get("failedAttempts"),
+          "attempt count reaches the client");
+      check(eventsOf(sink, 5, "result").isEmpty(), "no connect result for a failed login");
+
+      // connect: success, with the PIN read as part of it
+      send.accept(connect(6, device, "secret"));
+      equal(Boolean.TRUE, done(sink, 6).get("ok"), "connect");
+      var connected = resultData(sink, 6);
+      equal(
+          List.of("session", "host", "port", "device", "smb"),
+          List.copyOf((java.util.Set<?>) connected.keySet()),
+          "result fields in order");
+      var summary = (Map<?, ?>) connected.get("device");
+      equal("Test Z10", summary.get("name"), "device name");
+      check(
+          eventsOf(sink, 6, "log").stream()
+              .anyMatch(event -> "Reading the device PIN".equals(event.get("message"))),
+          "the PIN request is described by what it does");
+      check(
+          eventsOf(sink, 6, "log").stream()
+              .noneMatch(event -> String.valueOf(event.get("message")).contains(".cgi")),
+          "no log message names a CGI program");
+      equal("2A3B4C5D", summary.get("pin"), "PIN");
+      equal("10.3.3.2205", summary.get("osVersion"), "OS version");
+      equal("10.3.3.2206", summary.get("radioVersion"), "radio version");
+      var session = (String) connected.get("session");
+      var smb = (Map<?, ?>) connected.get("smb");
+      equal("dtm", smb.get("user"), "share user");
+      equal(device.currentSharePassword(), smb.get("password"), "share password of this login");
+      equal("WORKGROUP", smb.get("workgroup"), "workgroup");
+      equal("%h", smb.get("netBios"), "NetBIOS name as the device writes it");
+      check(
+          sink.snapshot().stream()
+              .filter(event -> "log".equals(event.get("type")))
+              .noneMatch(
+                  event ->
+                      String.valueOf(event.get("message"))
+                          .contains(FakeDevice.SHARE_PASSWORD_PREFIX)),
+          "the share password is not logged");
+
+      // commands on the session
+      send.accept("{\"id\":7,\"method\":\"getPin\",\"params\":{\"session\":\"" + session + "\"}}");
+      equal(Boolean.TRUE, done(sink, 7).get("ok"), "getPin");
+      equal("2A3B4C5D", resultData(sink, 7).get("pin"), "its data");
+      send.accept(
+          "{\"id\":8,\"method\":\"getDeviceProperties\",\"params\":{\"session\":\""
+              + session
+              + "\",\"raw\":true}}");
+      equal(Boolean.TRUE, done(sink, 8).get("ok"), "getDeviceProperties");
+      equal("Test Z10", ((Map<?, ?>) resultData(sink, 8).get("device")).get("name"), "its data");
+      check(
+          eventsOf(sink, 8, "result").getFirst().get("raw") instanceof List<?> raw
+              && raw.size() == 1,
+          "raw output on request");
+      send.accept(
+          "{\"id\":9,\"method\":\"getDeviceProperties\",\"params\":{\"session\":\""
+              + session
+              + "\"}}");
+      done(sink, 9);
+      check(!eventsOf(sink, 9, "result").getFirst().containsKey("raw"), "no raw output by default");
+
+      // the share credentials can be asked for again
+      send.accept(
+          "{\"id\":70,\"method\":\"getSmbCredentials\",\"params\":{\"session\":\""
+              + session
+              + "\"}}");
+      equal(Boolean.TRUE, done(sink, 70).get("ok"), "getSmbCredentials");
+      equal(device.currentSharePassword(), resultData(sink, 70).get("password"), "its password");
+
+      // the device forgets the session: the daemon renews it without the client noticing
+      device.expireSessions();
+      send.accept("{\"id\":10,\"method\":\"getPin\",\"params\":{\"session\":\"" + session + "\"}}");
+      equal(Boolean.TRUE, done(sink, 10).get("ok"), "session renewed behind the scenes");
+      send.accept(
+          "{\"id\":71,\"method\":\"getSmbCredentials\",\"params\":{\"session\":\""
+              + session
+              + "\"}}");
+      done(sink, 71);
+      check(
+          !smb.get("password").equals(resultData(sink, 71).get("password")),
+          "after the renewal the password has changed, and getSmbCredentials has the new one");
+      equal(
+          device.currentSharePassword(), resultData(sink, 71).get("password"), "the latest login");
+
+      // disconnect
+      send.accept(
+          "{\"id\":11,\"method\":\"disconnect\",\"params\":{\"session\":\"" + session + "\"}}");
+      done(sink, 11);
+      send.accept("{\"id\":12,\"method\":\"getPin\",\"params\":{\"session\":\"" + session + "\"}}");
+      equal("UNKNOWN_SESSION", errorCode(done(sink, 12)), "closed session");
+
+      // a PIN that cannot be read does not prevent the connection
+      device.pinXml =
+          "<RimTabletResponse><DevicePIN><Status>Error</Status><ErrorDescription>no</ErrorDescription></DevicePIN></RimTabletResponse>";
+      send.accept(connect(13, device, "secret"));
+      equal(Boolean.TRUE, done(sink, 13).get("ok"), "connect without PIN");
+      check(
+          !((Map<?, ?>) resultData(sink, 13).get("device")).containsKey("pin"),
+          "no pin in the summary");
+      check(
+          eventsOf(sink, 13, "log").stream()
+              .anyMatch(
+                  event ->
+                      "warn".equals(event.get("level"))
+                          && String.valueOf(event.get("message")).contains("PIN")),
+          "a warning explains it");
+
+      check(
+          !sink.everything.toString().contains("secret"),
+          "the password never appears in the output");
+    }
+    toServer.close();
+    server.join(15_000);
+    check(!server.isAlive(), "daemon exits at the end of its input");
+  }
+
+  private static String connect(int id, FakeDevice device, String password) {
+    return "{\"id\":%d,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"port\":%d,\"password\":\"%s\"}}"
+        .formatted(id, device.port(), password);
+  }
+}
