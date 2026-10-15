@@ -2,6 +2,7 @@ package com.jbraddockm.link.daemon;
 
 import com.jbraddockm.core.command.CommandResult;
 import com.jbraddockm.core.daemon.Reply;
+import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.session.DeviceCommand;
 import com.jbraddockm.link.session.DeviceSession;
 import java.io.FileDescriptor;
@@ -10,8 +11,8 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Replays recorded device answers through the real conversation of one command and prints the
@@ -23,19 +24,27 @@ import java.util.List;
  */
 public final class FixtureReplay {
 
-  private static final String SEPARATOR = "---";
-
   private FixtureReplay() {}
 
   /**
    * Reads recorded answers from standard input and prints the resulting events to standard output.
    *
    * @param methodName the wire name of the method that produced the answers, for example {@code
-   *     getDeviceProperties}
+   *     getDeviceProperties}; a method that takes an argument is written with a dot, for example
+   *     {@code getPimItems.contacts}
    * @return the process exit status: 0, or 2 if the method is unknown or cannot be replayed
    */
   public static int run(String methodName) {
-    var command = LinkMethod.byWireName(methodName).flatMap(LinkMethod::replayCommand);
+    var parts = methodName.split("\\.", 2);
+    var method = LinkMethod.byWireName(parts[0]);
+    Optional<DeviceCommand<?>> command;
+    try {
+      var argument = parts.length == 2 ? Optional.of(parts[1]) : Optional.<String>empty();
+      command = method.flatMap(found -> found.replayCommand(argument));
+    } catch (InvalidArgumentException failure) {
+      System.err.println(failure.getMessage());
+      return 2;
+    }
     if (command.isEmpty()) {
       System.err.println("unknown or not replayable command: " + methodName);
       return 2;
@@ -48,23 +57,17 @@ public final class FixtureReplay {
     }
     var stdout =
         new PrintStream(new FileOutputStream(FileDescriptor.out), false, StandardCharsets.UTF_8);
-    replay(command.get(), methodName, split(input), Reply.standalone(stdout, 0));
+    replay(
+        command.get(), method.orElseThrow().wireName(), split(input), Reply.standalone(stdout, 0));
     return 0;
   }
 
+  /**
+   * Splits a recording into the answers it holds. A recording without separator is one answer, byte
+   * for byte; the separator line itself belongs to no answer.
+   */
   static List<String> split(String input) {
-    var documents = new ArrayList<String>();
-    var current = new StringBuilder();
-    for (var line : input.split("\n", -1)) {
-      if (line.strip().equals(SEPARATOR)) {
-        documents.add(current.toString());
-        current.setLength(0);
-      } else {
-        current.append(line).append('\n');
-      }
-    }
-    documents.add(current.toString());
-    return documents;
+    return List.of(input.split("(?m)^---[ \\t]*\\r?\\n?", -1));
   }
 
   private static <R extends CommandResult> void replay(

@@ -8,6 +8,7 @@ import com.jbraddockm.core.command.CommandOutcome;
 import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.command.NoData;
 import com.jbraddockm.core.command.Progress;
+import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.cgi.CgiRequest;
 import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.Conversation;
@@ -15,64 +16,35 @@ import com.jbraddockm.link.cgi.Endpoint;
 import com.jbraddockm.link.cgi.FormField;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.Step;
+import com.jbraddockm.link.cgi.XmlConversation;
+import com.jbraddockm.link.pimsync.FindPimAccount;
+import com.jbraddockm.link.pimsync.GetPimItems;
+import com.jbraddockm.link.pimsync.ListPimAccounts;
+import com.jbraddockm.link.pimsync.PimAnswer;
+import com.jbraddockm.link.pimsync.PimCommand;
+import com.jbraddockm.link.pimsync.PimFilters;
+import com.jbraddockm.link.pimsync.PimService;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.GetDeviceProperties;
 import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.trace.TraceRecorder;
+import com.jbraddockm.link.xml.MalformedXmlException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /** Checks the login, the retry rules and the failure mapping against a fake device. */
 public final class SessionChecks {
 
   private SessionChecks() {}
-
-  /** Collects the log messages of a command. */
-  private static final class Logs implements CommandListener {
-    final List<String> messages = Collections.synchronizedList(new ArrayList<>());
-
-    @Override
-    public void onLog(LogLevel level, String message) {
-      messages.add(message);
-    }
-
-    @Override
-    public void onProgress(Progress progress) {}
-
-    boolean mentions(String text) {
-      return messages.stream().anyMatch(message -> message.contains(text));
-    }
-  }
-
-  /** A command with two requests, to check what happens when the session ends in between. */
-  private record TwoStep(boolean readOnly) implements DeviceCommand<NoData> {
-    @Override
-    public Conversation<NoData> conversation() {
-      return new Conversation<>() {
-        private int answered;
-
-        @Override
-        public Step<NoData> start() {
-          return new Step.Send<>(
-              CgiRequest.Form.to(Endpoint.DYNAMIC_PROPERTIES)
-                  .echo(FormField.GET_DYNAMIC_PROPERTIES));
-        }
-
-        @Override
-        public Step<NoData> onResponse(ResponseEnvelope response) {
-          return answered++ == 0
-              ? new Step.Send<>(
-                  CgiRequest.Form.to(Endpoint.WIPE).withText(FormField.WIPE, "getpin"))
-              : new Step.Finish<>(NoData.INSTANCE);
-        }
-      };
-    }
-  }
 
   private static DeviceSession session(FakeDevice device, String password) {
     return session(device, password, ExchangeObserver.NONE);
@@ -118,6 +90,212 @@ public final class SessionChecks {
     cgiCookies();
     emptyAnswers();
     shareCredentials();
+    pimSync();
+  }
+
+  private static Optional<ResponseEnvelope> envelopeOf(String body) {
+    try {
+      return Optional.of(ResponseEnvelope.parse(body));
+    } catch (MalformedXmlException _) {
+      return Optional.empty();
+    }
+  }
+
+  private static CommandOutcome.Succeeded<PimAnswer> answered(CommandOutcome<PimAnswer> outcome) {
+    if (outcome instanceof CommandOutcome.Succeeded<PimAnswer> succeeded) {
+      return succeeded;
+    }
+    check(false, "the command should succeed: " + outcome);
+    throw new IllegalStateException("unexpected outcome " + outcome);
+  }
+
+  private static boolean rejects(Runnable creation) {
+    try {
+      creation.run();
+      return false;
+    } catch (InvalidArgumentException _) {
+      return true;
+    }
+  }
+
+  /** The personal information sync: typed reading commands against the fake device. */
+  private static void pimSync() throws Exception {
+    var request = CgiRequest.Get.to(Endpoint.PIM_SYNC).expectingNoBody();
+    var unauthenticated =
+        new CgiResponse(200, "application/json", FakeDevice.UNAUTHENTICATED_PIM_SYNC, null);
+    check(
+        StaleSession.indicatedBy(request, unauthenticated, envelopeOf(unauthenticated.body())),
+        "the real answer to a missing session is recognised");
+    var empty = new CgiResponse(200, null, "", null);
+    check(
+        !StaleSession.indicatedBy(request, empty, Optional.empty()),
+        "an empty answer is an answer, as pimsync gives to a request without a command");
+
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      var logs = new Logs();
+      var listed = answered(session.execute(new ListPimAccounts(), logs)).result();
+      equal(PimCommand.LIST_ACCOUNTS, listed.command(), "list: command");
+      check(listed.service() == null, "list: no service");
+      equal(0, listed.code(), "list: code");
+      equal("OK", listed.message(), "list: message");
+      equal(200, listed.httpStatus(), "list: HTTP status");
+      equal(FakeDevice.DEFAULT_PIM_ANSWER, listed.body(), "list: body as sent");
+      check(
+          logs.mentions("Listing the PIM accounts") && !logs.mentions(".cgi"),
+          "list: announced by what it does");
+
+      answered(session.execute(new FindPimAccount("WS 1&x"), new Logs()));
+      answered(
+          session.execute(
+              new GetPimItems("WS1", PimService.CONTACTS, PimFilters.none()), new Logs()));
+      var everything =
+          new PimFilters(
+              Optional.of("2026-10-15T09:00:00Z"),
+              OptionalInt.of(50),
+              true,
+              true,
+              OptionalInt.of(100));
+      answered(session.execute(new GetPimItems("WS1", PimService.EVENTS, everything), new Logs()));
+      equal(
+          List.of(
+              "GET /cgi-bin/pimsync.cgi?command=list_accounts",
+              "GET /cgi-bin/pimsync.cgi?command=find_accountId&workstation_id=WS%201%26x",
+              "GET /cgi-bin/pimsync.cgi?command=get&workstation_id=WS1&service=contacts",
+              "GET /cgi-bin/pimsync.cgi?command=get&workstation_id=WS1&service=events"
+                  + "&updated_time=2026-10-15T09%3A00%3A00Z&limit=50&dirty_only=true"
+                  + "&local_only=true&offset=100"),
+          device.pimRequests(),
+          "the requests, with their parameters in a fixed order and encoded");
+      equal(2, device.loginRequests.get(), "one login for all of them");
+    }
+
+    // the answer is passed on untouched, whatever it looks like
+    var cases =
+        Map.of(
+            "{\"version\":\"1.0\",\"status\":{\"code\":0,\"msg\":\"say \\\"hi\\\"\"},\"data\":oops"
+                + " & <x>}",
+            new Object[] {0, "say \"hi\""},
+            "[1,2,3]",
+            new Object[] {null, null},
+            "not json at all\r\n",
+            new Object[] {null, null},
+            "{\"status\":{\"code\":7}}",
+            new Object[] {7, null});
+    for (var entry : cases.entrySet()) {
+      try (var device = new FakeDevice("secret");
+          var session = session(device, "secret")) {
+        device.pimResponses.put("list_accounts", entry.getKey());
+        var answer = answered(session.execute(new ListPimAccounts(), new Logs())).result();
+        equal(entry.getKey(), answer.body(), "the body is exactly what the device sent");
+        equal(entry.getValue()[0], answer.code(), "code read from: " + entry.getKey());
+        equal(entry.getValue()[1], answer.message(), "message read from: " + entry.getKey());
+        check(answer.toJson().get("body").equals(entry.getKey()), "and so is the wire body");
+      }
+    }
+
+    // the device rejects a request
+    for (var code : List.of(1001, 1013, 1015)) {
+      try (var device = new FakeDevice("secret");
+          var session = session(device, "secret")) {
+        device.pimResponses.put(
+            "get",
+            "{\"version\":\"1.0\",\"status\":{\"code\":"
+                + code
+                + ",\"msg\":\"no thanks\"},\"data\":null}");
+        var outcome =
+            failed(
+                session.execute(
+                    new GetPimItems("WS1", PimService.CALENDARS, PimFilters.none()), new Logs()));
+        equal("COMMAND_FAILED", code(outcome), "device status " + code);
+        equal("no thanks", outcome.error().message(), "the device's message " + code);
+        equal(code, outcome.error().details().get("code"), "and its code " + code);
+        check(
+            outcome.partialResult().isPresent()
+                && ((PimAnswer) outcome.partialResult().get()).body().contains("no thanks"),
+            "the answer is kept, so the body can still be read: " + code);
+      }
+    }
+
+    // a lost session: renewed once, and an answer that stays "not logged in" is a failure
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      session.execute(new ListPimAccounts(), new Logs());
+      device.expireSessions();
+      var logs = new Logs();
+      equal(
+          "SUCCEEDED",
+          code(session.execute(new ListPimAccounts(), logs)),
+          "a lost session is renewed");
+      check(logs.mentions("forgot the session"), "and the renewal is logged");
+      equal(4, device.loginRequests.get(), "with one new login");
+    }
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      device.pimResponses.put("list_accounts", FakeDevice.UNAUTHENTICATED_PIM_SYNC);
+      var outcome = failed(session.execute(new ListPimAccounts(), new Logs()));
+      equal("AUTH_FAILED", code(outcome), "an answer that stays \"not logged in\" fails");
+      equal(4, device.loginRequests.get(), "after one renewal, not in a loop");
+    }
+
+    // these commands only read, so one dropped connection is tried again
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret")) {
+      session.execute(new ListPimAccounts(), new Logs());
+      var before = device.cgiRequests.get();
+      device.dropNext = 1;
+      var logs = new Logs();
+      equal("SUCCEEDED", code(session.execute(new ListPimAccounts(), logs)), "a read is repeated");
+      equal(before + 2, device.cgiRequests.get(), "once");
+      check(logs.mentions("connecting again"), "and the retry is logged");
+    }
+
+    // arguments are checked before anything is sent
+    check(rejects(() -> new FindPimAccount(" ")), "a blank workstation");
+    check(
+        rejects(() -> new GetPimItems("", PimService.CONTACTS, PimFilters.none())),
+        "no workstation");
+    check(rejects(() -> PimService.of("photos")), "photos cannot be read as text");
+    check(rejects(() -> PimService.of("Contacts")), "service names are exact");
+    check(
+        rejects(
+            () ->
+                new PimFilters(
+                    Optional.empty(), OptionalInt.empty(), false, false, OptionalInt.of(5))),
+        "an offset needs localOnly");
+    check(
+        rejects(
+            () ->
+                new PimFilters(
+                    Optional.empty(), OptionalInt.of(0), false, false, OptionalInt.empty())),
+        "limit 0");
+    check(
+        rejects(
+            () ->
+                new PimFilters(
+                    Optional.empty(), OptionalInt.empty(), false, true, OptionalInt.of(-1))),
+        "negative offset");
+    check(
+        rejects(
+            () ->
+                new PimFilters(
+                    Optional.of(" "), OptionalInt.empty(), false, false, OptionalInt.empty())),
+        "blank time");
+
+    var directory = Files.createTempDirectory("bb-link-pim-trace");
+    try (var device = new FakeDevice("secret");
+        var session = session(device, "secret", new TraceRecorder(directory))) {
+      session.execute(new ListPimAccounts(), new Logs());
+      try (var files = Files.list(directory)) {
+        var traces = files.sorted().map(path -> read(path)).collect(Collectors.joining("\n"));
+        check(
+            traces.contains(">>> GET /cgi-bin/pimsync.cgi?command=list_accounts"),
+            "the trace shows the request with its query");
+        check(
+            Pattern.compile(">>> Cookie: [^\\n]*dtmauth=\\*\\*\\*").matcher(traces).find(),
+            "with its cookie by name");
+      }
+    }
   }
 
   /** The file share credentials come from the login and change with every login. */
@@ -159,14 +337,14 @@ public final class SessionChecks {
     var empty = new CgiResponse(200, null, "", null);
     var request = CgiRequest.Form.to(Endpoint.DYNAMIC_PROPERTIES);
     check(
-        StaleSession.indicatedBy(request, empty, java.util.Optional.empty()),
+        StaleSession.indicatedBy(request, empty, Optional.empty()),
         "an empty 200 answer is a lost session");
     check(
-        !StaleSession.indicatedBy(request.expectingNoBody(), empty, java.util.Optional.empty()),
+        !StaleSession.indicatedBy(request.expectingNoBody(), empty, Optional.empty()),
         "unless the request is answered with nothing when it succeeds");
     check(
         !StaleSession.indicatedBy(
-            request, new CgiResponse(200, "text/xml", "<a/>", null), java.util.Optional.empty()),
+            request, new CgiResponse(200, "text/xml", "<a/>", null), Optional.empty()),
         "an answer with content is not a lost session");
   }
 
@@ -303,7 +481,7 @@ public final class SessionChecks {
       var outcome = failed(properties(session, new Logs()));
       equal("AUTH_FAILED", code(outcome), "wrong password");
       equal(
-          java.util.Map.of("failedAttempts", 1, "retriesRemaining", 4, "maxAttempts", 5),
+          Map.of("failedAttempts", 1, "retriesRemaining", 4, "maxAttempts", 5),
           outcome.error().details(),
           "attempt counts");
       equal(
@@ -485,6 +663,48 @@ public final class SessionChecks {
       return Files.readString(path);
     } catch (IOException failure) {
       throw new java.io.UncheckedIOException(failure);
+    }
+  }
+
+  /** Collects the log messages of a command. */
+  private static final class Logs implements CommandListener {
+    final List<String> messages = Collections.synchronizedList(new ArrayList<>());
+
+    @Override
+    public void onLog(LogLevel level, String message) {
+      messages.add(message);
+    }
+
+    @Override
+    public void onProgress(Progress progress) {}
+
+    boolean mentions(String text) {
+      return messages.stream().anyMatch(message -> message.contains(text));
+    }
+  }
+
+  /** A command with two requests, to check what happens when the session ends in between. */
+  private record TwoStep(boolean readOnly) implements DeviceCommand<NoData> {
+    @Override
+    public Conversation<NoData> conversation() {
+      return new XmlConversation<>() {
+        private int answered;
+
+        @Override
+        public Step<NoData> start() {
+          return new Step.Send<>(
+              CgiRequest.Form.to(Endpoint.DYNAMIC_PROPERTIES)
+                  .echo(FormField.GET_DYNAMIC_PROPERTIES));
+        }
+
+        @Override
+        protected Step<NoData> onResponse(ResponseEnvelope response) {
+          return answered++ == 0
+              ? new Step.Send<>(
+                  CgiRequest.Form.to(Endpoint.WIPE).withText(FormField.WIPE, "getpin"))
+              : new Step.Finish<>(NoData.INSTANCE);
+        }
+      };
     }
   }
 }

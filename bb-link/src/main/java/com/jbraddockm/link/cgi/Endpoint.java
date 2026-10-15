@@ -19,7 +19,13 @@ public enum Endpoint {
   RESET("reset.cgi"),
 
   /** Support logs. */
-  SUPPORT("support.cgi");
+  SUPPORT("support.cgi"),
+
+  /**
+   * The synchronisation of personal information: contacts, calendars and events. Unlike the other
+   * programs it answers with JSON-like text instead of XML.
+   */
+  PIM_SYNC("pimsync.cgi");
 
   private final String fileName;
 

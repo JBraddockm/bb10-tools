@@ -55,6 +55,30 @@ public final class WireChecks {
         form.expectingNoBody().withText(FormField.NAME, "x").emptyAnswerIsNormal(),
         "the flag survives adding fields");
     equal("/cgi-bin/wipe.cgi", Endpoint.WIPE.path(), "endpoint path");
+    equal(
+        "/cgi-bin/pimsync.cgi",
+        Endpoint.PIM_SYNC.path(),
+        "the synchronisation of personal information");
+
+    var get = CgiRequest.Get.to(Endpoint.PIM_SYNC);
+    equal("/cgi-bin/pimsync.cgi", get.pathAndQuery(), "a GET without a query");
+    equal("GET pimsync.cgi", get.describe(), "a GET without a purpose");
+    var query =
+        get.withText(QueryParameter.COMMAND, "list_accounts")
+            .withText(QueryParameter.WORKSTATION_ID, "a b&c=d/é");
+    equal(
+        "/cgi-bin/pimsync.cgi?command=list_accounts&workstation_id=a%20b%26c%3Dd%2F%C3%A9",
+        query.pathAndQuery(), "a query is encoded and keeps its order");
+    equal("/cgi-bin/pimsync.cgi", get.pathAndQuery(), "a request is immutable");
+    equal(
+        "Reading the contacts",
+        get.describedAs("Reading the contacts").describe(),
+        "a GET is described by what it does");
+    check(!get.emptyAnswerIsNormal(), "an empty answer to a GET is a lost session by default");
+    check(get.expectingNoBody().emptyAnswerIsNormal(), "unless the request says otherwise");
+    check(
+        get.expectingNoBody().withText(QueryParameter.LIMIT, "5").emptyAnswerIsNormal(),
+        "the flag survives adding parameters");
   }
 
   private static void xml() {

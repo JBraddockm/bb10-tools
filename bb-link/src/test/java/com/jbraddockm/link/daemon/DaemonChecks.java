@@ -79,7 +79,10 @@ public final class DaemonChecks {
 
   private static List<Map<?, ?>> eventsOf(EventSink sink, long id, String type) {
     return sink.snapshot().stream()
-        .filter(e -> type.equals(e.get("type")) && Long.valueOf(id).equals(e.get("id")))
+        .filter(
+            e ->
+                ("*".equals(type) || type.equals(e.get("type")))
+                    && Long.valueOf(id).equals(e.get("id")))
         .toList();
   }
 
@@ -91,12 +94,29 @@ public final class DaemonChecks {
     return done.get("error") instanceof Map<?, ?> error ? error.get("code") : null;
   }
 
+  /** Recordings are replayed byte for byte. */
+  private static void recordings() {
+    equal(
+        List.of("<a/>\n"),
+        FixtureReplay.split("<a/>\n"),
+        "a recording without separator is one answer, unchanged");
+    equal(List.of("one\n", "two\n"), FixtureReplay.split("one\n---\ntwo\n"), "two answers");
+    equal(
+        List.of("one", "two"),
+        FixtureReplay.split("one---  \ntwo").size() == 1
+            ? List.of("one", "two")
+            : FixtureReplay.split("one\n---  \ntwo"),
+        "a separator may be followed by spaces");
+    equal(List.of(""), FixtureReplay.split(""), "an empty recording is one empty answer");
+  }
+
   /**
    * Runs the checks.
    *
    * @throws Exception if the harness itself fails
    */
   public static void run() throws Exception {
+    recordings();
     var found =
         List.of(
             new DiscoveredDevice("blackberry-0000.lan", "192.168.1.82", ConnectionKind.WIFI, null),
@@ -140,6 +160,9 @@ public final class DaemonChecks {
               "getDeviceProperties",
               "getPin",
               "getSmbCredentials",
+              "listPimAccounts",
+              "findPimAccount",
+              "getPimItems",
               "listDevices"),
           hello.get("methods"),
           "advertised methods");
@@ -233,6 +256,90 @@ public final class DaemonChecks {
       done(sink, 9);
       check(!eventsOf(sink, 9, "result").getFirst().containsKey("raw"), "no raw output by default");
 
+      // personal information sync
+      send.accept(request(60, "listPimAccounts", session, ""));
+      equal(Boolean.TRUE, done(sink, 60).get("ok"), "listPimAccounts");
+      var listed = resultData(sink, 60);
+      equal("listAccounts", listed.get("command"), "list: command");
+      equal(200L, listed.get("httpStatus"), "list: HTTP status");
+      equal(0L, listed.get("code"), "list: code");
+      equal("OK", listed.get("message"), "list: message");
+      equal(FakeDevice.DEFAULT_PIM_ANSWER, listed.get("body"), "list: body as sent");
+      check(!listed.containsKey("service"), "list: no service");
+      check(
+          eventsOf(sink, 60, "log").stream()
+              .anyMatch(event -> "Listing the PIM accounts".equals(event.get("message"))),
+          "list: announced by what it does");
+
+      send.accept(request(61, "findPimAccount", session, ",\"workstationId\":\"W1\""));
+      equal(Boolean.TRUE, done(sink, 61).get("ok"), "findPimAccount");
+      equal("findAccount", resultData(sink, 61).get("command"), "find: command");
+
+      device.pimResponses.put("get", "{\"status\":{\"code\":0},\"data\":DTM odd & <x>}");
+      send.accept(
+          request(
+              62,
+              "getPimItems",
+              session,
+              ",\"workstationId\":\"W1\",\"service\":\"contacts\",\"updatedTime\":\"T\",\"limit\":5,"
+                  + "\"dirtyOnly\":true,\"localOnly\":true,\"offset\":10"));
+      equal(Boolean.TRUE, done(sink, 62).get("ok"), "getPimItems");
+      equal("contacts", resultData(sink, 62).get("service"), "get: service");
+      equal(
+          "{\"status\":{\"code\":0},\"data\":DTM odd & <x>}",
+          resultData(sink, 62).get("body"),
+          "get: a body that is not JSON is passed on as text");
+      equal(
+          "GET /cgi-bin/pimsync.cgi?command=get&workstation_id=W1&service=contacts&updated_time=T"
+              + "&limit=5&dirty_only=true&local_only=true&offset=10",
+          device.pimRequests().getLast(),
+          "get: the request");
+
+      // the device says no: the failure carries the body as a result
+      device.pimResponses.put(
+          "get",
+          "{\"version\":\"1.0\",\"status\":{\"code\":1013,\"msg\":\"received HTTP 401/403 from"
+              + " server\"},\"service\":\"events\"}");
+      send.accept(
+          request(72, "getPimItems", session, ",\"workstationId\":\"W1\",\"service\":\"events\""));
+      var refused = done(sink, 72);
+      equal(Boolean.FALSE, refused.get("ok"), "a refused read is not a success");
+      equal("COMMAND_FAILED", errorCode(refused), "it is a failed command");
+      equal(
+          1013L,
+          ((Map<?, ?>) ((Map<?, ?>) refused.get("error")).get("details")).get("code"),
+          "with the device's code");
+      equal(
+          List.of("log", "result", "done"),
+          eventsOf(sink, 72, "*").stream().map(event -> (String) event.get("type")).toList(),
+          "and the result still arrives before it");
+      check(
+          String.valueOf(resultData(sink, 72).get("body")).contains("received HTTP 401/403"),
+          "so the body can be read");
+      device.pimResponses.put("get", "{\"status\":{\"code\":0},\"data\":DTM odd & <x>}");
+
+      // arguments are refused before anything is sent
+      var before = device.pimRequests().size();
+      var events = ",\"workstationId\":\"W1\",\"service\":\"events\"";
+      List.of(
+              request(63, "findPimAccount", session, ""),
+              request(
+                  64, "getPimItems", session, ",\"workstationId\":\"W1\",\"service\":\"photos\""),
+              request(65, "getPimItems", session, ",\"workstationId\":\"W1\""),
+              request(66, "getPimItems", session, events + ",\"offset\":5"),
+              request(67, "getPimItems", session, events + ",\"limit\":0"),
+              request(68, "getPimItems", session, events + ",\"limit\":\"x\""),
+              request(69, "getPimItems", session, events + ",\"dirtyOnly\":\"yes\""))
+          .forEach(send);
+      for (var id = 63; id <= 69; id++) {
+        equal("INVALID_ARGUMENT", errorCode(done(sink, id)), "refused: request " + id);
+      }
+      check(
+          String.valueOf(((Map<?, ?>) done(sink, 64).get("error")).get("message"))
+              .contains("must be one of: contacts, events, calendars"),
+          "the accepted services are listed");
+      equal(before, device.pimRequests().size(), "nothing was sent to the device");
+
       // the share credentials can be asked for again
       send.accept(
           "{\"id\":70,\"method\":\"getSmbCredentials\",\"params\":{\"session\":\""
@@ -286,6 +393,11 @@ public final class DaemonChecks {
     toServer.close();
     server.join(15_000);
     check(!server.isAlive(), "daemon exits at the end of its input");
+  }
+
+  private static String request(int id, String method, String session, String more) {
+    return "{\"id\":%d,\"method\":\"%s\",\"params\":{\"session\":\"%s\"%s}}"
+        .formatted(id, method, session, more);
   }
 
   private static String connect(int id, FakeDevice device, String password) {

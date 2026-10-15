@@ -11,6 +11,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -90,6 +92,14 @@ public final class FakeDevice implements AutoCloseable {
       </DynamicProperties></RimTabletResponse>
       """;
 
+  /**
+   * What a real device answers to pimsync without a session; not valid JSON, {@code data} is not
+   * quoted.
+   */
+  public static final String UNAUTHENTICATED_PIM_SYNC =
+      "{\"version\":\"1.0\",\"status\":{\"code\":1013,\"msg\":\"received HTTP 401/403 from"
+          + " server\"},\"data\":DTM NOT LOGGED IN}";
+
   public static final String DEFAULT_PIN =
       "<RimTabletResponse><DevicePIN><Status>Success</Status><PIN>PINX2A3B4C5D</PIN><Log></Log></DevicePIN></RimTabletResponse>";
 
@@ -97,6 +107,14 @@ public final class FakeDevice implements AutoCloseable {
   private final String password;
   private final List<String> cgiBodies = Collections.synchronizedList(new ArrayList<>());
   private final List<String> cookiesSeen = Collections.synchronizedList(new ArrayList<>());
+  private final List<String> pimRequests = Collections.synchronizedList(new ArrayList<>());
+
+  /** What pimsync answers to a request with a valid session, by command; the default otherwise. */
+  public final Map<String, String> pimResponses = new ConcurrentHashMap<>();
+
+  /** The answer to a command that has no entry in {@link #pimResponses}. */
+  public static final String DEFAULT_PIM_ANSWER =
+      "{\"version\":\"1.0\",\"status\":{\"code\":0,\"msg\":\"OK\"},\"data\":[]}";
 
   /** Counts requests to the login program. */
   public final AtomicInteger loginRequests = new AtomicInteger();
@@ -143,6 +161,7 @@ public final class FakeDevice implements AutoCloseable {
     server.createContext(
         "/cgi-bin/dynamicProperties.cgi", exchange -> cgi(exchange, PROPERTIES_BODY));
     server.createContext("/cgi-bin/wipe.cgi", exchange -> cgi(exchange, PIN_BODY));
+    server.createContext("/cgi-bin/pimsync.cgi", this::pimSync);
     server.start();
   }
 
@@ -168,6 +187,17 @@ public final class FakeDevice implements AutoCloseable {
   public List<String> cgiBodies() {
     synchronized (cgiBodies) {
       return List.copyOf(cgiBodies);
+    }
+  }
+
+  /**
+   * Returns the method, path and query of every request to pimsync.
+   *
+   * @return a snapshot, for example {@code GET /cgi-bin/pimsync.cgi?command=list_accounts}
+   */
+  public List<String> pimRequests() {
+    synchronized (pimRequests) {
+      return List.copyOf(pimRequests);
     }
   }
 
@@ -312,10 +342,65 @@ public final class FakeDevice implements AutoCloseable {
     }
   }
 
+  /** pimsync: a GET with a command; a real device's answer when there is no valid session. */
+  private void pimSync(HttpExchange exchange) throws IOException {
+    cgiRequests.incrementAndGet();
+    var query = exchange.getRequestURI().getRawQuery();
+    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+    pimRequests.add(
+        exchange.getRequestMethod()
+            + " "
+            + exchange.getRequestURI().getPath()
+            + (query == null ? "" : "?" + query));
+    cookiesSeen.add(cookie == null ? "" : cookie);
+    if (dropNext > 0) {
+      dropNext--;
+      exchange.close();
+      return;
+    }
+    if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
+      respond(exchange, 200, UNAUTHENTICATED_PIM_SYNC, null, "application/json");
+      return;
+    }
+    var command = commandOf(query);
+    if (command == null) {
+      respond(
+          exchange, 200, "", null,
+          null); // a real device answers a request without a command with nothing
+    } else {
+      respond(
+          exchange,
+          200,
+          pimResponses.getOrDefault(command, DEFAULT_PIM_ANSWER),
+          null,
+          "application/json");
+    }
+  }
+
+  private static String commandOf(String query) {
+    if (query == null) {
+      return null;
+    }
+    for (var pair : query.split("&")) {
+      if (pair.startsWith("command=")) {
+        return pair.substring("command=".length());
+      }
+    }
+    return null;
+  }
+
   private static void respond(HttpExchange exchange, int status, String body, String setCookie)
       throws IOException {
+    respond(exchange, status, body, setCookie, "text/xml");
+  }
+
+  private static void respond(
+      HttpExchange exchange, int status, String body, String setCookie, String contentType)
+      throws IOException {
     var bytes = body.getBytes(StandardCharsets.UTF_8);
-    exchange.getResponseHeaders().add("Content-Type", "text/xml");
+    if (contentType != null) {
+      exchange.getResponseHeaders().add("Content-Type", contentType);
+    }
     if (setCookie != null) {
       exchange.getResponseHeaders().add("Set-Cookie", setCookie);
     }

@@ -39,6 +39,107 @@ public sealed interface CgiRequest {
   boolean emptyAnswerIsNormal();
 
   /**
+   * A GET, optionally with a query string.
+   *
+   * @param endpoint the CGI program
+   * @param query the query parameters in the order they are sent
+   * @param purpose what the request does, in a few words, for log messages; may be empty
+   * @param emptyAnswerIsNormal see {@link CgiRequest#emptyAnswerIsNormal()}
+   */
+  record Get(
+      Endpoint endpoint,
+      SequencedMap<QueryParameter, String> query,
+      String purpose,
+      boolean emptyAnswerIsNormal)
+      implements CgiRequest {
+
+    /** Takes an immutable copy of the query. */
+    public Get {
+      Objects.requireNonNull(endpoint, "endpoint");
+      Objects.requireNonNull(purpose, "purpose");
+      query = Collections.unmodifiableSequencedMap(new LinkedHashMap<>(query));
+    }
+
+    /**
+     * Starts a GET without parameters. An empty answer to it means a lost session.
+     *
+     * @param endpoint the CGI program
+     * @return a GET without a query
+     */
+    public static Get to(Endpoint endpoint) {
+      return new Get(endpoint, new LinkedHashMap<>(), "", false);
+    }
+
+    /**
+     * Adds a parameter whose value is one of the device's fixed words.
+     *
+     * @param parameter the parameter
+     * @param value the value
+     * @return a new request with the parameter appended
+     */
+    public Get with(QueryParameter parameter, WireValue value) {
+      return withText(parameter, value.wireName());
+    }
+
+    /**
+     * Adds a parameter with free text as value.
+     *
+     * @param parameter the parameter
+     * @param text the value
+     * @return a new request with the parameter appended
+     */
+    public Get withText(QueryParameter parameter, String text) {
+      var copy = new LinkedHashMap<>(query);
+      copy.put(parameter, text);
+      return new Get(endpoint, copy, purpose, emptyAnswerIsNormal);
+    }
+
+    /**
+     * Says what the request does, for log messages.
+     *
+     * @param what a few words in the present participle, for example {@code Reading the contacts}
+     * @return a new request with the purpose set
+     */
+    public Get describedAs(String what) {
+      return new Get(endpoint, query, what, emptyAnswerIsNormal);
+    }
+
+    /**
+     * Marks the request as one whose empty answer is a normal answer, not a lost session.
+     *
+     * @return a new request that does not treat an empty answer as a lost session
+     */
+    public Get expectingNoBody() {
+      return new Get(endpoint, query, purpose, true);
+    }
+
+    /**
+     * Returns the path of the request with its query string.
+     *
+     * @return for example {@code /cgi-bin/pimsync.cgi?command=list_accounts}
+     */
+    public String pathAndQuery() {
+      if (query.isEmpty()) {
+        return endpoint.path();
+      }
+      return endpoint.path()
+          + '?'
+          + query.entrySet().stream()
+              .map(
+                  entry ->
+                      FormEncoding.encode(entry.getKey().wireName())
+                          + '='
+                          + FormEncoding.encode(entry.getValue()))
+              .collect(Collectors.joining("&"));
+    }
+
+    @Override
+    public String describe() {
+      return purpose.isEmpty() ? "GET " + endpoint.fileName() : purpose;
+    }
+  }
+
+  /**
    * A form post.
    *
    * @param endpoint the CGI program

@@ -84,7 +84,8 @@ public final class DeviceSession implements ServiceSession {
             if (next == null) {
               throw new IOException("the recording has no answer for this request");
             }
-            return new CgiResponse(200, "text/xml", next, null);
+            return new CgiResponse(
+                200, null, next, null); // a recording does not keep the content type
           },
           listener);
     } catch (StaleSessionException stale) {
@@ -146,7 +147,7 @@ public final class DeviceSession implements ServiceSession {
       try {
         ensureLoggedIn();
         return ConversationRunner.run(
-            command.conversation(), request -> transport.post(request), listener);
+            command.conversation(), request -> transport.send(request), listener);
       } catch (StaleSessionException stale) {
         discardTransport();
         if (stale.firstExchange() && !loginRenewed) {

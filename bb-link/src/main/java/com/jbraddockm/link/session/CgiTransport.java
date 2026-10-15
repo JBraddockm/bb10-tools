@@ -5,6 +5,7 @@ import com.jbraddockm.link.cgi.CgiRequest;
 import com.jbraddockm.link.cgi.CgiResponse;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpVersion;
@@ -65,18 +66,19 @@ final class CgiTransport implements AutoCloseable {
     return execute(new HttpGet(checkedUrl(pathAndQuery)), "GET " + pathAndQuery, "");
   }
 
-  CgiResponse post(CgiRequest request) throws IOException {
-    switch (request) {
+  CgiResponse send(CgiRequest request) throws IOException {
+    return switch (request) {
+      case CgiRequest.Get get -> get(get.pathAndQuery());
       case CgiRequest.Form form -> {
         var body = form.encodedBody();
         var post = new HttpPost(checkedUrl(form.endpoint().path()));
         post.getParams().setBooleanParameter("http.protocol.expect-continue", false);
-        var entity = new ByteArrayEntity(body.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        var entity = new ByteArrayEntity(body.getBytes(StandardCharsets.US_ASCII));
         entity.setContentType("application/x-www-form-urlencoded");
         post.setEntity(entity);
-        return execute(post, "POST " + form.endpoint().path(), body);
+        yield execute(post, "POST " + form.endpoint().path(), body);
       }
-    }
+    };
   }
 
   private String checkedUrl(String pathAndQuery) {
@@ -101,7 +103,7 @@ final class CgiTransport implements AutoCloseable {
         new CgiResponse(
             response.getStatusLine().getStatusCode(),
             valueOf(contentType),
-            new String(bytes, java.nio.charset.StandardCharsets.UTF_8),
+            new String(bytes, StandardCharsets.UTF_8),
             valueOf(setCookie));
     observer.onExchange(requestLine, requestBody, cookieNames, result);
     return result;

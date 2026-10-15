@@ -41,6 +41,19 @@ public final class ResponseFailures {
   }
 
   /**
+   * Explains that an answer is not XML at all.
+   *
+   * @param response what the device answered
+   * @return {@code UNEXPECTED_RESPONSE} with the HTTP status and the content type
+   */
+  public static ServiceError notXml(CgiResponse response) {
+    return new ServiceError(
+        LinkErrorCode.UNEXPECTED_RESPONSE,
+        "The device answered with something that is not XML (HTTP " + response.statusCode() + ")",
+        Json.object("status", response.statusCode(), "contentType", response.contentType()));
+  }
+
+  /**
    * Explains why a response is not the expected element: either the device reported an error, or it
    * answered with something this version does not know.
    *
