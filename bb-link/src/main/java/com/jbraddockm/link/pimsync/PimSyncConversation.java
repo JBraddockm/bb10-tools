@@ -8,6 +8,7 @@ import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.Conversation;
 import com.jbraddockm.link.cgi.Endpoint;
 import com.jbraddockm.link.cgi.QueryParameter;
+import com.jbraddockm.link.cgi.ResponseBody;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.Step;
 import java.util.Optional;
@@ -76,9 +77,10 @@ final class PimSyncConversation implements Conversation<PimAnswer> {
             command,
             service,
             response.statusCode(),
+            response.contentType(),
             status.map(PimStatus::code).orElse(null),
             status.map(PimStatus::message).orElse(null),
-            response.body());
+            ResponseBody.of(response.body()));
     if (status.isPresent() && REJECTIONS.contains(status.get().code())) {
       var message = status.get().message();
       return new Step.Fail<>(
