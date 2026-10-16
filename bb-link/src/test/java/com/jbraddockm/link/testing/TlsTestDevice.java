@@ -222,7 +222,8 @@ public final class TlsTestDevice implements AutoCloseable {
         behaviour == Behaviour.REFUSES_EVERYONE
             || (behaviour == Behaviour.REFUSES_WITHOUT_CERTIFICATE && noCertificate);
     if (refuse) {
-      return "";
+      // what a real device answers a request that has no valid session
+      return FakeDevice.UNAUTHORIZED_PROPERTIES;
     }
     if (path.startsWith("/cgi-bin/wipe.cgi")) {
       return "<RimTabletResponse><DevicePIN><Status>Success</Status><PIN>PINX2A3B4C5D</PIN></DevicePIN></RimTabletResponse>";

@@ -134,6 +134,20 @@ public final class FakeDevice implements AutoCloseable {
       </RimTabletResponse>
       """;
 
+  /** What a real device answers to dynamicProperties.cgi when the request has no valid session. */
+  public static final String UNAUTHORIZED_PROPERTIES =
+      """
+      <RimTabletResponse>
+        <DynamicProperties>
+          <Status>Error</Status>
+          <Error>
+            <ErrorIdentifier>1011</ErrorIdentifier>
+            <ErrorDescription>Error - authorization</ErrorDescription>
+          </Error>
+        </DynamicProperties>
+      </RimTabletResponse>
+      """;
+
   /** What a real device answers to a certificate that is not one (captured). */
   public static final String PAIRING_REJECTED =
       "<RimTabletResponse><Pairing><Status>Error</Status><Error><ErrorIdentifier>7</ErrorIdentifier><ErrorDescription>Error"

@@ -9,6 +9,7 @@ import com.jbraddockm.link.discovery.ConnectionKind;
 import com.jbraddockm.link.discovery.DiscoveredDevice;
 import com.jbraddockm.link.session.ExchangeObserver;
 import com.jbraddockm.link.session.TransportScheme;
+import com.jbraddockm.link.testing.BarFiles;
 import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.testing.TestPki;
 import java.io.ByteArrayOutputStream;
@@ -165,7 +166,8 @@ public final class DaemonChecks {
               "findPimAccount",
               "getPimItems",
               "pairDevice",
-              "listDevices"),
+              "listDevices",
+              "inspectPackage"),
           hello.get("methods"),
           "advertised methods");
 
@@ -181,6 +183,62 @@ public final class DaemonChecks {
       equal(2, devices.size(), "result lists both");
       check(!((Map<?, ?>) devices.getFirst()).containsKey("version"), "unknown version is omitted");
       equal("10.3.3.2205", ((Map<?, ?>) devices.getLast()).get("version"), "known version");
+
+      // looking at a bar needs neither a session nor a device
+      var barDirectory = java.nio.file.Files.createTempDirectory("bb-link-bars");
+      var application = BarFiles.application(barDirectory, "app.bar", "gYABgExample1", "1.2.3.4");
+      send.accept(inspect(200, application, false));
+      equal(Boolean.TRUE, done(sink, 200).get("ok"), "inspectPackage");
+      var inspected = resultData(sink, 200);
+      equal("application", inspected.get("kind"), "inspect: kind");
+      equal("gYABgExample1", inspected.get("packageId"), "inspect: id");
+      equal("1.2.3.4", inspected.get("packageVersion"), "inspect: version");
+      equal("armle-v7", inspected.get("architecture"), "inspect: architecture");
+      equal(application.toString(), inspected.get("file"), "inspect: the file");
+      equal(java.nio.file.Files.size(application), inspected.get("sizeBytes"), "inspect: the size");
+      check(!inspected.containsKey("validation"), "inspect: no validation unless asked for");
+      send.accept(inspect(201, application, true));
+      equal(Boolean.TRUE, done(sink, 201).get("ok"), "inspectPackage with validation");
+      var validation = (Map<?, ?>) resultData(sink, 201).get("validation");
+      equal("unsigned", validation.get("rules"), "validation: which rules");
+      check(validation.get("valid") instanceof Boolean, "validation: a verdict");
+      check(validation.get("messages") instanceof List<?>, "validation: the findings");
+      send.accept("{\"id\":202,\"method\":\"inspectPackage\",\"params\":{}}");
+      var noFile = done(sink, 202);
+      equal("INVALID_ARGUMENT", errorCode(noFile), "inspect: the file is required");
+      equal(
+          "file",
+          ((Map<?, ?>) ((Map<?, ?>) noFile.get("error")).get("details")).get("param"),
+          "inspect: and named");
+      send.accept(inspect(203, barDirectory.resolve("missing.bar"), false));
+      var absentFile = done(sink, 203);
+      equal("IO_ERROR", errorCode(absentFile), "inspect: a file that is not there");
+      equal(
+          "The file does not exist",
+          ((Map<?, ?>) absentFile.get("error")).get("message"),
+          "inspect: says so");
+      var notABar = java.nio.file.Files.writeString(barDirectory.resolve("text.bar"), "no archive");
+      send.accept(inspect(204, notABar, false));
+      var refusedBar = done(sink, 204);
+      equal("INVALID_ARGUMENT", errorCode(refusedBar), "inspect: a file that is not a bar");
+      check(
+          String.valueOf(((Map<?, ?>) refusedBar.get("error")).get("message"))
+              .contains("not a usable bar"),
+          "inspect: says it is not a usable bar");
+      var unknownType =
+          BarFiles.write(barDirectory, "gizmo.bar", BarFiles.manifest("Package-Type: gizmo"));
+      send.accept(inspect(205, unknownType, false));
+      equal("INVALID_ARGUMENT", errorCode(done(sink, 205)), "inspect: an unknown package type");
+      send.accept(inspect(206, barDirectory, false));
+      equal("INVALID_ARGUMENT", errorCode(done(sink, 206)), "inspect: a folder");
+      var firmware =
+          BarFiles.write(
+              barDirectory,
+              "radio.bar",
+              BarFiles.manifest("Package-Type: system", "System-Type: radio"));
+      send.accept(inspect(207, firmware, false));
+      equal(Boolean.TRUE, done(sink, 207).get("ok"), "inspect: a radio image is read");
+      equal("radio", resultData(sink, 207).get("kind"), "inspect: and is a radio image");
 
       // argument problems
       send.accept("{\"id\":2,\"method\":\"connect\",\"params\":{}}");
@@ -653,6 +711,12 @@ public final class DaemonChecks {
   private static String request(int id, String method, String session, String more) {
     return "{\"id\":%d,\"method\":\"%s\",\"params\":{\"session\":\"%s\"%s}}"
         .formatted(id, method, session, more);
+  }
+
+  /** A request to inspect a bar. */
+  private static String inspect(int id, java.nio.file.Path file, boolean validate) {
+    return "{\"id\":%d,\"method\":\"inspectPackage\",\"params\":{\"file\":\"%s\",\"validate\":%s}}"
+        .formatted(id, file.toString().replace("\\", "\\\\"), validate);
   }
 
   private static String connect(int id, FakeDevice device, String password) {
