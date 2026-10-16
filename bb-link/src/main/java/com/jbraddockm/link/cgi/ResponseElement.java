@@ -22,7 +22,25 @@ public enum ResponseElement {
   AUTH_CHALLENGE("AuthChallenge"),
 
   /** The device's verdict on an authentication. */
-  AUTH("Auth");
+  AUTH("Auth"),
+
+  /** An update conversation was accepted, and the device is ready for the first package. */
+  UPDATE_START("UpdateStart"),
+
+  /** The device has received a package. */
+  UPDATE_SEND("UpdateSend"),
+
+  /** How far the device is with installing a package. */
+  UPDATE_PROGRESS("UpdateProgress"),
+
+  /** The device has finished an update conversation. */
+  UPDATE_END("UpdateEnd"),
+
+  /** An uninstallation was accepted, and the device is ready for the first package id. */
+  DELETE_REQUEST("DeleteRequest"),
+
+  /** The device has removed a package. */
+  DELETE_PROGRESS("DeleteProgress");
 
   private final String elementName;
 

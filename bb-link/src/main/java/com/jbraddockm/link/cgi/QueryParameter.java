@@ -25,7 +25,10 @@ public enum QueryParameter implements WireValue {
   LOCAL_ONLY("local_only"),
 
   /** Where to start when the items are returned in pages. */
-  OFFSET("offset");
+  OFFSET("offset"),
+
+  /** The kind of package that is uploaded. */
+  TYPE("type");
 
   private final String wireName;
 

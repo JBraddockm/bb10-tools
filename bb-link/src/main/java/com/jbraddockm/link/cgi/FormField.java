@@ -25,7 +25,22 @@ public enum FormField implements WireValue {
   DEVICE_ID("deviceid"),
 
   /** The BlackBerry account identifier. The device records it and does nothing with it. */
-  ECOID("ecoid");
+  ECOID("ecoid"),
+
+  /** What an update conversation is about: installing applications or firmware, or uninstalling. */
+  MODE("mode"),
+
+  /** The number of bytes that an installation will upload, or {@code 0} for an uninstallation. */
+  SIZE("size"),
+
+  /** The kind of package in a step of an uninstallation. */
+  TYPE("type"),
+
+  /** The package to uninstall. */
+  PACKAGE_ID("packageid"),
+
+  /** The end of an update conversation. */
+  STATUS("status");
 
   private final String wireName;
 
