@@ -1,0 +1,48 @@
+Archive-Manifest-Version: 1.5
+Archive-Created-By: BlackBerry Elf BAR Packager 1.11
+
+Package-Type: application
+Package-Author: Example Inc.
+Package-Author-Id: testRXhhbXBsZSBJbmMuICAgICA
+Package-Name: com.example.TLSDeBug
+Package-Id: testRel_le_TLSDeBugc09806e9
+Package-Version: 1.0.0.1
+Package-Version-Id: testMS4wLjAuMSAgICAgICAgICA
+Package-Architecture: armle-v7
+
+Application-Name: TLSDeBug
+Application-Id: testRel_le_TLSDeBugc09806e9
+Application-Description: The TLSDeBug application
+Application-Version: 1.0.0.1
+Application-Version-Id: testMS4wLjAuMSAgICAgICAgICA
+Application-Requires-System: BlackBerry 10/10.0.9.0
+Application-Development-Mode: false
+
+Entry-Point-Name: TLSDeBug
+Entry-Point-Key: e1
+Entry-Point: LD_LIBRARY_PATH=app/native/lib:/usr/lib/qt4/lib CASCADES_THEME=dark app/native/TLSDeBug
+Entry-Point-Type: Qnx/Elf
+Entry-Point-Icon: native/icon.png
+Entry-Point-Orientation: auto
+Entry-Point-User-Actions: access_internet
+Entry-Point-System-Actions: run_native
+
+Archive-Asset-Name: native/bar-descriptor.xml
+Archive-Asset-SHA-512-Digest: 24Z8dILUSdnn7LHsUraKTronqsbBty4dXsSj5YYEf7WwHypTL0Ur8cEZPvBHAYLfCu5fw_bRvAQ75-KM4yYAnw
+
+Archive-Asset-Name: native/icon.png
+Archive-Asset-SHA-512-Digest: Bg530mb8o5kcz0wrpCp97aSnFD0WRdF6Qq7wq_Mfy0hD-aAIXyN31s8RmFclF-YgFFxtjNX_4R03gouf6FAdeA
+
+Archive-Asset-Name: native/assets/main.qml
+Archive-Asset-SHA-512-Digest: W6sMb8XoQt9ephMicGW65M1IGOy-gFpbp1kLHyw564TC9fVjFnzAi4mIYdI9N7nb4BZyX6CWS4gcJPGJHnZIKQ
+
+Archive-Asset-Name: native/TLSDeBug
+Archive-Asset-SHA-512-Digest: aYgx8las_uuoxM_o2IG6X-QmEBrbWLIhe7ED-7hf98xDVM2vUlizpDpGmOqEIDkIxkHxdrpiXndBipu_3HGueQ
+Archive-Asset-Type: Qnx/Elf
+
+Archive-Asset-Name: native/lib/libQtNetwork.so.4
+Archive-Asset-SHA-512-Digest: -EDPnIaEB3m88o2OZC_rtRidm2EDIaG6c7ZxKxRx2fgStmFwYmhdH6ETkzlG0UCtB6HFAkg8JmhtPS4XOJ6xRA
+Archive-Asset-Type: Qnx/Elf
+
+Archive-Asset-Name: native/assets/.assets.index
+Archive-Asset-SHA-512-Digest: SzpT1bjJKpECvPlej8kMag2qgteNDXfWhX8MpGCAF_XIvmAwNxr03_Amss_-9ev1dKVmmINz-cm-YYW6YIG9mQ
