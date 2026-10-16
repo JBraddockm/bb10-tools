@@ -20,6 +20,7 @@ import com.jbraddockm.link.pimsync.PimService;
 import com.jbraddockm.link.properties.GetDeviceProperties;
 import com.jbraddockm.link.session.DeviceCommand;
 import com.jbraddockm.link.session.DeviceSession;
+import com.jbraddockm.link.update.InspectPackage;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Function;
@@ -57,7 +58,13 @@ enum LinkMethod {
   PAIR_DEVICE("pairDevice"),
 
   /** Scans for devices; needs no session. */
-  LIST_DEVICES("listDevices");
+  LIST_DEVICES("listDevices"),
+
+  /**
+   * Reads what a bar says about its package, and optionally checks it against BlackBerry's rules.
+   * Needs neither a session nor a device.
+   */
+  INSPECT_PACKAGE("inspectPackage");
 
   /** The workstation identifier that replayed recordings are attributed to. */
   private static final String REPLAY_WORKSTATION = "replay";
@@ -102,7 +109,7 @@ enum LinkMethod {
       case GET_PIM_ITEMS ->
           argument.map(
               name -> new GetPimItems(REPLAY_WORKSTATION, PimService.of(name), PimFilters.none()));
-      case GET_SMB_CREDENTIALS, LIST_DEVICES -> Optional.empty();
+      case GET_SMB_CREDENTIALS, LIST_DEVICES, INSPECT_PACKAGE -> Optional.empty();
     };
   }
 
@@ -165,6 +172,15 @@ enum LinkMethod {
                               DeviceDiscovery.discover(
                                   scanner, device -> reply.event("device", device.toJson()))),
                           false));
+      case INSPECT_PACKAGE ->
+          new CommandSpec.Standalone<>(
+              wireName,
+              params -> {
+                var file = params.requirePath("file");
+                var validate = params.flag("validate");
+                return reply ->
+                    reply.complete(wireName, InspectPackage.inspect(file, validate), false);
+              });
     };
   }
 

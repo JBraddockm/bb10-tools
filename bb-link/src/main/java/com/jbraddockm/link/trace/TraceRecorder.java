@@ -53,7 +53,7 @@ public final class TraceRecorder implements ExchangeObserver {
             + "\n\n<<< HTTP "
             + response.statusCode()
             + " "
-            + response.contentType()
+            + (response.contentType() == null ? "(no content type)" : response.contentType())
             + (response.setCookie() == null ? "" : "\n<<< Set-Cookie: " + response.setCookie())
             + "\n"
             + response.body()

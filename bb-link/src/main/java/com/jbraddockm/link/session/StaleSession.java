@@ -22,8 +22,13 @@ final class StaleSession {
   /** What pimsync.cgi says to a client without a session; the text is not valid JSON. */
   private static final String NOT_LOGGED_IN = "DTM NOT LOGGED IN";
 
-  /** What pairing.cgi answers to a request without a session, in {@code ErrorDescription}. */
-  private static final String NOT_AUTHORIZED = "Error - authorization.";
+  /**
+   * What the device writes in {@code ErrorDescription} when a request has no valid session:
+   * pairing.cgi answers {@code Error - authorization.} (error 6) and dynamicProperties.cgi {@code
+   * Error - authorization} (error 1011). Both are compared without the final full stop and without
+   * regard to case **[verified]**.
+   */
+  private static final String NOT_AUTHORIZED = "error - authorization";
 
   private static final int UNAUTHORIZED = 401;
   private static final int FORBIDDEN = 403;
@@ -45,7 +50,7 @@ final class StaleSession {
     }
     if (envelope
         .flatMap(found -> found.payload().textAt("Error", "ErrorDescription"))
-        .filter(NOT_AUTHORIZED::equals)
+        .filter(StaleSession::isNotAuthorized)
         .isPresent()) {
       return true;
     }
@@ -54,5 +59,14 @@ final class StaleSession {
         .map(
             element -> element == ResponseElement.AUTH_CHALLENGE || element == ResponseElement.AUTH)
         .orElse(false);
+  }
+
+  /** Tells whether an error description says that the request had no valid session. */
+  static boolean isNotAuthorized(String description) {
+    var text = description.strip();
+    if (text.endsWith(".")) {
+      text = text.substring(0, text.length() - 1).stripTrailing();
+    }
+    return text.equalsIgnoreCase(NOT_AUTHORIZED);
   }
 }
