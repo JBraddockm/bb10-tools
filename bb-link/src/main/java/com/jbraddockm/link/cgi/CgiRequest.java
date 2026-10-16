@@ -1,5 +1,8 @@
 package com.jbraddockm.link.cgi;
 
+import com.jbraddockm.core.command.ProgressPhase;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Objects;
@@ -37,6 +40,19 @@ public sealed interface CgiRequest {
    * @return {@code true} if an empty answer means success
    */
   boolean emptyAnswerIsNormal();
+
+  /** How long the device may stay silent before a request is given up. */
+  Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(30);
+
+  /**
+   * Returns how long the device may stay silent while the request is being answered. Most requests
+   * are answered at once; an installation is not, and asks for more.
+   *
+   * @return the longest silence that is waited for
+   */
+  default Duration readTimeout() {
+    return DEFAULT_READ_TIMEOUT;
+  }
 
   /**
    * A GET, optionally with a query string.
@@ -146,12 +162,14 @@ public sealed interface CgiRequest {
    * @param fields the fields in the order they are sent
    * @param purpose what the request is for, in a few words, for log messages; may be empty
    * @param emptyAnswerIsNormal see {@link CgiRequest#emptyAnswerIsNormal()}
+   * @param readTimeout how long the device may stay silent before the request is given up
    */
   record Form(
       Endpoint endpoint,
       SequencedMap<FormField, String> fields,
       String purpose,
-      boolean emptyAnswerIsNormal)
+      boolean emptyAnswerIsNormal,
+      Duration readTimeout)
       implements CgiRequest {
 
     /** Takes an immutable copy of the fields. */
@@ -168,7 +186,7 @@ public sealed interface CgiRequest {
      * @return an empty form
      */
     public static Form to(Endpoint endpoint) {
-      return new Form(endpoint, new LinkedHashMap<>(), "", false);
+      return new Form(endpoint, new LinkedHashMap<>(), "", false, DEFAULT_READ_TIMEOUT);
     }
 
     /**
@@ -192,7 +210,7 @@ public sealed interface CgiRequest {
     public Form withText(FormField field, String text) {
       var copy = new LinkedHashMap<>(fields);
       copy.put(field, text);
-      return new Form(endpoint, copy, purpose, emptyAnswerIsNormal);
+      return new Form(endpoint, copy, purpose, emptyAnswerIsNormal, readTimeout);
     }
 
     /**
@@ -215,7 +233,7 @@ public sealed interface CgiRequest {
      * @return a new form with the purpose set
      */
     public Form describedAs(String what) {
-      return new Form(endpoint, fields, what, emptyAnswerIsNormal);
+      return new Form(endpoint, fields, what, emptyAnswerIsNormal, readTimeout);
     }
 
     /**
@@ -224,7 +242,17 @@ public sealed interface CgiRequest {
      * @return a new form that does not treat an empty answer as a lost session
      */
     public Form expectingNoBody() {
-      return new Form(endpoint, fields, purpose, true);
+      return new Form(endpoint, fields, purpose, true, readTimeout);
+    }
+
+    /**
+     * Sets how long the device may stay silent before the request is given up.
+     *
+     * @param longest the longest silence that is waited for
+     * @return the form with that limit
+     */
+    public Form waitingUpTo(Duration longest) {
+      return new Form(endpoint, fields, purpose, emptyAnswerIsNormal, longest);
     }
 
     /**
@@ -245,6 +273,124 @@ public sealed interface CgiRequest {
     @Override
     public String describe() {
       return purpose.isEmpty() ? "POST " + endpoint.fileName() : purpose;
+    }
+  }
+
+  /**
+   * A POST that carries a file as its raw body, as {@code application/octet-stream} with a known
+   * length. The file is streamed from disk, never held in memory.
+   *
+   * @param endpoint the CGI program
+   * @param query the query parameters in the order they are sent
+   * @param file the file to send
+   * @param length the number of bytes in the file, sent as the content length
+   * @param phase what progress events of the upload are called
+   * @param item what progress events of the upload name, for example the file's name
+   * @param purpose what the request does, in a few words, for log messages; may be empty
+   * @param readTimeout how long the device may stay silent while it takes the file and answers
+   */
+  record Upload(
+      Endpoint endpoint,
+      SequencedMap<QueryParameter, String> query,
+      Path file,
+      long length,
+      ProgressPhase phase,
+      String item,
+      String purpose,
+      Duration readTimeout)
+      implements CgiRequest {
+
+    /** Takes an immutable copy of the query. */
+    public Upload {
+      Objects.requireNonNull(endpoint, "endpoint");
+      Objects.requireNonNull(file, "file");
+      Objects.requireNonNull(phase, "phase");
+      Objects.requireNonNull(item, "item");
+      Objects.requireNonNull(purpose, "purpose");
+      Objects.requireNonNull(readTimeout, "readTimeout");
+      if (length < 0) {
+        throw new IllegalArgumentException("a file cannot have a negative length");
+      }
+      query = Collections.unmodifiableSequencedMap(new LinkedHashMap<>(query));
+    }
+
+    /**
+     * Starts the upload of a file.
+     *
+     * @param endpoint the CGI program
+     * @param file the file to send
+     * @param length the number of bytes in the file
+     * @param phase what progress events of the upload are called
+     * @param item what progress events of the upload name
+     * @return an upload without query parameters
+     */
+    public static Upload of(
+        Endpoint endpoint, Path file, long length, ProgressPhase phase, String item) {
+      return new Upload(
+          endpoint, new LinkedHashMap<>(), file, length, phase, item, "", DEFAULT_READ_TIMEOUT);
+    }
+
+    /**
+     * Adds a query parameter.
+     *
+     * @param parameter the parameter
+     * @param value its value
+     * @return the upload with the parameter added
+     */
+    public Upload with(QueryParameter parameter, WireValue value) {
+      var copy = new LinkedHashMap<>(query);
+      copy.put(parameter, value.wireName());
+      return new Upload(endpoint, copy, file, length, phase, item, purpose, readTimeout);
+    }
+
+    /**
+     * Sets what the request does, for log messages.
+     *
+     * @param what the purpose, in a few words
+     * @return the upload with that purpose
+     */
+    public Upload describedAs(String what) {
+      return new Upload(endpoint, query, file, length, phase, item, what, readTimeout);
+    }
+
+    /**
+     * Sets how long the device may stay silent while it takes the file and answers.
+     *
+     * @param longest the longest silence that is waited for
+     * @return the upload with that limit
+     */
+    public Upload waitingUpTo(Duration longest) {
+      return new Upload(endpoint, query, file, length, phase, item, purpose, longest);
+    }
+
+    /**
+     * Returns the path and the query string of the request.
+     *
+     * @return for example {@code /cgi-bin/update.cgi?type=bar}
+     */
+    public String pathAndQuery() {
+      if (query.isEmpty()) {
+        return endpoint.path();
+      }
+      return endpoint.path()
+          + '?'
+          + query.entrySet().stream()
+              .map(
+                  entry ->
+                      FormEncoding.encode(entry.getKey().wireName())
+                          + '='
+                          + FormEncoding.encode(entry.getValue()))
+              .collect(Collectors.joining("&"));
+    }
+
+    @Override
+    public boolean emptyAnswerIsNormal() {
+      return false;
+    }
+
+    @Override
+    public String describe() {
+      return purpose.isEmpty() ? "POST a file to " + endpoint.fileName() : purpose;
     }
   }
 }
