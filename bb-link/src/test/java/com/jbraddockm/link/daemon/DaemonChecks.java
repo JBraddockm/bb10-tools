@@ -167,7 +167,8 @@ public final class DaemonChecks {
               "getPimItems",
               "pairDevice",
               "listDevices",
-              "inspectPackage"),
+              "inspectPackage",
+              "installPackages"),
           hello.get("methods"),
           "advertised methods");
 
@@ -529,6 +530,82 @@ public final class DaemonChecks {
                               .contains("longer than 1024 bytes")),
           "a certificate over the device's limit is sent, with a warning");
 
+      // installing applications, through the protocol
+      device.updateProgress = List.of(50, 100);
+      var installDirectory = java.nio.file.Files.createTempDirectory("bb-link-install-daemon");
+      var toInstall = BarFiles.application(installDirectory, "one.bar", "gYABgInstall1", "3.0.0.1");
+      send.accept(request(300, "installPackages", session, files(toInstall)));
+      equal(Boolean.TRUE, done(sink, 300).get("ok"), "installPackages");
+      var installedData = resultData(sink, 300);
+      var installedList = (List<?>) installedData.get("installed");
+      equal(1, installedList.size(), "install: one package");
+      equal(
+          "gYABgInstall1",
+          ((Map<?, ?>) installedList.getFirst()).get("packageId"),
+          "install: its id");
+      equal("xml", installedData.get("bodyFormat"), "install: the device's last answer, as JSON");
+      var installProgress = eventsOf(sink, 300, "progress");
+      check(!installProgress.isEmpty(), "install: progress events");
+      check(
+          installProgress.stream().anyMatch(event -> "installing".equals(event.get("phase"))),
+          "install: the device's progress is named installing");
+      check(
+          eventsOf(sink, 300, "log").stream()
+              .anyMatch(event -> "Starting the installation".equals(event.get("message"))),
+          "install: the log says what is done, not which program");
+      check(
+          eventsOf(sink, 300, "log").size() >= 4,
+          "install: the log says what is done, at the start, during the upload and at the end");
+
+      send.accept(request(301, "installPackages", session, ""));
+      var noFiles = done(sink, 301);
+      equal("INVALID_ARGUMENT", errorCode(noFiles), "install: the files are required");
+      equal(
+          "files",
+          ((Map<?, ?>) ((Map<?, ?>) noFiles.get("error")).get("details")).get("param"),
+          "install: and named");
+      var systemBar =
+          BarFiles.write(installDirectory, "system.bar", BarFiles.manifest("Package-Type: system"));
+      send.accept(request(302, "installPackages", session, files(toInstall, systemBar)));
+      var refusedSystem = done(sink, 302);
+      equal("INVALID_ARGUMENT", errorCode(refusedSystem), "install: firmware is refused");
+      equal(
+          "files[1]",
+          ((Map<?, ?>) ((Map<?, ?>) refusedSystem.get("error")).get("details")).get("param"),
+          "install: naming the file");
+      var notBar =
+          java.nio.file.Files.writeString(installDirectory.resolve("text.bar"), "no archive");
+      send.accept(request(303, "installPackages", session, files(notBar)));
+      var refusedText = done(sink, 303);
+      equal("INVALID_ARGUMENT", errorCode(refusedText), "install: a file that is not a bar");
+      check(
+          String.valueOf(((Map<?, ?>) refusedText.get("error")).get("message"))
+              .contains("files[0]"),
+          "install: names which");
+      send.accept(
+          request(304, "installPackages", session, files(installDirectory.resolve("missing.bar"))));
+      var missingFile = done(sink, 304);
+      equal("IO_ERROR", errorCode(missingFile), "install: a file that is not there");
+      equal(
+          "files[0]",
+          ((Map<?, ?>) ((Map<?, ?>) missingFile.get("error")).get("details")).get("param"),
+          "install: names which");
+      var updateRequestsBefore = device.updateRequests.size();
+      device.updateFailsAt = "send";
+      send.accept(request(305, "installPackages", session, files(toInstall)));
+      var refusedByDevice = done(sink, 305);
+      device.updateFailsAt = "";
+      equal(Boolean.FALSE, refusedByDevice.get("ok"), "install: the device refuses the package");
+      equal("COMMAND_FAILED", errorCode(refusedByDevice), "install: as a failed command");
+      check(
+          eventsOf(sink, 305, "result").size() == 1,
+          "install: the answer is still sent, before the failure");
+      equal(
+          0,
+          ((List<?>) resultData(sink, 305).get("installed")).size(),
+          "install: nothing was installed");
+      check(device.updateRequests.size() > updateRequestsBefore, "install: the device was asked");
+
       // the share credentials can be asked for again
       send.accept(
           "{\"id\":70,\"method\":\"getSmbCredentials\",\"params\":{\"session\":\""
@@ -711,6 +788,15 @@ public final class DaemonChecks {
   private static String request(int id, String method, String session, String more) {
     return "{\"id\":%d,\"method\":\"%s\",\"params\":{\"session\":\"%s\"%s}}"
         .formatted(id, method, session, more);
+  }
+
+  /** The {@code files} parameter for a request, as the text that follows {@code session}. */
+  private static String files(java.nio.file.Path... bars) {
+    return ",\"files\":["
+        + java.util.Arrays.stream(bars)
+            .map(bar -> "\"" + bar.toString().replace("\\", "\\\\") + "\"")
+            .collect(java.util.stream.Collectors.joining(","))
+        + "]";
   }
 
   /** A request to inspect a bar. */

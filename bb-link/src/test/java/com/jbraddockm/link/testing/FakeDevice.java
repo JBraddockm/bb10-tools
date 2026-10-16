@@ -191,6 +191,48 @@ public final class FakeDevice implements AutoCloseable {
   /** Whether the device rejects every cookie, never accepting a session. */
   public volatile boolean alwaysRejectCookie;
 
+  /**
+   * The percentages that update.cgi answers, as {@code InProgress}, to the successive polls of one
+   * package; the poll after them answers {@code Success}. A real device says {@code InProgress}
+   * with 100 once before {@code Success} **[verified]**.
+   */
+  public volatile List<Integer> updateProgress = List.of(3, 100);
+
+  /** The status that update.cgi puts in {@code UpdateEnd}; empty for an end without a status. */
+  public volatile String updateEndStatus = "Success";
+
+  /**
+   * The stage at which update.cgi fails: {@code start}, {@code send}, {@code progress}, {@code
+   * finish}, or empty.
+   */
+  public volatile String updateFailsAt = "";
+
+  /** If not negative, update.cgi drops the connection after reading this many upload bytes. */
+  public volatile int updateDropUploadAfter = -1;
+
+  /** Whether update.cgi takes a whole upload and then closes the connection without an answer. */
+  public volatile boolean updateDropAfterUpload;
+
+  /** If set, update.cgi answers every request with this text. */
+  public volatile String updateAnswer;
+
+  /** If set, update.cgi answers every poll with this text. */
+  public volatile String updatePollAnswer;
+
+  /** What update.cgi was asked, one line per request, in order. */
+  public final List<String> updateRequests = Collections.synchronizedList(new ArrayList<>());
+
+  /** The user agent of every request to update.cgi. */
+  public final List<String> updateAgents = Collections.synchronizedList(new ArrayList<>());
+
+  private volatile int pollIndex;
+
+  /** A moment in the past, written as a device writes the date of a cookie. */
+  private static final String EXPIRED =
+      java.time.format.DateTimeFormatter.ofPattern(
+              "EEE, dd-MMM-yyyy HH:mm:ss 'GMT'", java.util.Locale.ENGLISH)
+          .format(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC).minusYears(1));
+
   private volatile String token = "TOKEN-1";
 
   /**
@@ -209,6 +251,7 @@ public final class FakeDevice implements AutoCloseable {
     server.createContext("/cgi-bin/wipe.cgi", exchange -> cgi(exchange, PIN_BODY));
     server.createContext("/cgi-bin/pimsync.cgi", this::pimSync);
     server.createContext("/cgi-bin/pairing.cgi", this::pairing);
+    server.createContext("/cgi-bin/update.cgi", this::update);
     server.start();
   }
 
@@ -448,6 +491,132 @@ public final class FakeDevice implements AutoCloseable {
           null,
           "application/json");
     }
+  }
+
+  /** Properties that say how much application space is free. */
+  public static String propertiesWithFreeSpace(long bytes) {
+    return DEFAULT_PROPERTIES.replace(
+        "<DeviceStatus>",
+        "<DeviceStatus><FreeApplicationSpace>" + bytes + "</FreeApplicationSpace>");
+  }
+
+  private static String updateAnswerOf(String element, String status, String extra) {
+    return "<RimTabletResponse><"
+        + element
+        + "><Status>"
+        + status
+        + "</Status>"
+        + extra
+        + "</"
+        + element
+        + "></RimTabletResponse>";
+  }
+
+  private static String updateError(String element, int identifier, String description) {
+    return updateAnswerOf(
+        element,
+        "Error",
+        "<ErrorIdentifier>"
+            + identifier
+            + "</ErrorIdentifier><ErrorDescription>"
+            + description
+            + "</ErrorDescription>");
+  }
+
+  /**
+   * update.cgi as the research describes it: a conversation tracked by a cookie that the start
+   * issues, a start (form with a mode and a size), uploads (raw octet-stream with a type in the
+   * query), polls (an empty form) and a finish (status=success).
+   */
+  private void update(HttpExchange exchange) throws IOException {
+    cgiRequests.incrementAndGet();
+    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+    var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+    updateAgents.add(String.valueOf(exchange.getRequestHeaders().getFirst("User-Agent")));
+    cookiesSeen.add(cookie == null ? "" : cookie);
+    var query = exchange.getRequestURI().getRawQuery();
+    var upload = contentType != null && contentType.startsWith("application/octet-stream");
+    if (upload && updateDropUploadAfter >= 0) {
+      var read = exchange.getRequestBody().readNBytes(updateDropUploadAfter);
+      updateRequests.add("upload dropped after " + read.length + " bytes");
+      exchange.close();
+      return;
+    }
+    var body = exchange.getRequestBody().readAllBytes();
+    if (upload && updateDropAfterUpload) {
+      updateRequests.add("upload received, not answered: bytes=" + body.length);
+      exchange.close();
+      return;
+    }
+    var form = new String(body, StandardCharsets.US_ASCII);
+    if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
+      updateRequests.add("no session");
+      fireHook();
+      respond(exchange, 200, "", null);
+      return;
+    }
+    String answer;
+    String setCookie = null;
+    var failure = updateFailsAt;
+    if (updateAnswer != null) {
+      updateRequests.add("answered with the given text");
+      answer = updateAnswer;
+    } else if (upload) {
+      updateRequests.add("upload " + query + " bytes=" + body.length + " type=" + contentType);
+      if (!"application/octet-stream".equals(contentType)) {
+        answer = updateError("UpdateSend", 9, "Expecting application/octet-stream");
+      } else if (failure.equals("send")) {
+        answer = updateError("UpdateSend", 12, "Cannot install bar file");
+      } else {
+        pollIndex = 0;
+        answer = updateAnswerOf("UpdateSend", "Success", "");
+      }
+    } else if (form.contains("mode=")) {
+      updateRequests.add("start " + form);
+      if (!(form.contains("mode=bar") || form.contains("mode=os") || form.contains("mode=app"))) {
+        answer =
+            updateError(
+                "UpdateStart", 3, "Expecting 'mode' attribute set to one of: 'app','os','bar'");
+      } else if (failure.equals("start")) {
+        answer = updateError("UpdateStart", 4, "unable to verify app manifest");
+      } else {
+        // The cookie arrives already expired, as on a real device, so a client never keeps it
+        // **[verified]**; nothing about the conversation depends on it.
+        setCookie = "update=" + System.nanoTime() + "; expires=" + EXPIRED + "; path=/";
+        answer = updateAnswerOf("UpdateStart", "Ready", "");
+      }
+    } else if (form.contains("status=success")) {
+      updateRequests.add("finish");
+      var end = updateEndStatus;
+      answer =
+          failure.equals("finish")
+              ? updateError("UpdateEnd", 6, "Cannot finish")
+              : end.isEmpty()
+                  ? "<RimTabletResponse><UpdateEnd/></RimTabletResponse>"
+                  : updateAnswerOf(
+                      "UpdateEnd", end, "<!-- Update ID: \n -->\n<!-- DTM status: success\n -->");
+    } else {
+      updateRequests.add("poll");
+      if (updatePollAnswer != null) {
+        answer = updatePollAnswer;
+      } else {
+        var steps = updateProgress;
+        var working = pollIndex < steps.size();
+        var percent = working ? steps.get(pollIndex) : 100;
+        pollIndex++;
+        if (failure.equals("progress") && pollIndex >= 2) {
+          answer = updateError("UpdateProgress", 7, "Installer result code: 2");
+        } else {
+          answer =
+              updateAnswerOf(
+                  "UpdateProgress",
+                  working ? "InProgress" : "Success",
+                  "<Progress>" + percent + "</Progress>\n<!-- Percentage of Install -->");
+        }
+      }
+    }
+    fireHook();
+    respond(exchange, 200, answer, setCookie);
   }
 
   /**

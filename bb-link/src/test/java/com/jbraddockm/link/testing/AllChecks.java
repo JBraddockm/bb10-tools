@@ -5,6 +5,7 @@ import com.jbraddockm.link.daemon.DaemonChecks;
 import com.jbraddockm.link.session.CertificateChecks;
 import com.jbraddockm.link.session.SessionChecks;
 import com.jbraddockm.link.session.StaleSessionChecks;
+import com.jbraddockm.link.update.InstallChecks;
 
 /** Runs every check of bb-link and sets the exit status. */
 public final class AllChecks {
@@ -23,6 +24,7 @@ public final class AllChecks {
     SessionChecks.run();
     CertificateChecks.run();
     StaleSessionChecks.run();
+    InstallChecks.run();
     DaemonChecks.run();
     System.exit(Checks.finish("bb-link checks"));
   }

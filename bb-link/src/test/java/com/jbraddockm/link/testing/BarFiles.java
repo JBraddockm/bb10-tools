@@ -71,4 +71,39 @@ public final class BarFiles {
             "Package-Version: " + version,
             "Package-Architecture: armle-v7"));
   }
+
+  /**
+   * Writes an application bar with a payload that does not compress, so that the file is about as
+   * large as asked, and uploads of it are big enough to report progress.
+   *
+   * @param directory where to write it
+   * @param name the file name
+   * @param packageId its {@code Package-Id}
+   * @param version its {@code Package-Version}
+   * @param payloadBytes the size of the payload
+   * @return the file
+   * @throws IOException if it cannot be written
+   */
+  public static Path withPayload(
+      Path directory, String name, String packageId, String version, int payloadBytes)
+      throws IOException {
+    var file = directory.resolve(name);
+    var payload = new byte[payloadBytes];
+    new java.util.Random(42).nextBytes(payload);
+    try (var out = new ZipOutputStream(Files.newOutputStream(file))) {
+      out.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"));
+      out.write(
+          manifest(
+                  "Package-Type: application",
+                  "Package-Name: Big App",
+                  "Package-Id: " + packageId,
+                  "Package-Version: " + version)
+              .getBytes(StandardCharsets.UTF_8));
+      out.closeEntry();
+      out.putNextEntry(new ZipEntry("native/app"));
+      out.write(payload);
+      out.closeEntry();
+    }
+    return file;
+  }
 }
