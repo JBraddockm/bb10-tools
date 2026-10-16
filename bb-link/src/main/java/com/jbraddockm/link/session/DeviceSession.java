@@ -79,7 +79,7 @@ public final class DeviceSession implements ServiceSession {
     try {
       return ConversationRunner.run(
           command.conversation(),
-          request -> {
+          (request, _) -> {
             var next = remaining.poll();
             if (next == null) {
               throw new IOException("the recording has no answer for this request");

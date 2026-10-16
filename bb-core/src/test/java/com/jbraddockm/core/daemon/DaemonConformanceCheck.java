@@ -84,16 +84,16 @@ public final class DaemonConformanceCheck {
               }),
           new CommandSpec.SessionScoped<StubSession>(
               "boom",
-              params ->
-                  (session, reply) -> {
+              _ ->
+                  (_, _) -> {
                     throw new IllegalStateException("kaboom");
                   }),
           new CommandSpec.SessionScoped<StubSession>(
-              "silent", params -> (session, reply) -> reply.onLog(LogLevel.DEBUG, "nothing more")),
+              "silent", _ -> (_, reply) -> reply.onLog(LogLevel.DEBUG, "nothing more")),
           new CommandSpec.SessionScoped<StubSession>(
               "block",
-              params ->
-                  (session, reply) -> {
+              _ ->
+                  (_, reply) -> {
                     try {
                       blockGate.await(10, TimeUnit.SECONDS);
                     } catch (InterruptedException _) {
@@ -103,8 +103,8 @@ public final class DaemonConformanceCheck {
                   }),
           new CommandSpec.SessionScoped<StubSession>(
               "hold",
-              params ->
-                  (session, reply) -> {
+              _ ->
+                  (_, reply) -> {
                     try {
                       holdGate.await(10, TimeUnit.SECONDS);
                     } catch (InterruptedException _) {
@@ -114,7 +114,7 @@ public final class DaemonConformanceCheck {
                   }),
           new CommandSpec.Standalone<StubSession>(
               "ping",
-              params ->
+              _ ->
                   reply -> {
                     reply.event("pong", Map.of("n", 1L));
                     reply.result("ping", Json.object("pong", true), null);

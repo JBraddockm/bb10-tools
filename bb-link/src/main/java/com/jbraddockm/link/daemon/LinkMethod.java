@@ -115,9 +115,9 @@ enum LinkMethod {
 
   CommandSpec<DeviceSession> spec(DeviceScanner scanner) {
     return switch (this) {
-      case GET_DEVICE_PROPERTIES -> onSession(params -> new GetDeviceProperties());
-      case GET_PIN -> onSession(params -> new GetPin());
-      case LIST_PIM_ACCOUNTS -> onSession(params -> new ListPimAccounts());
+      case GET_DEVICE_PROPERTIES -> onSession(_ -> new GetDeviceProperties());
+      case GET_PIN -> onSession(_ -> new GetPin());
+      case LIST_PIM_ACCOUNTS -> onSession(_ -> new ListPimAccounts());
       case FIND_PIM_ACCOUNT ->
           onSession(params -> new FindPimAccount(params.requireString("workstationId")));
       case GET_PIM_ITEMS -> onSession(LinkMethod::getPimItems);
@@ -147,7 +147,7 @@ enum LinkMethod {
       case GET_SMB_CREDENTIALS ->
           new CommandSpec.SessionScoped<>(
               wireName,
-              params ->
+              _ ->
                   (session, reply) ->
                       session
                           .smbCredentials()
@@ -164,7 +164,7 @@ enum LinkMethod {
       case LIST_DEVICES ->
           new CommandSpec.Standalone<>(
               wireName,
-              params ->
+              _ ->
                   reply ->
                       reply.complete(
                           wireName,

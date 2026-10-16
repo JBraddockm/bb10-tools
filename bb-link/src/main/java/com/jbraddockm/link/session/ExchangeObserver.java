@@ -8,7 +8,7 @@ import java.util.List;
 public interface ExchangeObserver {
 
   /** An observer that ignores everything. */
-  ExchangeObserver NONE = (requestLine, requestBody, cookieNames, response) -> {};
+  ExchangeObserver NONE = (_, _, _, _) -> {};
 
   /**
    * Called after the device answered.

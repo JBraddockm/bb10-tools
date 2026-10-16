@@ -351,13 +351,13 @@ public final class BarInspectorCheck {
       try {
         BarInspector.inspect(directory.resolve("missing.bar"));
         check(false, "a file that is not there should be an I/O error");
-      } catch (NoSuchFileException expected) {
+      } catch (NoSuchFileException _) {
         check(true, "a file that is not there is an I/O error");
       }
       try {
         BarInspector.validate(notZip);
         check(false, "validating a file that is not a ZIP should fail");
-      } catch (InvalidBarException expected) {
+      } catch (InvalidBarException _) {
         check(true, "validating a file that is not a ZIP fails");
       }
 
