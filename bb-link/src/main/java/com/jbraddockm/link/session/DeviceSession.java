@@ -161,7 +161,9 @@ public final class DeviceSession implements ServiceSession {
       try {
         ensureLoggedIn(listener);
         return ConversationRunner.run(
-            command.conversation(), request -> transport.send(request), listener);
+            command.conversation(),
+            (request, observer) -> transport.send(request, observer),
+            listener);
       } catch (StaleSessionException stale) {
         discardTransport();
         if (stale.firstExchange() && !loginRenewed) {

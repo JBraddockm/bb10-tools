@@ -21,7 +21,13 @@ public enum LinkErrorCode implements ErrorCode {
    * The device asked for a password during the login and none was given. No answer was sent, so no
    * failed attempt was counted. A client can prompt for the password and connect again.
    */
-  PASSWORD_REQUIRED;
+  PASSWORD_REQUIRED,
+
+  /**
+   * The device does not have enough free space for what was to be installed. Nothing was sent to
+   * install. The details give the bytes needed and the bytes free.
+   */
+  NOT_ENOUGH_SPACE;
 
   @Override
   public String wireName() {

@@ -1,11 +1,14 @@
 package com.jbraddockm.link.daemon;
 
+import com.jbraddockm.core.bar.BarInfo;
+import com.jbraddockm.core.bar.BarKind;
 import com.jbraddockm.core.command.CommandOutcome;
 import com.jbraddockm.core.command.CommandResult;
 import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.daemon.CommandSpec;
 import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.error.CoreErrorCode;
+import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.link.actions.ConfirmedByPin;
 import com.jbraddockm.link.actions.GetPin;
@@ -20,8 +23,14 @@ import com.jbraddockm.link.pimsync.PimService;
 import com.jbraddockm.link.properties.GetDeviceProperties;
 import com.jbraddockm.link.session.DeviceCommand;
 import com.jbraddockm.link.session.DeviceSession;
+import com.jbraddockm.link.update.BarSelection;
 import com.jbraddockm.link.update.InspectPackage;
+import com.jbraddockm.link.update.InstallPackages;
+import com.jbraddockm.link.update.InstallResult;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -64,7 +73,28 @@ enum LinkMethod {
    * Reads what a bar says about its package, and optionally checks it against BlackBerry's rules.
    * Needs neither a session nor a device.
    */
-  INSPECT_PACKAGE("inspectPackage");
+  INSPECT_PACKAGE("inspectPackage"),
+
+  /**
+   * Installs applications from bars on the device. Changes the device, so it is never repeated
+   * after a dropped connection.
+   */
+  INSTALL_PACKAGES("installPackages");
+
+  /** The package that a replayed installation is attributed to; what the recording says is kept. */
+  private static final BarInfo REPLAY_BAR =
+      new BarInfo(
+          Path.of("replay.bar"),
+          1024,
+          BarKind.APPLICATION,
+          "application",
+          "replay.package",
+          "Replay",
+          "1.0.0.0",
+          "armle-v7",
+          "1.5",
+          false,
+          false);
 
   /** The workstation identifier that replayed recordings are attributed to. */
   private static final String REPLAY_WORKSTATION = "replay";
@@ -75,12 +105,25 @@ enum LinkMethod {
     this.wireName = wireName;
   }
 
-  String wireName() {
-    return wireName;
-  }
-
   static Optional<LinkMethod> byWireName(String name) {
     return Arrays.stream(values()).filter(method -> method.wireName.equals(name)).findFirst();
+  }
+
+  /** Reads the parameters of {@code getPimItems}; a bad one is reported before anything is sent. */
+  private static GetPimItems getPimItems(RequestParams params) {
+    return new GetPimItems(
+        params.requireString("workstationId"),
+        PimService.of(params.requireString("service")),
+        new PimFilters(
+            params.optionalString("updatedTime"),
+            params.optionalInteger("limit", 1, Integer.MAX_VALUE),
+            params.flag("dirtyOnly"),
+            params.flag("localOnly"),
+            params.optionalInteger("offset", 0, Integer.MAX_VALUE)));
+  }
+
+  String wireName() {
+    return wireName;
   }
 
   /**
@@ -89,7 +132,7 @@ enum LinkMethod {
    * @param argument what follows the method name after a dot in {@code -parse}, for example the
    *     service of {@code getPimItems.contacts}; only {@link #GET_PIM_ITEMS} takes one, and needs
    *     it
-   * @throws com.jbraddockm.core.error.InvalidArgumentException if the argument is not accepted
+   * @throws InvalidArgumentException if the argument is not accepted
    */
   Optional<DeviceCommand<?>> replayCommand(Optional<String> argument) {
     return switch (this) {
@@ -109,6 +152,10 @@ enum LinkMethod {
       case GET_PIM_ITEMS ->
           argument.map(
               name -> new GetPimItems(REPLAY_WORKSTATION, PimService.of(name), PimFilters.none()));
+      case INSTALL_PACKAGES ->
+          argument.isEmpty()
+              ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
+              : Optional.empty();
       case GET_SMB_CREDENTIALS, LIST_DEVICES, INSPECT_PACKAGE -> Optional.empty();
     };
   }
@@ -143,6 +190,29 @@ enum LinkMethod {
                   }
                   reply.complete(wireName, session.execute(command, reply), includeRaw);
                 };
+              });
+      case INSTALL_PACKAGES ->
+          new CommandSpec.SessionScoped<>(
+              wireName,
+              params -> {
+                var names = params.requireStrings("files");
+                var includeRaw = params.flag("raw");
+                return (session, reply) ->
+                    // The bars are read here, on the session's own thread, not while the request
+                    // is read: the manifests have to be opened.
+                    reply.complete(
+                        wireName,
+                        switch (BarSelection.of(names)) {
+                          case BarSelection.Refused(var error) -> CommandOutcome.failed(error);
+                          case BarSelection.Selected(var bars) -> {
+                            try {
+                              yield session.execute(InstallPackages.of(bars), reply);
+                            } catch (InvalidArgumentException invalid) {
+                              yield CommandOutcome.<InstallResult>failed(invalid.toServiceError());
+                            }
+                          }
+                        },
+                        includeRaw);
               });
       case GET_SMB_CREDENTIALS ->
           new CommandSpec.SessionScoped<>(
@@ -182,19 +252,6 @@ enum LinkMethod {
                     reply.complete(wireName, InspectPackage.inspect(file, validate), false);
               });
     };
-  }
-
-  /** Reads the parameters of {@code getPimItems}; a bad one is reported before anything is sent. */
-  private static GetPimItems getPimItems(RequestParams params) {
-    return new GetPimItems(
-        params.requireString("workstationId"),
-        PimService.of(params.requireString("service")),
-        new PimFilters(
-            params.optionalString("updatedTime"),
-            params.optionalInteger("limit", 1, Integer.MAX_VALUE),
-            params.flag("dirtyOnly"),
-            params.flag("localOnly"),
-            params.optionalInteger("offset", 0, Integer.MAX_VALUE)));
   }
 
   /**

@@ -3,9 +3,12 @@ package com.jbraddockm.link.session;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.cgi.CgiRequest;
 import com.jbraddockm.link.cgi.CgiResponse;
+import com.jbraddockm.link.cgi.UploadObserver;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.time.Duration;
 import javax.net.ssl.KeyManager;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -14,6 +17,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
@@ -32,7 +36,6 @@ import org.apache.http.util.EntityUtils;
 final class CgiTransport implements AutoCloseable {
 
   private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
-  private static final int READ_TIMEOUT_MILLIS = 30_000;
   private static final String USER_AGENT = "QNXWebClient/1.0";
 
   private final DeviceTarget target;
@@ -63,6 +66,10 @@ final class CgiTransport implements AutoCloseable {
     return new KeyManager[] {new FixedClientKeyManager(PemIdentity.load(source))};
   }
 
+  private static String valueOf(Header header) {
+    return header == null ? null : header.getValue();
+  }
+
   DeviceTarget target() {
     return target;
   }
@@ -76,6 +83,10 @@ final class CgiTransport implements AutoCloseable {
   }
 
   CgiResponse send(CgiRequest request) throws IOException {
+    return send(request, UploadObserver.NONE);
+  }
+
+  CgiResponse send(CgiRequest request, UploadObserver observer) throws IOException {
     return switch (request) {
       case CgiRequest.Get get -> get(get.pathAndQuery());
       case CgiRequest.Form form -> {
@@ -85,9 +96,34 @@ final class CgiTransport implements AutoCloseable {
         var entity = new ByteArrayEntity(body.getBytes(StandardCharsets.US_ASCII));
         entity.setContentType("application/x-www-form-urlencoded");
         post.setEntity(entity);
-        yield execute(post, "POST " + form.endpoint().path(), body);
+        yield execute(post, "POST " + form.endpoint().path(), body, form.readTimeout());
       }
+      case CgiRequest.Upload upload -> upload(upload, observer);
     };
+  }
+
+  /**
+   * Sends a file as the raw body of a POST, streamed from disk with its length known. The trace
+   * gets the name and the size of the file and never its content.
+   */
+  private CgiResponse upload(CgiRequest.Upload upload, UploadObserver observer) throws IOException {
+    try (var stream =
+        new CountingInputStream(Files.newInputStream(upload.file()), upload.length(), observer)) {
+      var post = new HttpPost(checkedUrl(upload.pathAndQuery()));
+      post.getParams().setBooleanParameter("http.protocol.expect-continue", false);
+      var entity = new InputStreamEntity(stream, upload.length());
+      entity.setContentType("application/octet-stream");
+      post.setEntity(entity);
+      return execute(
+          post,
+          "POST " + upload.pathAndQuery(),
+          "(application/octet-stream, "
+              + upload.length()
+              + " bytes: "
+              + upload.file().getFileName()
+              + ")",
+          upload.readTimeout());
+    }
   }
 
   private String checkedUrl(String pathAndQuery) {
@@ -100,7 +136,13 @@ final class CgiTransport implements AutoCloseable {
 
   private CgiResponse execute(HttpUriRequest request, String requestLine, String requestBody)
       throws IOException {
-    HttpConnectionParams.setSoTimeout(request.getParams(), READ_TIMEOUT_MILLIS);
+    return execute(request, requestLine, requestBody, CgiRequest.DEFAULT_READ_TIMEOUT);
+  }
+
+  private CgiResponse execute(
+      HttpUriRequest request, String requestLine, String requestBody, Duration readTimeout)
+      throws IOException {
+    HttpConnectionParams.setSoTimeout(request.getParams(), (int) readTimeout.toMillis());
     var cookieNames =
         cookies.getCookies().stream().map(cookie -> cookie.getName()).sorted().toList();
     var response = client.execute(request, context);
@@ -116,10 +158,6 @@ final class CgiTransport implements AutoCloseable {
             valueOf(setCookie));
     observer.onExchange(requestLine, requestBody, cookieNames, result);
     return result;
-  }
-
-  private static String valueOf(Header header) {
-    return header == null ? null : header.getValue();
   }
 
   @Override
