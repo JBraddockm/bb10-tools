@@ -836,6 +836,38 @@ public final class SessionChecks {
       }
     }
 
+    // the real shape: the description and the number sit in an Error element
+    try (var device = new FakeDevice("secret")) {
+      device.propertiesXml =
+          "<RimTabletResponse><DynamicProperties><Status>Error</Status><Error>"
+              + "<ErrorIdentifier>30</ErrorIdentifier>"
+              + "<ErrorDescription>Error - something went wrong.</ErrorDescription>"
+              + "</Error></DynamicProperties></RimTabletResponse>";
+      try (var session = session(device, "secret")) {
+        var outcome = failed(properties(session, new Logs()));
+        equal("COMMAND_FAILED", code(outcome), "a nested device-reported error");
+        equal(
+            "Error - something went wrong.",
+            outcome.error().message(),
+            "carries the device's words");
+        equal(30, outcome.error().details().get("errorIdentifier"), "and its error number");
+        equal("DynamicProperties", outcome.error().details().get("element"), "and the element");
+      }
+    }
+    try (var device = new FakeDevice("secret")) {
+      device.propertiesXml =
+          "<RimTabletResponse><DynamicProperties><Status>Error</Status></DynamicProperties></RimTabletResponse>";
+      try (var session = session(device, "secret")) {
+        var outcome = failed(properties(session, new Logs()));
+        equal(
+            "The device reported an error",
+            outcome.error().message(),
+            "no description: generic text");
+        check(
+            !outcome.error().details().containsKey("errorIdentifier"), "and no number is invented");
+      }
+    }
+
     var directory = Files.createTempDirectory("bb-link-trace");
     try (var device = new FakeDevice("secret");
         var session = session(device, "secret", new TraceRecorder(directory))) {

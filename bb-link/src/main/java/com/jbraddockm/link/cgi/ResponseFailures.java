@@ -5,6 +5,7 @@ import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.LinkErrorCode;
 import com.jbraddockm.link.internal.Scrub;
+import com.jbraddockm.link.xml.XmlElement;
 import java.util.Optional;
 
 /** Turns an answer that is not the expected one into the right error. */
@@ -12,6 +13,8 @@ public final class ResponseFailures {
 
   private static final String STATUS = "Status";
   private static final String ERROR_STATUS = "Error";
+  private static final String ERROR = "Error";
+  private static final String ERROR_IDENTIFIER = "ErrorIdentifier";
   private static final String ERROR_DESCRIPTION = "ErrorDescription";
 
   private ResponseFailures() {}
@@ -30,14 +33,31 @@ public final class ResponseFailures {
       return Optional.empty();
     }
     var description =
-        payload
-            .childText(ERROR_DESCRIPTION)
+        errorText(payload, ERROR_DESCRIPTION)
             .map(Scrub::forDisplay)
             .filter(text -> !text.isEmpty())
             .orElse("The device reported an error");
-    return Optional.of(
-        new ServiceError(
-            CoreErrorCode.COMMAND_FAILED, description, Json.object("element", response.name())));
+    var details = Json.object("element", response.name());
+    errorText(payload, ERROR_IDENTIFIER)
+        .flatMap(ResponseFailures::integer)
+        .ifPresent(identifier -> details.put("errorIdentifier", identifier));
+    return Optional.of(new ServiceError(CoreErrorCode.COMMAND_FAILED, description, details));
+  }
+
+  /**
+   * Reads a field of the error. Devices put it in an {@code Error} element inside the answer; the
+   * answer itself is also looked at, in case a program writes the field there.
+   */
+  private static Optional<String> errorText(XmlElement payload, String name) {
+    return payload.textAt(ERROR, name).or(() -> payload.childText(name));
+  }
+
+  private static Optional<Integer> integer(String text) {
+    try {
+      return Optional.of(Integer.valueOf(text.strip()));
+    } catch (NumberFormatException _) {
+      return Optional.empty();
+    }
   }
 
   /**
