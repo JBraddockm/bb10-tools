@@ -171,8 +171,20 @@ public final class RequestParams {
    * @throws InvalidArgumentException if the value is not a boolean
    */
   public boolean flag(String name) {
+    return flag(name, false);
+  }
+
+  /**
+   * Reads a boolean flag that has a default other than {@code false}.
+   *
+   * @param name the parameter name
+   * @param fallback the value if the parameter is absent
+   * @return the value, or the fallback if the parameter is absent
+   * @throws InvalidArgumentException if the value is not a boolean
+   */
+  public boolean flag(String name, boolean fallback) {
     return switch (values.get(name)) {
-      case null -> false;
+      case null -> fallback;
       case Boolean value -> value;
       default -> throw new InvalidArgumentException(name, "must be a boolean");
     };
