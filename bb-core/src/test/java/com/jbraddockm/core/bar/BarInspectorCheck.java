@@ -12,10 +12,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 /**
@@ -185,7 +187,7 @@ public final class BarInspectorCheck {
             whole.packageId() != null && whole.packageVersion() != null,
             "the whole real bar: id and version");
         // reading depends on the manifest and on nothing else of the archive
-        try (var archive = new java.util.zip.ZipFile(sample)) {
+        try (var archive = new ZipFile(sample)) {
           var text =
               new String(
                   archive.getInputStream(archive.getEntry("META-INF/MANIFEST.MF")).readAllBytes(),
@@ -376,7 +378,7 @@ public final class BarInspectorCheck {
     } finally {
       try (Stream<Path> files = Files.walk(directory)) {
         files
-            .sorted(java.util.Comparator.reverseOrder())
+            .sorted(Comparator.reverseOrder())
             .forEach(
                 file -> {
                   try {

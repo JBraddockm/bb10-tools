@@ -7,6 +7,7 @@ import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.command.Progress;
 import com.jbraddockm.core.command.ProgressPhase;
 import com.jbraddockm.core.error.CoreErrorCode;
+import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
 import java.io.ByteArrayOutputStream;
@@ -18,8 +19,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -185,7 +189,7 @@ public final class DaemonConformanceCheck {
   }
 
   private static boolean isDone(Map<?, ?> event, Object id) {
-    return "done".equals(event.get("type")) && java.util.Objects.equals(id, event.get("id"));
+    return "done".equals(event.get("type")) && Objects.equals(id, event.get("id"));
   }
 
   private static Map<?, ?> doneOf(EventSink sink, Object id) throws InterruptedException {
@@ -197,7 +201,7 @@ public final class DaemonConformanceCheck {
 
   private static List<String> typesOf(EventSink sink, Object id) {
     return sink.snapshot().stream()
-        .filter(event -> java.util.Objects.equals(id, event.get("id")))
+        .filter(event -> Objects.equals(id, event.get("id")))
         .map(event -> (String) event.get("type"))
         .toList();
   }
@@ -216,14 +220,14 @@ public final class DaemonConformanceCheck {
       var rejected = false;
       try {
         params.optionalInteger(name, 1, 10);
-      } catch (com.jbraddockm.core.error.InvalidArgumentException failure) {
+      } catch (InvalidArgumentException failure) {
         rejected = failure.parameter().equals(name);
       }
       check(rejected, "an optional integer that is out of range or not a number: " + name);
     }
     var nested = new RequestParams(Map.of("inner", Map.of("a", "x", "b", 1L), "text", "no"));
     equal(
-        java.util.Set.of("a", "b"),
+        Set.of("a", "b"),
         nested.requireObject("inner").names(),
         "a nested object and the names in it");
     equal(
@@ -233,12 +237,17 @@ public final class DaemonConformanceCheck {
       var rejected = false;
       try {
         nested.requireObject(name);
-      } catch (com.jbraddockm.core.error.InvalidArgumentException failure) {
+      } catch (InvalidArgumentException failure) {
         rejected = failure.parameter().equals(name);
       }
       check(rejected, "a required object that is absent or not an object: " + name);
     }
     check(params.flag("flag"), "a flag that is set");
+    check(!params.flag("absent"), "a flag that is absent is false");
+    check(params.flag("absent", true), "a flag that is absent takes the default it is given");
+    check(
+        !new RequestParams(Map.of("check", false)).flag("check", true),
+        "and a flag that is set wins");
     check(!params.flag("missing"), "a flag that is absent");
   }
 
@@ -264,7 +273,7 @@ public final class DaemonConformanceCheck {
                     failure.printStackTrace();
                   }
                 });
-    java.util.function.Consumer<String> send =
+    Consumer<String> send =
         line -> {
           try {
             toServer.write((line + "\n").getBytes(StandardCharsets.UTF_8));
