@@ -708,6 +708,45 @@ public final class DaemonChecks {
       equal(
           device.currentSharePassword(), resultData(sink, 71).get("password"), "the latest login");
 
+      // a connection that only logs in: nothing of the device is read
+      send.accept(connect(320, device, "wrong", ",\"deviceInfo\":false"));
+      var loginOnlyRejected = done(sink, 320);
+      equal(
+          "AUTH_FAILED",
+          errorCode(loginOnlyRejected),
+          "login only: a wrong password is still refused");
+      var requestsBeforeLoginOnly = device.cgiRequests.get();
+      send.accept(connect(321, device, "secret", ",\"deviceInfo\":false"));
+      equal(Boolean.TRUE, done(sink, 321).get("ok"), "connect that only logs in");
+      var loggedInOnly = resultData(sink, 321);
+      equal(
+          List.of("session", "host", "port", "authentication", "smb"),
+          List.copyOf((Set<?>) loggedInOnly.keySet()),
+          "login only: the fields, without a device");
+      check(
+          loggedInOnly.get("smb") != null,
+          "login only: the share credentials of the login are there");
+      equal(
+          requestsBeforeLoginOnly,
+          device.cgiRequests.get(),
+          "login only: no program of the device was asked anything");
+      var loginOnlySession = (String) loggedInOnly.get("session");
+      send.accept(request(322, "getPin", loginOnlySession, ""));
+      equal(Boolean.TRUE, done(sink, 322).get("ok"), "login only: the session works afterwards");
+      equal(
+          requestsBeforeLoginOnly + 1,
+          device.cgiRequests.get(),
+          "login only: and what is asked later is asked then");
+      send.accept(
+          "{\"id\":323,\"method\":\"disconnect\",\"params\":{\"session\":\""
+              + loginOnlySession
+              + "\"}}");
+      equal(Boolean.TRUE, done(sink, 323).get("ok"), "login only: and it can be closed");
+      send.accept(connect(324, device, "secret", ",\"deviceInfo\":\"no\""));
+      var notBoolean = done(sink, 324);
+      equal("INVALID_ARGUMENT", errorCode(notBoolean), "deviceInfo must be a boolean");
+      equal("deviceInfo", detailsOf(notBoolean).get("param"), "and is named");
+
       // disconnect
       send.accept(
           "{\"id\":11,\"method\":\"disconnect\",\"params\":{\"session\":\"" + session + "\"}}");
@@ -901,7 +940,18 @@ public final class DaemonChecks {
 
   /** A connect request with the given {@code authentication} object, as JSON text. */
   private static String authenticate(int id, FakeDevice device, String authentication) {
-    return "{\"id\":%d,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"port\":%d,\"authentication\":%s}}"
-        .formatted(id, device.port(), authentication);
+    return authenticate(id, device, authentication, "");
+  }
+
+  /** A connect request with more parameters, as the text that follows {@code authentication}. */
+  private static String authenticate(
+      int id, FakeDevice device, String authentication, String more) {
+    return "{\"id\":%d,\"method\":\"connect\",\"params\":{\"host\":\"127.0.0.1\",\"port\":%d,\"authentication\":%s%s}}"
+        .formatted(id, device.port(), authentication, more);
+  }
+
+  private static String connect(int id, FakeDevice device, String password, String more) {
+    return authenticate(
+        id, device, "{\"type\":\"password\",\"password\":\"%s\"}".formatted(password), more);
   }
 }
