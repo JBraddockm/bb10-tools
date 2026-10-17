@@ -27,12 +27,14 @@ import com.jbraddockm.link.update.BarSelection;
 import com.jbraddockm.link.update.InspectPackage;
 import com.jbraddockm.link.update.InstallPackages;
 import com.jbraddockm.link.update.InstallResult;
+import com.jbraddockm.link.update.UninstallPackages;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 /**
  * The methods bb-link offers beyond {@code connect}, {@code disconnect} and {@code shutdown}. Each
@@ -79,7 +81,13 @@ enum LinkMethod {
    * Installs applications from bars on the device. Changes the device, so it is never repeated
    * after a dropped connection.
    */
-  INSTALL_PACKAGES("installPackages");
+  INSTALL_PACKAGES("installPackages"),
+
+  /**
+   * Removes applications from the device by their package ids. Changes the device, and removes the
+   * applications' data; never repeated after a dropped connection.
+   */
+  UNINSTALL_PACKAGES("uninstallPackages");
 
   /** The package that a replayed installation is attributed to; what the recording says is kept. */
   private static final BarInfo REPLAY_BAR =
@@ -107,6 +115,33 @@ enum LinkMethod {
 
   static Optional<LinkMethod> byWireName(String name) {
     return Arrays.stream(values()).filter(method -> method.wireName.equals(name)).findFirst();
+  }
+
+  /**
+   * A removal to replay a recording with: one package, or as many as the argument says (1 to 9), as
+   * in {@code uninstallPackages.2}. The package ids are made up; what the recording says is kept.
+   */
+  private static Optional<DeviceCommand<?>> replayedRemoval(Optional<String> argument) {
+    var text = argument.orElse("1");
+    if (!text.matches("[1-9]")) {
+      return Optional.empty();
+    }
+    var count = Integer.parseInt(text);
+    var packageIds =
+        count == 1
+            ? List.of("replay.package")
+            : IntStream.rangeClosed(1, count)
+                .mapToObj(number -> "replay.package." + number)
+                .toList();
+    return Optional.of(new UninstallPackages(packageIds, false));
+  }
+
+  /**
+   * Reads the parameters of {@code uninstallPackages}; a bad one is reported before anything is
+   * sent.
+   */
+  private static UninstallPackages uninstallPackages(RequestParams params) {
+    return new UninstallPackages(params.requireStrings("packageIds"), params.flag("check", true));
   }
 
   /** Reads the parameters of {@code getPimItems}; a bad one is reported before anything is sent. */
@@ -156,6 +191,7 @@ enum LinkMethod {
           argument.isEmpty()
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
               : Optional.empty();
+      case UNINSTALL_PACKAGES -> replayedRemoval(argument);
       case GET_SMB_CREDENTIALS, LIST_DEVICES, INSPECT_PACKAGE -> Optional.empty();
     };
   }
@@ -168,6 +204,7 @@ enum LinkMethod {
       case FIND_PIM_ACCOUNT ->
           onSession(params -> new FindPimAccount(params.requireString("workstationId")));
       case GET_PIM_ITEMS -> onSession(LinkMethod::getPimItems);
+      case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
       case PAIR_DEVICE ->
           new CommandSpec.SessionScoped<>(
               wireName,
