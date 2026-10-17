@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Random;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -89,7 +90,7 @@ public final class BarFiles {
       throws IOException {
     var file = directory.resolve(name);
     var payload = new byte[payloadBytes];
-    new java.util.Random(42).nextBytes(payload);
+    new Random(42).nextBytes(payload);
     try (var out = new ZipOutputStream(Files.newOutputStream(file))) {
       out.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"));
       out.write(

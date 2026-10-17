@@ -5,6 +5,8 @@ import static com.jbraddockm.link.testing.Checks.equal;
 
 import com.jbraddockm.core.command.CommandListener;
 import com.jbraddockm.core.command.CommandOutcome;
+import com.jbraddockm.core.command.LogLevel;
+import com.jbraddockm.core.command.Progress;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.GetDeviceProperties;
@@ -16,6 +18,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import javax.net.ssl.SSLHandshakeException;
@@ -52,17 +56,17 @@ public final class CertificateChecks {
 
   /** Collects what a command reports. */
   private static final class Collected implements CommandListener {
-    final List<String> warnings = new java.util.ArrayList<>();
+    final List<String> warnings = new ArrayList<>();
 
     @Override
-    public void onLog(com.jbraddockm.core.command.LogLevel level, String message) {
-      if (level == com.jbraddockm.core.command.LogLevel.WARN) {
+    public void onLog(LogLevel level, String message) {
+      if (level == LogLevel.WARN) {
         warnings.add(message);
       }
     }
 
     @Override
-    public void onProgress(com.jbraddockm.core.command.Progress progress) {}
+    public void onProgress(Progress progress) {}
   }
 
   private static CommandOutcome.Failed<?> failed(CommandOutcome<?> outcome) {
@@ -385,7 +389,7 @@ public final class CertificateChecks {
     check(
         new Authentication.Password("x").certificateToOffer().isEmpty(),
         "a password login offers none");
-    for (var blank : java.util.Arrays.asList("", "  ", null)) {
+    for (var blank : Arrays.asList("", "  ", null)) {
       check(
           rejects(() -> new Authentication.Password(blank)),
           "a blank password is refused: " + blank);

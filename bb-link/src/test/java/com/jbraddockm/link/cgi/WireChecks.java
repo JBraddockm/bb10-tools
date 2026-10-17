@@ -7,7 +7,10 @@ import com.jbraddockm.link.internal.Scrub;
 import com.jbraddockm.link.xml.MalformedXmlException;
 import com.jbraddockm.link.xml.XmlJson;
 import com.jbraddockm.link.xml.XmlParser;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /** Checks the wire vocabulary: form encoding, the XML reader, envelopes and scrubbing. */
 public final class WireChecks {
@@ -26,22 +29,22 @@ public final class WireChecks {
   /** The mapping of XML to JSON, and what a body is turned into. */
   private static void bodies() {
     var tree =
-        (java.util.Map<?, ?>)
+        (Map<?, ?>)
             XmlJson.convert(
                 XmlParser.parse(
                     "<R><A>1</A><B/><C><D>x</D><D>y</D><E k=\"v\"/></C><F"
                         + " k=\"v\">text</F><G>one</G><G>two</G><G>three</G><!-- ignored --></R>"));
     equal(
         List.of("A", "B", "C", "F", "G"),
-        List.copyOf((java.util.Set<?>) tree.keySet()),
+        List.copyOf((Set<?>) tree.keySet()),
         "members in document order; the root's name is dropped");
     equal("1", tree.get("A"), "a number stays text");
     equal("", tree.get("B"), "an empty element is an empty string");
-    var c = (java.util.Map<?, ?>) tree.get("C");
+    var c = (Map<?, ?>) tree.get("C");
     equal(List.of("x", "y"), c.get("D"), "a repeated name becomes an array");
-    equal(java.util.Map.of("@k", "v"), c.get("E"), "an attribute is a member starting with @");
+    equal(Map.of("@k", "v"), c.get("E"), "an attribute is a member starting with @");
     equal(
-        java.util.Map.of("@k", "v", "#text", "text"),
+        Map.of("@k", "v", "#text", "text"),
         tree.get("F"),
         "attributes and text: the text is #text");
     equal(List.of("one", "two", "three"), tree.get("G"), "three of a name make an array of three");
@@ -55,14 +58,11 @@ public final class WireChecks {
             "<?xml version=\"1.0\"?>\n"
                 + "<RimTabletResponse><Pairing><Status>Error</Status></Pairing></RimTabletResponse>\n");
     equal(BodyFormat.XML, xml.format(), "XML is recognised by its content");
-    equal(
-        java.util.Map.of("Pairing", java.util.Map.of("Status", "Error")),
-        xml.value(),
-        "and becomes JSON");
+    equal(Map.of("Pairing", Map.of("Status", "Error")), xml.value(), "and becomes JSON");
     var object = ResponseBody.of(" {\"a\":[1,2.5,\"x\",null,true]}\n");
     equal(BodyFormat.JSON, object.format(), "JSON is recognised by its content");
     equal(
-        java.util.Map.of("a", java.util.Arrays.asList(1L, 2.5, "x", null, true)),
+        Map.of("a", Arrays.asList(1L, 2.5, "x", null, true)),
         object.value(),
         "and is the tree itself");
     equal(BodyFormat.JSON, ResponseBody.of("[]").format(), "an array");

@@ -6,12 +6,18 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -229,9 +235,8 @@ public final class FakeDevice implements AutoCloseable {
 
   /** A moment in the past, written as a device writes the date of a cookie. */
   private static final String EXPIRED =
-      java.time.format.DateTimeFormatter.ofPattern(
-              "EEE, dd-MMM-yyyy HH:mm:ss 'GMT'", java.util.Locale.ENGLISH)
-          .format(java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC).minusYears(1));
+      DateTimeFormatter.ofPattern("EEE, dd-MMM-yyyy HH:mm:ss 'GMT'", Locale.ENGLISH)
+          .format(ZonedDateTime.now(ZoneOffset.UTC).minusYears(1));
 
   private volatile String token = "TOKEN-1";
 
@@ -646,8 +651,7 @@ public final class FakeDevice implements AutoCloseable {
     for (var pair : body.split("&")) {
       if (pair.startsWith("certdata=")) {
         var certificate =
-            java.net.URLDecoder.decode(
-                pair.substring("certdata=".length()), StandardCharsets.UTF_8);
+            URLDecoder.decode(pair.substring("certdata=".length()), StandardCharsets.UTF_8);
         return certificate.contains("-----BEGIN CERTIFICATE-----")
             ? PAIRING_SUCCESS
             : PAIRING_REJECTED;

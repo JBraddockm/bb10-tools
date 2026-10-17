@@ -17,12 +17,18 @@ import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /** Drives the real daemon with bb-link's service against a fake device, through pipes. */
 public final class DaemonChecks {
@@ -140,7 +146,7 @@ public final class DaemonChecks {
                     failure.printStackTrace();
                   }
                 });
-    java.util.function.Consumer<String> send =
+    Consumer<String> send =
         line -> {
           try {
             toServer.write((line + "\n").getBytes(StandardCharsets.UTF_8));
@@ -168,7 +174,8 @@ public final class DaemonChecks {
               "pairDevice",
               "listDevices",
               "inspectPackage",
-              "installPackages"),
+              "installPackages",
+              "uninstallPackages"),
           hello.get("methods"),
           "advertised methods");
 
@@ -186,7 +193,7 @@ public final class DaemonChecks {
       equal("10.3.3.2205", ((Map<?, ?>) devices.getLast()).get("version"), "known version");
 
       // looking at a bar needs neither a session nor a device
-      var barDirectory = java.nio.file.Files.createTempDirectory("bb-link-bars");
+      var barDirectory = Files.createTempDirectory("bb-link-bars");
       var application = BarFiles.application(barDirectory, "app.bar", "gYABgExample1", "1.2.3.4");
       send.accept(inspect(200, application, false));
       equal(Boolean.TRUE, done(sink, 200).get("ok"), "inspectPackage");
@@ -196,7 +203,7 @@ public final class DaemonChecks {
       equal("1.2.3.4", inspected.get("packageVersion"), "inspect: version");
       equal("armle-v7", inspected.get("architecture"), "inspect: architecture");
       equal(application.toString(), inspected.get("file"), "inspect: the file");
-      equal(java.nio.file.Files.size(application), inspected.get("sizeBytes"), "inspect: the size");
+      equal(Files.size(application), inspected.get("sizeBytes"), "inspect: the size");
       check(!inspected.containsKey("validation"), "inspect: no validation unless asked for");
       send.accept(inspect(201, application, true));
       equal(Boolean.TRUE, done(sink, 201).get("ok"), "inspectPackage with validation");
@@ -218,7 +225,7 @@ public final class DaemonChecks {
           "The file does not exist",
           ((Map<?, ?>) absentFile.get("error")).get("message"),
           "inspect: says so");
-      var notABar = java.nio.file.Files.writeString(barDirectory.resolve("text.bar"), "no archive");
+      var notABar = Files.writeString(barDirectory.resolve("text.bar"), "no archive");
       send.accept(inspect(204, notABar, false));
       var refusedBar = done(sink, 204);
       equal("INVALID_ARGUMENT", errorCode(refusedBar), "inspect: a file that is not a bar");
@@ -283,7 +290,7 @@ public final class DaemonChecks {
       var connected = resultData(sink, 6);
       equal(
           List.of("session", "host", "port", "authentication", "device", "smb"),
-          List.copyOf((java.util.Set<?>) connected.keySet()),
+          List.copyOf((Set<?>) connected.keySet()),
           "result fields in order");
       equal("password", connected.get("authentication"), "connect echoes the way it authenticated");
       var summary = (Map<?, ?>) connected.get("device");
@@ -532,7 +539,7 @@ public final class DaemonChecks {
 
       // installing applications, through the protocol
       device.updateProgress = List.of(50, 100);
-      var installDirectory = java.nio.file.Files.createTempDirectory("bb-link-install-daemon");
+      var installDirectory = Files.createTempDirectory("bb-link-install-daemon");
       var toInstall = BarFiles.application(installDirectory, "one.bar", "gYABgInstall1", "3.0.0.1");
       send.accept(request(300, "installPackages", session, files(toInstall)));
       equal(Boolean.TRUE, done(sink, 300).get("ok"), "installPackages");
@@ -573,8 +580,7 @@ public final class DaemonChecks {
           "files[1]",
           ((Map<?, ?>) ((Map<?, ?>) refusedSystem.get("error")).get("details")).get("param"),
           "install: naming the file");
-      var notBar =
-          java.nio.file.Files.writeString(installDirectory.resolve("text.bar"), "no archive");
+      var notBar = Files.writeString(installDirectory.resolve("text.bar"), "no archive");
       send.accept(request(303, "installPackages", session, files(notBar)));
       var refusedText = done(sink, 303);
       equal("INVALID_ARGUMENT", errorCode(refusedText), "install: a file that is not a bar");
@@ -605,6 +611,79 @@ public final class DaemonChecks {
           ((List<?>) resultData(sink, 305).get("installed")).size(),
           "install: nothing was installed");
       check(device.updateRequests.size() > updateRequestsBefore, "install: the device was asked");
+
+      // removing applications, through the protocol
+      var propertiesBeforeRemoval = device.propertiesXml;
+      device.propertiesXml = FakeDevice.propertiesWithApplications("gYABgRemove1", "gYABgRemove2");
+      send.accept(request(310, "uninstallPackages", session, ids("gYABgRemove1")));
+      equal(Boolean.TRUE, done(sink, 310).get("ok"), "uninstallPackages");
+      var removedData = resultData(sink, 310);
+      equal(
+          List.of("gYABgRemove1"),
+          removedData.get("removed"),
+          "uninstall: the package that was removed");
+      equal("xml", removedData.get("bodyFormat"), "uninstall: the device's last answer, as JSON");
+      var removalProgress = eventsOf(sink, 310, "progress");
+      check(
+          !removalProgress.isEmpty()
+              && removalProgress.stream()
+                  .allMatch(
+                      event ->
+                          "removing".equals(event.get("phase"))
+                              && "gYABgRemove1".equals(event.get("item"))),
+          "uninstall: progress names the phase and the package");
+      check(
+          eventsOf(sink, 310, "log").stream()
+              .anyMatch(event -> "Removing package 1 of 1".equals(event.get("message"))),
+          "uninstall: the log says what is done");
+
+      send.accept(request(311, "uninstallPackages", session, ""));
+      var noIds = done(sink, 311);
+      equal("INVALID_ARGUMENT", errorCode(noIds), "uninstall: the ids are required");
+      equal("packageIds", detailsOf(noIds).get("param"), "uninstall: and named");
+      send.accept(request(312, "uninstallPackages", session, ids("a b")));
+      var badId = done(sink, 312);
+      equal("INVALID_ARGUMENT", errorCode(badId), "uninstall: an id that is not an id");
+      equal("packageIds[0]", detailsOf(badId).get("param"), "uninstall: naming which");
+      send.accept(request(313, "uninstallPackages", session, ids("gYABgRemove1", "gYABgRemove1")));
+      equal("INVALID_ARGUMENT", errorCode(done(sink, 313)), "uninstall: the same package twice");
+      send.accept(
+          request(314, "uninstallPackages", session, ids("gYABgRemove2") + ",\"check\":\"no\""));
+      var badFlag = done(sink, 314);
+      equal("INVALID_ARGUMENT", errorCode(badFlag), "uninstall: check must be a boolean");
+      equal("check", detailsOf(badFlag).get("param"), "uninstall: and named");
+
+      var removalRequestsBefore = device.updateRequests.size();
+      send.accept(request(315, "uninstallPackages", session, ids("gYABgRemove2", "ghost")));
+      var ghost = done(sink, 315);
+      equal("INVALID_ARGUMENT", errorCode(ghost), "uninstall: an id that is not installed");
+      equal("packageIds[1]", detailsOf(ghost).get("param"), "uninstall: naming which");
+      send.accept(request(316, "uninstallPackages", session, ids("os1")));
+      equal("INVALID_ARGUMENT", errorCode(done(sink, 316)), "uninstall: firmware is refused");
+      equal(
+          removalRequestsBefore,
+          device.updateRequests.size(),
+          "uninstall: and nothing was sent to remove");
+
+      device.updateUnremovable.add("ghost");
+      send.accept(request(317, "uninstallPackages", session, ids("ghost") + ",\"check\":false"));
+      var removalRefused = done(sink, 317);
+      equal(
+          Boolean.FALSE,
+          removalRefused.get("ok"),
+          "uninstall: the device refuses an id, with the check off");
+      equal("COMMAND_FAILED", errorCode(removalRefused), "uninstall: as a failed command");
+      equal(
+          "Cannot uninstall packageid",
+          ((Map<?, ?>) removalRefused.get("error")).get("message"),
+          "uninstall: in the device's words");
+      equal(
+          1,
+          eventsOf(sink, 317, "result").size(),
+          "uninstall: the answer is still sent, before the failure");
+      equal(List.of(), resultData(sink, 317).get("removed"), "uninstall: nothing was removed");
+      device.updateUnremovable.clear();
+      device.propertiesXml = propertiesBeforeRemoval;
 
       // the share credentials can be asked for again
       send.accept(
@@ -732,11 +811,9 @@ public final class DaemonChecks {
       device.loginMode = FakeDevice.LoginMode.CHALLENGE;
 
       // the certificate types reach the session: files are read, and the login happens or not
-      var directory = java.nio.file.Files.createTempDirectory("bb-link-daemon-certificates");
-      var certificateFile =
-          java.nio.file.Files.writeString(directory.resolve("c.pem"), TestPki.LEAF_CERTIFICATE);
-      var keyFile =
-          java.nio.file.Files.writeString(directory.resolve("k.pem"), TestPki.LEAF_KEY_PKCS8);
+      var directory = Files.createTempDirectory("bb-link-daemon-certificates");
+      var certificateFile = Files.writeString(directory.resolve("c.pem"), TestPki.LEAF_CERTIFICATE);
+      var keyFile = Files.writeString(directory.resolve("k.pem"), TestPki.LEAF_KEY_PKCS8);
       var files =
           "\"clientCertificate\":\"%s\",\"clientKey\":\"%s\"".formatted(certificateFile, keyFile);
       loginsBefore = device.loginRequests.get();
@@ -790,17 +867,29 @@ public final class DaemonChecks {
         .formatted(id, method, session, more);
   }
 
+  /** The {@code packageIds} parameter for a request, as the text that follows {@code session}. */
+  private static String ids(String... packageIds) {
+    return ",\"packageIds\":["
+        + Arrays.stream(packageIds).map(id -> "\"" + id + "\"").collect(Collectors.joining(","))
+        + "]";
+  }
+
+  /** The details of the error of a {@code done} event. */
+  private static Map<?, ?> detailsOf(Map<?, ?> done) {
+    return (Map<?, ?>) ((Map<?, ?>) done.get("error")).get("details");
+  }
+
   /** The {@code files} parameter for a request, as the text that follows {@code session}. */
-  private static String files(java.nio.file.Path... bars) {
+  private static String files(Path... bars) {
     return ",\"files\":["
-        + java.util.Arrays.stream(bars)
+        + Arrays.stream(bars)
             .map(bar -> "\"" + bar.toString().replace("\\", "\\\\") + "\"")
-            .collect(java.util.stream.Collectors.joining(","))
+            .collect(Collectors.joining(","))
         + "]";
   }
 
   /** A request to inspect a bar. */
-  private static String inspect(int id, java.nio.file.Path file, boolean validate) {
+  private static String inspect(int id, Path file, boolean validate) {
     return "{\"id\":%d,\"method\":\"inspectPackage\",\"params\":{\"file\":\"%s\",\"validate\":%s}}"
         .formatted(id, file.toString().replace("\\", "\\\\"), validate);
   }

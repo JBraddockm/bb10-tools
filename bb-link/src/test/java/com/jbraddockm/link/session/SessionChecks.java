@@ -9,6 +9,7 @@ import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.command.NoData;
 import com.jbraddockm.core.command.Progress;
 import com.jbraddockm.core.error.InvalidArgumentException;
+import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.actions.ConfirmedByPin;
 import com.jbraddockm.link.cgi.BodyFormat;
 import com.jbraddockm.link.cgi.CgiRequest;
@@ -34,9 +35,12 @@ import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.trace.TraceRecorder;
 import com.jbraddockm.link.xml.MalformedXmlException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -158,7 +162,7 @@ public final class SessionChecks {
       equal(200, listed.httpStatus(), "list: HTTP status");
       equal(BodyFormat.JSON, listed.body().format(), "list: the answer is JSON");
       equal(
-          com.jbraddockm.core.json.Json.parse(FakeDevice.DEFAULT_PIM_ANSWER),
+          Json.parse(FakeDevice.DEFAULT_PIM_ANSWER),
           listed.body().value(),
           "list: the body is the JSON itself, not a string");
       check(
@@ -194,24 +198,17 @@ public final class SessionChecks {
     var invalidJson =
         "{\"version\":\"1.0\",\"status\":{\"code\":0,\"msg\":\"say \\\"hi\\\"\"},\"data\":oops &"
             + " <x>}";
-    var json = com.jbraddockm.core.json.Json.class;
+    var json = Json.class;
     var cases =
         Map.of(
             invalidJson,
             new Object[] {0, "say \"hi\"", BodyFormat.TEXT, invalidJson},
             "[1,2,3]",
-            new Object[] {
-              null, null, BodyFormat.JSON, com.jbraddockm.core.json.Json.parse("[1,2,3]")
-            },
+            new Object[] {null, null, BodyFormat.JSON, Json.parse("[1,2,3]")},
             "not json at all\r\n",
             new Object[] {null, null, BodyFormat.TEXT, "not json at all\r\n"},
             "{\"status\":{\"code\":7}}",
-            new Object[] {
-              7,
-              null,
-              BodyFormat.JSON,
-              com.jbraddockm.core.json.Json.parse("{\"status\":{\"code\":7}}")
-            });
+            new Object[] {7, null, BodyFormat.JSON, Json.parse("{\"status\":{\"code\":7}}")});
     for (var entry : cases.entrySet()) {
       try (var device = new FakeDevice("secret");
           var session = session(device, "secret")) {
@@ -485,8 +482,7 @@ public final class SessionChecks {
         "the real answer to a missing session is recognised");
 
     // arguments are checked before anything is sent
-    for (var identifier :
-        java.util.Arrays.asList("", " ", "a/b", "a b", "a".repeat(65), "é", null)) {
+    for (var identifier : Arrays.asList("", " ", "a/b", "a b", "a".repeat(65), "é", null)) {
       check(
           rejects(() -> new PairDevice(identifier, "x", Optional.empty())),
           "a device identifier that is not accepted: " + identifier);
@@ -902,11 +898,11 @@ public final class SessionChecks {
     }
   }
 
-  private static String read(java.nio.file.Path path) {
+  private static String read(Path path) {
     try {
       return Files.readString(path);
     } catch (IOException failure) {
-      throw new java.io.UncheckedIOException(failure);
+      throw new UncheckedIOException(failure);
     }
   }
 

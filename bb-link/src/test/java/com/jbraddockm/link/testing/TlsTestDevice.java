@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -102,9 +103,9 @@ public final class TlsTestDevice implements AutoCloseable {
 
     @Override
     public void checkClientTrusted(X509Certificate[] chain, String authType)
-        throws java.security.cert.CertificateException {
+        throws CertificateException {
       if (behaviour == Behaviour.REJECTS_PRESENTED_CERTIFICATES) {
-        throw new java.security.cert.CertificateException("not issued by the device's authority");
+        throw new CertificateException("not issued by the device's authority");
       }
     }
 
