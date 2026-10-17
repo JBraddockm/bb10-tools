@@ -5,6 +5,7 @@ import static com.jbraddockm.link.testing.Checks.equal;
 
 import com.jbraddockm.core.bar.BarInfo;
 import com.jbraddockm.core.bar.BarInspector;
+import com.jbraddockm.core.bar.BarKind;
 import com.jbraddockm.core.command.CommandListener;
 import com.jbraddockm.core.command.CommandOutcome;
 import com.jbraddockm.core.command.LogLevel;
@@ -25,7 +26,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Checks the installation of applications against a fake {@code update.cgi}: the whole
@@ -410,7 +413,7 @@ public final class InstallChecks {
           failure
               .getMessage()
               .contains(
-                  refused.kind() == com.jbraddockm.core.bar.BarKind.OTHER
+                  refused.kind() == BarKind.OTHER
                       ? "cannot be installed this way"
                       : "not supported yet"),
           "and says why: " + failure.getMessage());
@@ -440,8 +443,7 @@ public final class InstallChecks {
     deleteAll(directory);
   }
 
-  private static InvalidArgumentException refusal(
-      java.util.function.Supplier<InstallPackages> creation) {
+  private static InvalidArgumentException refusal(Supplier<InstallPackages> creation) {
     try {
       creation.get();
       return null;
@@ -452,7 +454,7 @@ public final class InstallChecks {
 
   private static void deleteAll(Path directory) throws IOException {
     try (var files = Files.walk(directory)) {
-      files.sorted(java.util.Comparator.reverseOrder()).forEach(file -> file.toFile().delete());
+      files.sorted(Comparator.reverseOrder()).forEach(file -> file.toFile().delete());
     }
   }
 }

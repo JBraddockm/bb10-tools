@@ -222,6 +222,33 @@ public final class FakeDevice implements AutoCloseable {
   /** If set, update.cgi answers every request with this text. */
   public volatile String updateAnswer;
 
+  /**
+   * The element that update.cgi answers the start of a removal with; a device answers {@code
+   * UpdateStart}, and the research names {@code DeleteRequest}.
+   */
+  public volatile String deleteStartElement = "UpdateStart";
+
+  /**
+   * The element that update.cgi answers every removal with. When it is {@code null}, as a device
+   * does: {@code DeleteRequest} for the first removal of a conversation and {@code DeleteProgress}
+   * for the others.
+   */
+  public volatile String deleteAnswerElement = null;
+
+  private volatile int removalsSinceStart;
+
+  /** The status that update.cgi gives in the answer to a removal. */
+  public volatile String deleteAnswerStatus = "Success";
+
+  /**
+   * What update.cgi answers to the end of a removal: {@code UpdateEnd}, {@code empty} (nothing at
+   * all), {@code DeleteProgress} or {@code Surprise}.
+   */
+  public volatile String deleteEnd = "UpdateEnd";
+
+  /** The package ids that update.cgi refuses to remove. */
+  public final Set<String> updateUnremovable = ConcurrentHashMap.newKeySet();
+
   /** If set, update.cgi answers every poll with this text. */
   public volatile String updatePollAnswer;
 
@@ -505,6 +532,23 @@ public final class FakeDevice implements AutoCloseable {
         "<DeviceStatus><FreeApplicationSpace>" + bytes + "</FreeApplicationSpace>");
   }
 
+  /**
+   * Properties that list applications with these package ids, besides the operating system and the
+   * radio.
+   */
+  public static String propertiesWithApplications(String... packageIds) {
+    var entries = new StringBuilder();
+    for (var packageId : packageIds) {
+      entries
+          .append("<Application><Name>app.")
+          .append(packageId)
+          .append("</Name><Type>application</Type><PackageId>")
+          .append(packageId)
+          .append("</PackageId><PackageVersion>1.0</PackageVersion></Application>\n");
+    }
+    return DEFAULT_PROPERTIES.replace("</Applications>", entries + "</Applications>");
+  }
+
   private static String updateAnswerOf(String element, String status, String extra) {
     return "<RimTabletResponse><"
         + element
@@ -553,6 +597,12 @@ public final class FakeDevice implements AutoCloseable {
       exchange.close();
       return;
     }
+    if (dropNext > 0) {
+      dropNext--;
+      updateRequests.add("dropped, not answered");
+      exchange.close();
+      return;
+    }
     var form = new String(body, StandardCharsets.US_ASCII);
     if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
       updateRequests.add("no session");
@@ -583,12 +633,44 @@ public final class FakeDevice implements AutoCloseable {
             updateError(
                 "UpdateStart", 3, "Expecting 'mode' attribute set to one of: 'app','os','bar'");
       } else if (failure.equals("start")) {
-        answer = updateError("UpdateStart", 4, "unable to verify app manifest");
+        answer =
+            updateError(
+                form.contains("mode=app") ? "DeleteRequest" : "UpdateStart",
+                4,
+                "unable to verify app manifest");
       } else {
         // The cookie arrives already expired, as on a real device, so a client never keeps it
         // **[verified]**; nothing about the conversation depends on it.
         setCookie = "update=" + System.nanoTime() + "; expires=" + EXPIRED + "; path=/";
-        answer = updateAnswerOf("UpdateStart", "Ready", "");
+        removalsSinceStart = 0;
+        answer =
+            updateAnswerOf(
+                form.contains("mode=app") ? deleteStartElement : "UpdateStart", "Ready", "");
+      }
+    } else if (form.contains("packageid=")) {
+      var packageId = form.replaceAll(".*packageid=([^&]*).*", "$1");
+      updateRequests.add("remove " + packageId);
+      var element =
+          deleteAnswerElement != null
+              ? deleteAnswerElement
+              : removalsSinceStart++ == 0 ? "DeleteRequest" : "DeleteProgress";
+      answer =
+          updateUnremovable.contains(packageId) || failure.equals("delete")
+              ? updateError(element, 8, "Cannot uninstall packageid")
+              : updateAnswerOf(element, deleteAnswerStatus, "");
+    } else if (form.contains("status=success") && form.contains("type=bar")) {
+      updateRequests.add("finish removal");
+      if (failure.equals("finish")) {
+        answer = updateError("UpdateEnd", 6, "Cannot finish");
+      } else {
+        answer =
+            switch (deleteEnd) {
+              case "empty" -> "";
+              case "DeleteProgress" -> updateAnswerOf("DeleteProgress", "Success", "");
+              case "Weird" -> updateAnswerOf("UpdateEnd", "Weird", "");
+              case "Surprise" -> "<RimTabletResponse><Surprise/></RimTabletResponse>";
+              default -> updateAnswerOf("UpdateEnd", "Success", "");
+            };
       }
     } else if (form.contains("status=success")) {
       updateRequests.add("finish");
