@@ -6,13 +6,20 @@ import java.nio.charset.StandardCharsets;
  * Percent-encoding for {@code application/x-www-form-urlencoded} bodies. A space becomes {@code
  * %20}, as the device's own clients send it, not {@code +}.
  */
-final class FormEncoding {
+public final class FormEncoding {
 
   private static final String HEX = "0123456789ABCDEF";
 
   private FormEncoding() {}
 
-  static String encode(String text) {
+  /**
+   * Percent-encodes a text.
+   *
+   * @param text the text
+   * @return the text with everything but letters, digits, {@code - _ . ~} written as {@code %XX} of
+   *     its UTF-8 bytes
+   */
+  public static String encode(String text) {
     var builder = new StringBuilder();
     for (byte value : text.getBytes(StandardCharsets.UTF_8)) {
       var unsigned = value & 0xFF;

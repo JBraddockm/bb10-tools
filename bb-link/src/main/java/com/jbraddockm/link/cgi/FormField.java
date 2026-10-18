@@ -18,15 +18,6 @@ public enum FormField implements WireValue {
   /** A wipe-endpoint command such as reading the PIN. */
   WIPE("wipe"),
 
-  /** The client certificate to enrol, as PEM text. */
-  CERT_DATA("certdata"),
-
-  /** The identifier of the peer that is being paired. */
-  DEVICE_ID("deviceid"),
-
-  /** The BlackBerry account identifier. The device records it and does nothing with it. */
-  ECOID("ecoid"),
-
   /** What an update conversation is about: installing applications or firmware, or uninstalling. */
   MODE("mode"),
 
@@ -35,6 +26,12 @@ public enum FormField implements WireValue {
 
   /** The kind of package in a step of an uninstallation. */
   TYPE("type"),
+
+  /** The identifier that the computer gave itself, to pair with a device. */
+  DEVICE_ID("deviceid"),
+
+  /** The certificate of the computer's authority, as text. */
+  CERT_DATA("certdata"),
 
   /** The package to uninstall. */
   PACKAGE_ID("packageid"),

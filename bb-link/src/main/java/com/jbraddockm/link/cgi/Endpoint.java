@@ -21,7 +21,16 @@ public enum Endpoint {
   /** Support logs. */
   SUPPORT("support.cgi"),
 
-  /** Enrolling a client certificate, so that the device recognises the client later. */
+  /**
+   * The login, which is also said to sign a certificate request into a certificate for port 8443
+   * **[RESEARCH]**.
+   */
+  LOGIN("login.cgi"),
+
+  /**
+   * Pairing: telling the device which computer it is paired with, so that it lists the computer in
+   * Device Connections.
+   */
   PAIRING("pairing.cgi"),
 
   /**

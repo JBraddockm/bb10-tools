@@ -4,17 +4,22 @@ import com.jbraddockm.core.bar.BarInfo;
 import com.jbraddockm.core.bar.BarKind;
 import com.jbraddockm.core.command.CommandOutcome;
 import com.jbraddockm.core.command.CommandResult;
-import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.daemon.CommandSpec;
 import com.jbraddockm.core.daemon.RequestParams;
+import com.jbraddockm.core.daemon.SessionCommand;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.error.ServiceError;
-import com.jbraddockm.link.actions.ConfirmedByPin;
 import com.jbraddockm.link.actions.GetPin;
 import com.jbraddockm.link.discovery.DeviceDiscovery;
 import com.jbraddockm.link.discovery.DeviceScanner;
-import com.jbraddockm.link.pairing.PairDevice;
+import com.jbraddockm.link.pairing.CertificateRetrieval;
+import com.jbraddockm.link.pairing.CertificateRetrievalRequest;
+import com.jbraddockm.link.pairing.GetAuthenticationCertificate;
+import com.jbraddockm.link.pairing.InspectCertificate;
+import com.jbraddockm.link.pairing.PairWithDevice;
+import com.jbraddockm.link.pairing.Pairing;
+import com.jbraddockm.link.pairing.PairingRequest;
 import com.jbraddockm.link.pimsync.FindPimAccount;
 import com.jbraddockm.link.pimsync.GetPimItems;
 import com.jbraddockm.link.pimsync.ListPimAccounts;
@@ -29,6 +34,7 @@ import com.jbraddockm.link.update.InstallPackages;
 import com.jbraddockm.link.update.InstallResult;
 import com.jbraddockm.link.update.UninstallPackages;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -64,9 +70,16 @@ enum LinkMethod {
   GET_PIM_ITEMS("getPimItems"),
 
   /**
-   * Enrols a client certificate on the device. Changes the device, so it runs behind the PIN guard.
+   * Pairs this computer with the device, as BlackBerry Link does: the device lists it in Device
+   * Connections. Changes the device, so it runs behind the PIN guard.
    */
   PAIR_DEVICE("pairDevice"),
+
+  /**
+   * Asks the device to sign a certificate for this computer, for the certificate login on port
+   * 8443, and keeps it with its key. Changes the device, so it runs behind the PIN guard.
+   */
+  GET_AUTHENTICATION_CERTIFICATE("getAuthenticationCertificate"),
 
   /** Scans for devices; needs no session. */
   LIST_DEVICES("listDevices"),
@@ -87,7 +100,10 @@ enum LinkMethod {
    * Removes applications from the device by their package ids. Changes the device, and removes the
    * applications' data; never repeated after a dropped connection.
    */
-  UNINSTALL_PACKAGES("uninstallPackages");
+  UNINSTALL_PACKAGES("uninstallPackages"),
+
+  /** Says what a certificate file holds and how long it has left. Needs no session or device. */
+  INSPECT_CERTIFICATE("inspectCertificate");
 
   /** The package that a replayed installation is attributed to; what the recording says is kept. */
   private static final BarInfo REPLAY_BAR =
@@ -106,6 +122,13 @@ enum LinkMethod {
 
   /** The workstation identifier that replayed recordings are attributed to. */
   private static final String REPLAY_WORKSTATION = "replay";
+
+  /** The port that takes client certificates, which a new identity is tried against. */
+  private static final int CERTIFICATE_PORT = 8443;
+
+  private static final CertificateRetrieval RETRIEVAL = new CertificateRetrieval();
+
+  private static final Pairing PAIRING = new Pairing();
 
   private final String wireName;
 
@@ -181,8 +204,10 @@ enum LinkMethod {
               ? Optional.of(new FindPimAccount(REPLAY_WORKSTATION))
               : Optional.empty();
       case PAIR_DEVICE ->
+          argument.isEmpty() ? Optional.of(new PairWithDevice("REPLAY", "x")) : Optional.empty();
+      case GET_AUTHENTICATION_CERTIFICATE ->
           argument.isEmpty()
-              ? Optional.of(new PairDevice(REPLAY_WORKSTATION, "replay", Optional.empty()))
+              ? Optional.of(new GetAuthenticationCertificate("replay"))
               : Optional.empty();
       case GET_PIM_ITEMS ->
           argument.map(
@@ -192,7 +217,8 @@ enum LinkMethod {
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
               : Optional.empty();
       case UNINSTALL_PACKAGES -> replayedRemoval(argument);
-      case GET_SMB_CREDENTIALS, LIST_DEVICES, INSPECT_PACKAGE -> Optional.empty();
+      case GET_SMB_CREDENTIALS, LIST_DEVICES, INSPECT_PACKAGE, INSPECT_CERTIFICATE ->
+          Optional.empty();
     };
   }
 
@@ -205,28 +231,17 @@ enum LinkMethod {
           onSession(params -> new FindPimAccount(params.requireString("workstationId")));
       case GET_PIM_ITEMS -> onSession(LinkMethod::getPimItems);
       case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
-      case PAIR_DEVICE ->
-          new CommandSpec.SessionScoped<>(
+      case PAIR_DEVICE -> new CommandSpec.SessionScoped<>(wireName, this::pairDevice);
+      case GET_AUTHENTICATION_CERTIFICATE ->
+          new CommandSpec.SessionScoped<>(wireName, this::getAuthenticationCertificate);
+      case INSPECT_CERTIFICATE ->
+          new CommandSpec.Standalone<>(
               wireName,
               params -> {
-                var pairing =
-                    new PairDevice(
-                        params.optionalString("deviceId").orElse(null),
-                        params.optionalString("certificate").orElse(null),
-                        params.optionalString("ecoid"));
-                var command =
-                    new ConfirmedByPin<>(pairing, params.optionalString("confirmPin").orElse(null));
-                var includeRaw = params.flag("raw");
-                return (session, reply) -> {
-                  if (pairing.exceedsDeviceLimit()) {
-                    reply.onLog(
-                        LogLevel.WARN,
-                        "The certificate is longer than "
-                            + PairDevice.DEVICE_LIMIT_BYTES
-                            + " bytes, which the device is said to accept; it may cut it off");
-                  }
-                  reply.complete(wireName, session.execute(command, reply), includeRaw);
-                };
+                var file = params.requirePath("file");
+                return reply ->
+                    reply.complete(
+                        wireName, InspectCertificate.inspect(file, Clock.systemUTC()), false);
               });
       case INSTALL_PACKAGES ->
           new CommandSpec.SessionScoped<>(
@@ -295,6 +310,35 @@ enum LinkMethod {
    * A method that runs one device command on the session. The parameters are read, and the command
    * built, before anything is queued, so a bad parameter is answered at once.
    */
+  private SessionCommand<DeviceSession> pairDevice(RequestParams params) {
+    var request =
+        new PairingRequest(
+            params.optionalString("confirmPin").orElse(null),
+            params
+                .optionalPath("devicesDirectory")
+                .orElseThrow(() -> new InvalidArgumentException("devicesDirectory", "is required")),
+            params.flag("replace"));
+    var includeRaw = params.flag("raw");
+    return (session, reply) ->
+        reply.complete(wireName, PAIRING.run(session, request, reply), includeRaw);
+  }
+
+  private SessionCommand<DeviceSession> getAuthenticationCertificate(RequestParams params) {
+    var request =
+        new CertificateRetrievalRequest(
+            params.optionalString("confirmPin").orElse(null),
+            params
+                .optionalPath("devicesDirectory")
+                .orElseThrow(() -> new InvalidArgumentException("devicesDirectory", "is required")),
+            params.optionalString("hostName"),
+            params.flag("replace"),
+            params.flag("verify", true),
+            params.integer("verifyPort", CERTIFICATE_PORT, 1, 65_535));
+    var includeRaw = params.flag("raw");
+    return (session, reply) ->
+        reply.complete(wireName, RETRIEVAL.run(session, request, reply), includeRaw);
+  }
+
   private <R extends CommandResult> CommandSpec<DeviceSession> onSession(
       Function<RequestParams, DeviceCommand<R>> commandFactory) {
     return new CommandSpec.SessionScoped<>(

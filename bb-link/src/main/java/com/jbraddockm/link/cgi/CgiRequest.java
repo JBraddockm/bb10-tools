@@ -393,4 +393,108 @@ public sealed interface CgiRequest {
       return purpose.isEmpty() ? "POST a file to " + endpoint.fileName() : purpose;
     }
   }
+
+  /**
+   * A POST that carries a text as its raw body, with query parameters: what the client's request
+   * for a certificate to {@code login.cgi} is said to be **[RESEARCH]**.
+   *
+   * @param endpoint the CGI program
+   * @param query the query parameters in the order they are sent
+   * @param text the body
+   * @param contentType the content type that the body is sent as
+   * @param purpose what the request does, in a few words, for log messages; may be empty
+   * @param readTimeout how long the device may stay silent
+   */
+  record Body(
+      Endpoint endpoint,
+      SequencedMap<QueryParameter, String> query,
+      String text,
+      String contentType,
+      String purpose,
+      Duration readTimeout)
+      implements CgiRequest {
+
+    /**
+     * Checks the components.
+     *
+     * @throws NullPointerException if a component is missing
+     * @throws IllegalArgumentException if the text or the content type is blank
+     */
+    public Body {
+      Objects.requireNonNull(endpoint, "endpoint");
+      Objects.requireNonNull(text, "text");
+      Objects.requireNonNull(contentType, "contentType");
+      Objects.requireNonNull(purpose, "purpose");
+      Objects.requireNonNull(readTimeout, "readTimeout");
+      if (text.isBlank() || contentType.isBlank()) {
+        throw new IllegalArgumentException("a body and its content type are not blank");
+      }
+      query = Collections.unmodifiableSequencedMap(new LinkedHashMap<>(query));
+    }
+
+    /**
+     * Starts a request without query parameters.
+     *
+     * @param endpoint the CGI program
+     * @param text the body
+     * @param contentType the content type of the body
+     * @return the request
+     */
+    public static Body of(Endpoint endpoint, String text, String contentType) {
+      return new Body(endpoint, new LinkedHashMap<>(), text, contentType, "", DEFAULT_READ_TIMEOUT);
+    }
+
+    /**
+     * Adds a query parameter after the ones that are there.
+     *
+     * @param parameter the parameter
+     * @param value its value
+     * @return the request with the parameter
+     */
+    public Body with(QueryParameter parameter, String value) {
+      var copy = new LinkedHashMap<>(query);
+      copy.put(parameter, value);
+      return new Body(endpoint, copy, text, contentType, purpose, readTimeout);
+    }
+
+    /**
+     * Says what the request does, for log messages.
+     *
+     * @param what a few words
+     * @return the request with that purpose
+     */
+    public Body describedAs(String what) {
+      return new Body(endpoint, query, text, contentType, what, readTimeout);
+    }
+
+    /**
+     * Returns the path and the query string of the request.
+     *
+     * @return for example {@code /cgi-bin/login.cgi?request_version=3&cgiauth=1}
+     */
+    public String pathAndQuery() {
+      if (query.isEmpty()) {
+        return endpoint.path();
+      }
+      return endpoint.path()
+          + '?'
+          + query.entrySet().stream()
+              .map(
+                  entry ->
+                      FormEncoding.encode(entry.getKey().wireName())
+                          + '='
+                          + FormEncoding.encode(entry.getValue()))
+              .collect(Collectors.joining("&"));
+    }
+
+    @Override
+    public boolean emptyAnswerIsNormal() {
+      return false;
+    }
+
+    @Override
+    public String describe() {
+      return purpose.isEmpty() ? "POST a text to " + endpoint.fileName() : purpose;
+    }
+  }
 }

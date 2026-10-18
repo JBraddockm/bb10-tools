@@ -27,7 +27,16 @@ public enum LinkErrorCode implements ErrorCode {
    * The device does not have enough free space for what was to be installed. Nothing was sent to
    * install. The details give the bytes needed and the bytes free.
    */
-  NOT_ENOUGH_SPACE;
+  NOT_ENOUGH_SPACE,
+
+  /** The folder of the device already has a pairing, and it was not asked to replace it. */
+  PAIRING_EXISTS,
+
+  /** The folder of the device already has a certificate, and it was not asked to replace it. */
+  IDENTITY_EXISTS,
+
+  /** The device returned a certificate that cannot be used: it is not X.509, or not for our key. */
+  CERTIFICATE_REJECTED;
 
   @Override
   public String wireName() {

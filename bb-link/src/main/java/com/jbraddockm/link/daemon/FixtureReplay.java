@@ -67,7 +67,7 @@ public final class FixtureReplay {
    * for byte; the separator line itself belongs to no answer.
    */
   static List<String> split(String input) {
-    return List.of(input.split("(?m)^---[ \\t]*\\r?\\n?", -1));
+    return List.of(input.split("(?m)^---[ \\t]*\\r?(?:\\n|\\z)", -1));
   }
 
   private static <R extends CommandResult> void replay(

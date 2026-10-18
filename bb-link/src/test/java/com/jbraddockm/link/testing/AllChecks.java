@@ -2,6 +2,11 @@ package com.jbraddockm.link.testing;
 
 import com.jbraddockm.link.cgi.WireChecks;
 import com.jbraddockm.link.daemon.DaemonChecks;
+import com.jbraddockm.link.pairing.BoundaryChecks;
+import com.jbraddockm.link.pairing.CertificateRetrievalChecks;
+import com.jbraddockm.link.pairing.IdentityChecks;
+import com.jbraddockm.link.pairing.PairingChecks;
+import com.jbraddockm.link.pairing.PkiChecks;
 import com.jbraddockm.link.session.CertificateChecks;
 import com.jbraddockm.link.session.SessionChecks;
 import com.jbraddockm.link.session.StaleSessionChecks;
@@ -27,6 +32,11 @@ public final class AllChecks {
     StaleSessionChecks.run();
     InstallChecks.run();
     UninstallChecks.run();
+    PkiChecks.run();
+    IdentityChecks.run();
+    CertificateRetrievalChecks.run();
+    PairingChecks.run();
+    BoundaryChecks.run();
     DaemonChecks.run();
     System.exit(Checks.finish("bb-link checks"));
   }

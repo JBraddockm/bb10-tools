@@ -1,0 +1,50 @@
+package com.jbraddockm.link.pairing;
+
+import com.jbraddockm.core.error.CoreErrorCode;
+import com.jbraddockm.core.error.ServiceError;
+import com.jbraddockm.core.json.Json;
+import com.jbraddockm.link.cgi.CgiRequest;
+import com.jbraddockm.link.cgi.CgiResponse;
+import com.jbraddockm.link.cgi.Conversation;
+import com.jbraddockm.link.cgi.ResponseEnvelope;
+import com.jbraddockm.link.cgi.Step;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * One request to {@code login.cgi} for a certificate and the reading of its answer. An error that
+ * the device reports is a failed command; anything else is the answer, for the caller to judge,
+ * because what a success looks like has not been seen.
+ */
+final class AuthenticationExchange implements Conversation<AuthenticationAnswer> {
+
+  private final CgiRequest request;
+
+  AuthenticationExchange(CgiRequest request) {
+    this.request = request;
+  }
+
+  @Override
+  public Step<AuthenticationAnswer> start() {
+    return new Step.Send<>(request);
+  }
+
+  @Override
+  public Step<AuthenticationAnswer> onAnswer(
+      CgiResponse response, Optional<ResponseEnvelope> envelope) {
+    var answer = AuthenticationAnswer.read(response, envelope);
+    if ("Error".equalsIgnoreCase(answer.statusText())) {
+      return new Step.Fail<>(
+          new ServiceError(
+              CoreErrorCode.COMMAND_FAILED,
+              answer.errorDescription() == null
+                  ? "The device reported an error"
+                  : answer.errorDescription(),
+              answer.errorIdentifier() == null
+                  ? Map.of()
+                  : Json.object("errorIdentifier", answer.errorIdentifier())),
+          Optional.of(answer));
+    }
+    return new Step.Finish<>(answer);
+  }
+}

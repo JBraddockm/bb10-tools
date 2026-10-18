@@ -1,5 +1,9 @@
 package com.jbraddockm.link.testing;
 
+import com.jbraddockm.link.pairing.pki.CertificateDetails;
+import com.jbraddockm.link.pairing.pki.CertificateRequest;
+import com.jbraddockm.link.pairing.pki.RsaKeys;
+import com.jbraddockm.link.pairing.pki.SignatureScheme;
 import com.qnx.bbt.deploy.PwCrypto;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -8,12 +12,15 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -116,29 +123,68 @@ public final class FakeDevice implements AutoCloseable {
   private final List<String> pimRequests = Collections.synchronizedList(new ArrayList<>());
 
   /**
-   * What pairing.cgi answers to a request with a valid session; by default it judges the
-   * certificate.
+   * When set, the device signs a certificate request that is posted to {@code login.cgi}, as the
+   * real one does; when not, it answers that it cannot.
    */
+  public volatile TestAuthority authority;
+
+  /** When set, what a certificate request to {@code login.cgi} is answered, whatever it was. */
+  public volatile String authenticationAnswer;
+
+  /** When set, the certificate that the device signs is for another key than the request's. */
+  public volatile boolean authenticationForAnotherKey;
+
+  /** When set, what {@code pairing.cgi} answers a request that has a session, whatever it was. */
   public volatile String pairingAnswer;
 
   private final List<String> pairingBodies = Collections.synchronizedList(new ArrayList<>());
+  private final Map<String, String> pairings = new ConcurrentHashMap<>();
+
+  private final List<AuthenticationRequest> authenticationRequests =
+      Collections.synchronizedList(new ArrayList<>());
+
+  /**
+   * A certificate request that reached {@code login.cgi}.
+   *
+   * @param query the query string
+   * @param contentType the content type of the body
+   * @param body the body
+   */
+  public record AuthenticationRequest(String query, String contentType, String body) {}
+
+  /**
+   * The bodies of the requests that reached {@code pairing.cgi}.
+   *
+   * @return a copy, in the order they came
+   */
+  public List<String> pairingBodies() {
+    synchronized (pairingBodies) {
+      return List.copyOf(pairingBodies);
+    }
+  }
+
+  /**
+   * The authorities that computers paired with the device, by the identifier that each gave itself.
+   *
+   * @return a copy
+   */
+  public Map<String, String> pairings() {
+    return Map.copyOf(pairings);
+  }
+
+  /**
+   * The certificate requests that reached {@code login.cgi}.
+   *
+   * @return a copy, in the order they came
+   */
+  public List<AuthenticationRequest> authenticationRequests() {
+    synchronized (authenticationRequests) {
+      return List.copyOf(authenticationRequests);
+    }
+  }
 
   /** What pimsync answers to a request with a valid session, by command; the default otherwise. */
   public final Map<String, String> pimResponses = new ConcurrentHashMap<>();
-
-  /** What a real device answers to pairing.cgi without a session. */
-  public static final String UNAUTHENTICATED_PAIRING =
-      """
-      <RimTabletResponse>
-        <Pairing>
-          <Status>Error</Status>
-          <Error>
-            <ErrorIdentifier>6</ErrorIdentifier>
-            <ErrorDescription>Error - authorization.</ErrorDescription>
-          </Error>
-        </Pairing>
-      </RimTabletResponse>
-      """;
 
   /** What a real device answers to dynamicProperties.cgi when the request has no valid session. */
   public static final String UNAUTHORIZED_PROPERTIES =
@@ -153,16 +199,6 @@ public final class FakeDevice implements AutoCloseable {
         </DynamicProperties>
       </RimTabletResponse>
       """;
-
-  /** What a real device answers to a certificate that is not one (captured). */
-  public static final String PAIRING_REJECTED =
-      "<RimTabletResponse><Pairing><Status>Error</Status><Error><ErrorIdentifier>7</ErrorIdentifier><ErrorDescription>Error"
-          + " - insert certificate"
-          + " failed.</ErrorDescription></Error></Pairing></RimTabletResponse>";
-
-  /** The shape of a successful pairing is not known; this is made up. */
-  public static final String PAIRING_SUCCESS =
-      "<RimTabletResponse><Pairing><Status>Success</Status></Pairing></RimTabletResponse>";
 
   /** The answer to a command that has no entry in {@link #pimResponses}. */
   public static final String DEFAULT_PIM_ANSWER =
@@ -278,11 +314,11 @@ public final class FakeDevice implements AutoCloseable {
     server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
     server.setExecutor(Executors.newCachedThreadPool());
     server.createContext("/cgi-bin/login.cgi", this::login);
+    server.createContext("/cgi-bin/pairing.cgi", this::pairing);
     server.createContext(
         "/cgi-bin/dynamicProperties.cgi", exchange -> cgi(exchange, PROPERTIES_BODY));
     server.createContext("/cgi-bin/wipe.cgi", exchange -> cgi(exchange, PIN_BODY));
     server.createContext("/cgi-bin/pimsync.cgi", this::pimSync);
-    server.createContext("/cgi-bin/pairing.cgi", this::pairing);
     server.createContext("/cgi-bin/update.cgi", this::update);
     server.start();
   }
@@ -313,17 +349,6 @@ public final class FakeDevice implements AutoCloseable {
   }
 
   /**
-   * Returns the body of every request that reached pairing.cgi, even those that were not answered.
-   *
-   * @return a snapshot of the form bodies
-   */
-  public List<String> pairingBodies() {
-    synchronized (pairingBodies) {
-      return List.copyOf(pairingBodies);
-    }
-  }
-
-  /**
    * Returns the method, path and query of every request to pimsync.
    *
    * @return a snapshot, for example {@code GET /cgi-bin/pimsync.cgi?command=list_accounts}
@@ -346,6 +371,10 @@ public final class FakeDevice implements AutoCloseable {
   }
 
   private void login(HttpExchange exchange) throws IOException {
+    if ("POST".equals(exchange.getRequestMethod())) {
+      authenticationRequest(exchange);
+      return;
+    }
     loginRequests.incrementAndGet();
     var query = exchange.getRequestURI().getRawQuery();
     switch (loginMode) {
@@ -706,42 +735,6 @@ public final class FakeDevice implements AutoCloseable {
     respond(exchange, 200, answer, setCookie);
   }
 
-  /**
-   * pairing: a POST with the certificate; a real device's answer when there is no valid session.
-   */
-  private void pairing(HttpExchange exchange) throws IOException {
-    cgiRequests.incrementAndGet();
-    var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.US_ASCII);
-    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
-    pairingBodies.add(body);
-    cookiesSeen.add(cookie == null ? "" : cookie);
-    if (dropNext > 0) {
-      dropNext--;
-      exchange.close();
-      return;
-    }
-    var answer =
-        alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)
-            ? UNAUTHENTICATED_PAIRING
-            : pairingAnswer != null ? pairingAnswer : judge(body);
-    fireHook();
-    respond(exchange, 200, answer, null);
-  }
-
-  /** The device is described as rejecting only a certificate that does not parse. */
-  private static String judge(String body) {
-    for (var pair : body.split("&")) {
-      if (pair.startsWith("certdata=")) {
-        var certificate =
-            URLDecoder.decode(pair.substring("certdata=".length()), StandardCharsets.UTF_8);
-        return certificate.contains("-----BEGIN CERTIFICATE-----")
-            ? PAIRING_SUCCESS
-            : PAIRING_REJECTED;
-      }
-    }
-    return PAIRING_REJECTED;
-  }
-
   private static String commandOf(String query) {
     if (query == null) {
       return null;
@@ -752,6 +745,140 @@ public final class FakeDevice implements AutoCloseable {
       }
     }
     return null;
+  }
+
+  private static final String UNAUTHENTICATED_PAIRING =
+      "<RimTabletResponse><Pairing><Status>Error</Status><Error><ErrorIdentifier>6</ErrorIdentifier><ErrorDescription>Error"
+          + " - authorization.</ErrorDescription></Error></Pairing></RimTabletResponse>";
+
+  /**
+   * A POST to pairing.cgi. The answers are those of the real device where they were captured: its
+   * own authority as the text of {@code Pairing} and no {@code Status}, for an insert that it
+   * takes; error 7 for anything else, a delete and a query included; error 6 without a session.
+   */
+  private void pairing(HttpExchange exchange) throws IOException {
+    cgiRequests.incrementAndGet();
+    var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+    pairingBodies.add(body);
+    cookiesSeen.add(cookie == null ? "" : cookie);
+    if (dropNext > 0) {
+      dropNext--;
+      exchange.close();
+      return;
+    }
+    var authorised = !alwaysRejectCookie && cookie != null && cookie.contains("dtmauth=" + token);
+    String answer;
+    if (!authorised) {
+      answer = UNAUTHENTICATED_PAIRING;
+    } else {
+      answer = pairingAnswer != null ? pairingAnswer : pairingAnswerFor(body);
+    }
+    fireHook();
+    respond(exchange, 200, answer, null);
+  }
+
+  private String pairingAnswerFor(String body) {
+    var form = new LinkedHashMap<String, String>();
+    for (var pair : body.split("&")) {
+      var parts = pair.split("=", 2);
+      form.put(
+          URLDecoder.decode(parts[0], StandardCharsets.UTF_8),
+          parts.length == 2 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "");
+    }
+    var certdata = form.get("certdata");
+    var deviceId = form.get("deviceid");
+    if (authority == null || certdata == null || deviceId == null) {
+      return pairingError(7, "Error - insert certificate failed.");
+    }
+    try {
+      CertificateDetails.firstCertificate(certdata);
+      pairings.put(deviceId, certdata);
+      return "<RimTabletResponse><Pairing><![CDATA[\n"
+          + authority.rootPem()
+          + "\n]]></Pairing></RimTabletResponse>";
+    } catch (CertificateException _) {
+      return pairingError(7, "Error - insert certificate failed.");
+    } catch (GeneralSecurityException failure) {
+      throw new IllegalStateException(failure);
+    }
+  }
+
+  private static String pairingError(int number, String description) {
+    return "<RimTabletResponse><Pairing><Status>Error</Status><Error><ErrorIdentifier>"
+        + number
+        + "</ErrorIdentifier><ErrorDescription>"
+        + description
+        + "</ErrorDescription></Error></Pairing></RimTabletResponse>";
+  }
+
+  /**
+   * A POST to login.cgi: a certificate request. The answers are those of the real device where they
+   * were captured: the certificate as PEM and nothing else, as {@code application/octet-stream},
+   * and for a body of another content type an error 260 in {@code CgiAuth}. The other errors are
+   * made up.
+   */
+  private void authenticationRequest(HttpExchange exchange) throws IOException {
+    cgiRequests.incrementAndGet();
+    var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+    var query = exchange.getRequestURI().getRawQuery();
+    var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+    authenticationRequests.add(new AuthenticationRequest(query, contentType, body));
+    cookiesSeen.add(cookie == null ? "" : cookie);
+    if (dropNext > 0) {
+      dropNext--;
+      exchange.close();
+      return;
+    }
+    var authorised = !alwaysRejectCookie && cookie != null && cookie.contains("dtmauth=" + token);
+    var answer = authorised ? authenticationAnswerFor(query, contentType, body) : "";
+    fireHook();
+    respond(
+        exchange,
+        200,
+        answer,
+        null,
+        answer.startsWith("-----BEGIN CERTIFICATE-----") ? "application/octet-stream" : "text/xml");
+  }
+
+  private String authenticationAnswerFor(String query, String contentType, String body) {
+    if (authenticationAnswer != null) {
+      return authenticationAnswer;
+    }
+    if (!"request_version=3&cgiauth=1".equals(query)) {
+      return authenticationError(2, "Error - invalid request, unknown parameter.");
+    }
+    if (!"application/octet-stream".equals(contentType)) {
+      return authenticationError(260, "Expected ContentType of application/octet-stream");
+    }
+    if (authority == null || !body.startsWith("-----BEGIN")) {
+      return authenticationError(1, "Error - invalid request, no parameter.");
+    }
+    try {
+      var toSign =
+          authenticationForAnotherKey
+              ? CertificateRequest.withSubject(
+                      RsaKeys.generate(1024),
+                      List.of(CertificateRequest.Rdn.commonName("BBCGIAUTH other")),
+                      SignatureScheme.SHA1_WITH_RSA)
+                  .pem()
+              : body;
+      var issued = authority.sign(toSign);
+      return issued.isEmpty()
+          ? authenticationError(4, "Error - get certificate failed.")
+          : issued.get().pem();
+    } catch (GeneralSecurityException failure) {
+      throw new IllegalStateException(failure);
+    }
+  }
+
+  private static String authenticationError(int number, String description) {
+    return "<RimTabletResponse><CgiAuth><Status>Error</Status><Error><ErrorIdentifier>"
+        + number
+        + "</ErrorIdentifier><ErrorDescription>"
+        + description
+        + "</ErrorDescription></Error></CgiAuth></RimTabletResponse>";
   }
 
   private static void respond(HttpExchange exchange, int status, String body, String setCookie)

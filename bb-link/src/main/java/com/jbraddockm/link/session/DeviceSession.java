@@ -65,6 +65,21 @@ public final class DeviceSession implements ServiceSession {
   }
 
   /**
+   * A session to the same device through another scheme, port and authentication, such as the
+   * certificate port after an enrolment through the password port. It shares the observer, logs in
+   * on its first command, and is closed on its own: closing it does not affect this session.
+   *
+   * @param scheme the scheme of the new session
+   * @param port the port of the new session
+   * @param authentication how the new session logs in
+   * @return the session; nothing has been sent yet
+   */
+  public DeviceSession sibling(TransportScheme scheme, int port, Authentication authentication) {
+    return new DeviceSession(
+        new DeviceTarget(target.host(), port, scheme, authentication), observer);
+  }
+
+  /**
    * Replays recorded device answers through a command's conversation, without a device.
    *
    * @param command the command that produced the answers

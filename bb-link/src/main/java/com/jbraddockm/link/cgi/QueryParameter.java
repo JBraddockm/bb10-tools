@@ -28,7 +28,13 @@ public enum QueryParameter implements WireValue {
   OFFSET("offset"),
 
   /** The kind of package that is uploaded. */
-  TYPE("type");
+  TYPE("type"),
+
+  /** The version of the protocol that a request to {@code login.cgi} speaks. */
+  REQUEST_VERSION("request_version"),
+
+  /** Asks {@code login.cgi} for the authentication by certificate. */
+  CGI_AUTH("cgiauth");
 
   private final String wireName;
 

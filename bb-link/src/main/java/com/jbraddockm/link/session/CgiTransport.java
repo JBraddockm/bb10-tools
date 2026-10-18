@@ -66,10 +66,6 @@ final class CgiTransport implements AutoCloseable {
     return new KeyManager[] {new FixedClientKeyManager(PemIdentity.load(source))};
   }
 
-  private static String valueOf(Header header) {
-    return header == null ? null : header.getValue();
-  }
-
   DeviceTarget target() {
     return target;
   }
@@ -97,6 +93,14 @@ final class CgiTransport implements AutoCloseable {
         entity.setContentType("application/x-www-form-urlencoded");
         post.setEntity(entity);
         yield execute(post, "POST " + form.endpoint().path(), body, form.readTimeout());
+      }
+      case CgiRequest.Body body -> {
+        var post = new HttpPost(checkedUrl(body.pathAndQuery()));
+        post.getParams().setBooleanParameter("http.protocol.expect-continue", false);
+        var entity = new ByteArrayEntity(body.text().getBytes(StandardCharsets.UTF_8));
+        entity.setContentType(body.contentType());
+        post.setEntity(entity);
+        yield execute(post, "POST " + body.pathAndQuery(), body.text(), body.readTimeout());
       }
       case CgiRequest.Upload upload -> upload(upload, observer);
     };
@@ -158,6 +162,10 @@ final class CgiTransport implements AutoCloseable {
             valueOf(setCookie));
     observer.onExchange(requestLine, requestBody, cookieNames, result);
     return result;
+  }
+
+  private static String valueOf(Header header) {
+    return header == null ? null : header.getValue();
   }
 
   @Override

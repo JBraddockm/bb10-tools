@@ -11,6 +11,7 @@ import com.jbraddockm.link.session.ExchangeObserver;
 import com.jbraddockm.link.session.TransportScheme;
 import com.jbraddockm.link.testing.BarFiles;
 import com.jbraddockm.link.testing.FakeDevice;
+import com.jbraddockm.link.testing.TestAuthority;
 import com.jbraddockm.link.testing.TestPki;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -172,10 +173,12 @@ public final class DaemonChecks {
               "findPimAccount",
               "getPimItems",
               "pairDevice",
+              "getAuthenticationCertificate",
               "listDevices",
               "inspectPackage",
               "installPackages",
-              "uninstallPackages"),
+              "uninstallPackages",
+              "inspectCertificate"),
           hello.get("methods"),
           "advertised methods");
 
@@ -434,109 +437,6 @@ public final class DaemonChecks {
           "the accepted services are listed");
       equal(before, device.pimRequests().size(), "nothing was sent to the device");
 
-      // enrolling a certificate
-      var pairingBefore = device.pairingBodies().size();
-      var requestsBefore = device.cgiRequests.get();
-      send.accept(
-          request(80, "pairDevice", session, ",\"deviceId\":\"PEER-1\",\"certificate\":\"x\""));
-      send.accept(
-          request(81, "pairDevice", session, ",\"certificate\":\"x\",\"confirmPin\":\"2A3B4C5D\""));
-      send.accept(
-          request(
-              82,
-              "pairDevice",
-              session,
-              ",\"deviceId\":\"a/b\",\"certificate\":\"x\",\"confirmPin\":\"2A3B4C5D\""));
-      send.accept(
-          request(
-              83, "pairDevice", session, ",\"deviceId\":\"PEER-1\",\"confirmPin\":\"2A3B4C5D\""));
-      for (var id = 80; id <= 83; id++) {
-        equal("INVALID_ARGUMENT", errorCode(done(sink, id)), "pairDevice refused: request " + id);
-      }
-      equal(
-          requestsBefore,
-          device.cgiRequests.get(),
-          "nothing was sent to the device, not even a PIN read");
-
-      send.accept(
-          request(
-              84,
-              "pairDevice",
-              session,
-              ",\"deviceId\":\"PEER-1\",\"certificate\":\"x\",\"confirmPin\":\"00000000\""));
-      var mismatch = done(sink, 84);
-      equal("PIN_MISMATCH", errorCode(mismatch), "a wrong confirmation PIN");
-      check(eventsOf(sink, 84, "result").isEmpty(), "and no result");
-      equal(pairingBefore, device.pairingBodies().size(), "nothing reached pairing");
-
-      var invalid = "not a certificate";
-      send.accept(
-          request(
-              85,
-              "pairDevice",
-              session,
-              ",\"deviceId\":\"PEER-1\",\"certificate\":\""
-                  + invalid
-                  + "\",\"confirmPin\":\"2A3B4C5D\""));
-      var rejectedPairing = done(sink, 85);
-      equal(
-          Boolean.FALSE,
-          rejectedPairing.get("ok"),
-          "the device rejects text that is not a certificate");
-      equal("COMMAND_FAILED", errorCode(rejectedPairing), "as a failed command");
-      equal(
-          7L,
-          ((Map<?, ?>) ((Map<?, ?>) rejectedPairing.get("error")).get("details"))
-              .get("errorIdentifier"),
-          "with the device's error number");
-      equal(
-          List.of("log", "log", "result", "done"),
-          eventsOf(sink, 85, "*").stream().map(event -> (String) event.get("type")).toList(),
-          "the PIN is read, the certificate is sent, and the answer arrives before the failure");
-      var pairingAnswer = resultData(sink, 85);
-      equal("Error", pairingAnswer.get("status"), "answer: status");
-      check(
-          String.valueOf(pairingAnswer.get("contentType")).startsWith("text/xml"),
-          "answer: the pairing service answers with XML");
-      equal(7L, pairingAnswer.get("errorIdentifier"), "answer: error number");
-      equal(
-          "Error - insert certificate failed.",
-          pairingAnswer.get("errorDescription"),
-          "answer: description");
-      check(
-          pairingAnswer.get("body") instanceof Map<?, ?> body
-              && body.get("Pairing") instanceof Map<?, ?> pairing
-              && "Error".equals(pairing.get("Status"))
-              && pairing.get("Error") instanceof Map<?, ?> error
-              && "7".equals(error.get("ErrorIdentifier")),
-          "answer: the XML body as JSON, with the values as text");
-      equal("xml", pairingAnswer.get("bodyFormat"), "answer: and says it was XML");
-      check(
-          eventsOf(sink, 85, "log").stream()
-              .noneMatch(event -> String.valueOf(event.get("message")).contains(invalid)),
-          "the certificate is not logged");
-      equal(
-          "certdata=not%20a%20certificate&deviceid=PEER-1",
-          device.pairingBodies().getLast(), "the device received the text unchanged");
-
-      send.accept(
-          request(
-              86,
-              "pairDevice",
-              session,
-              ",\"deviceId\":\"PEER-1\",\"certificate\":\""
-                  + "x".repeat(1025)
-                  + "\",\"confirmPin\":\"2A3B4C5D\""));
-      done(sink, 86);
-      check(
-          eventsOf(sink, 86, "log").stream()
-              .anyMatch(
-                  event ->
-                      "warn".equals(event.get("level"))
-                          && String.valueOf(event.get("message"))
-                              .contains("longer than 1024 bytes")),
-          "a certificate over the device's limit is sent, with a warning");
-
       // installing applications, through the protocol
       device.updateProgress = List.of(50, 100);
       var installDirectory = Files.createTempDirectory("bb-link-install-daemon");
@@ -746,6 +646,136 @@ public final class DaemonChecks {
       var notBoolean = done(sink, 324);
       equal("INVALID_ARGUMENT", errorCode(notBoolean), "deviceInfo must be a boolean");
       equal("deviceInfo", detailsOf(notBoolean).get("param"), "and is named");
+
+      // a recording is cut at a line of three dashes and nothing else: a PEM line is no separator
+      equal(
+          List.of("a\n", "b\n"),
+          FixtureReplay.split("a\n---\nb\n"),
+          "fixtures: a line of three dashes separates two answers");
+      equal(
+          1,
+          FixtureReplay.split("-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n")
+              .size(),
+          "fixtures: a PEM block is not cut apart");
+      equal(
+          1, FixtureReplay.split("---x\n").size(), "fixtures: three dashes and more text is none");
+      equal(
+          2,
+          FixtureReplay.split("a\n---  \r\nb").size(),
+          "fixtures: blanks after the dashes are allowed");
+      equal(
+          List.of("a\n", ""),
+          FixtureReplay.split("a\n---"),
+          "fixtures: a separator at the very end");
+
+      // asking the device to sign a certificate, through the protocol
+      var devicesDirectory = Files.createTempDirectory("bb-link-devices");
+      device.authority = new TestAuthority();
+      var issuing =
+          ",\"confirmPin\":\"2A3B4C5D\",\"devicesDirectory\":"
+              + Json.write(devicesDirectory.toString())
+              + ",\"hostName\":\"workstation\",\"verify\":false";
+      send.accept(request(370, "getAuthenticationCertificate", session, issuing));
+      equal(
+          Boolean.TRUE,
+          done(sink, 370).get("ok"),
+          "getAuthenticationCertificate asks the device to sign a certificate");
+      var issued = resultData(sink, 370);
+      equal(
+          "BBCGIAUTH [2A3B4C5D] workstation",
+          issued.get("commonName"),
+          "the common name of the request");
+      equal("2A3B4C5D", issued.get("pin"), "the PIN of the device");
+      check(
+          Files.exists(Path.of((String) issued.get("certificateFile"))), "the certificate is kept");
+      check(Files.exists(Path.of((String) issued.get("keyFile"))), "and the key");
+      check(!issued.toString().contains("PRIVATE"), "and no key is in the result");
+      equal(
+          "skipped",
+          ((Map<?, ?>) issued.get("verification")).get("state"),
+          "the login with it is not tried when switched off");
+      send.accept(
+          request(371, "getAuthenticationCertificate", session, ",\"confirmPin\":\"2A3B4C5D\""));
+      equal("devicesDirectory", detailsOf(done(sink, 371)).get("param"), "a folder is required");
+      send.accept(request(372, "getAuthenticationCertificate", session, issuing));
+      equal(
+          "IDENTITY_EXISTS",
+          errorCode(done(sink, 372)),
+          "an identity that is there is not replaced without being asked");
+      send.accept(
+          request(373, "getAuthenticationCertificate", session, issuing + ",\"replace\":true"));
+      equal(Boolean.TRUE, done(sink, 373).get("ok"), "and is replaced when asked");
+      send.accept(
+          request(
+              374,
+              "getAuthenticationCertificate",
+              session,
+              ",\"confirmPin\":\"2A3B4C5D\",\"devicesDirectory\":"
+                  + Json.write(devicesDirectory.toString())
+                  + ",\"hostName\":\" \""));
+      equal("hostName", detailsOf(done(sink, 374)).get("param"), "a name is not blank");
+
+      // pairing with the device, through the protocol
+      var pairingDirectory = Files.createTempDirectory("bb-link-devices-pairing");
+      var pairing =
+          ",\"confirmPin\":\"2A3B4C5D\",\"devicesDirectory\":"
+              + Json.write(pairingDirectory.toString());
+      send.accept(request(380, "pairDevice", session, pairing));
+      equal(
+          Boolean.TRUE,
+          done(sink, 380).get("ok"),
+          "pairDevice pairs this computer with the device");
+      var paired = resultData(sink, 380);
+      check(
+          paired.get("deviceId").toString().matches("01[0-9A-F]{32}"),
+          "the identifier: " + paired.get("deviceId"));
+      check(Files.exists(Path.of((String) paired.get("authorityFile"))), "the authority is kept");
+      check(Files.exists(Path.of((String) paired.get("keyFile"))), "and its key");
+      check(
+          Files.exists(Path.of((String) paired.get("deviceAuthorityFile"))),
+          "and the device's authority");
+      check(!paired.toString().contains("PRIVATE"), "and no key is in the result");
+      equal(
+          Boolean.TRUE,
+          ((Map<?, ?>) paired.get("authority")).get("certificateAuthority"),
+          "the authority is an authority");
+      check(
+          String.valueOf(((Map<?, ?>) paired.get("deviceAuthority")).get("subject"))
+              .contains("CN="),
+          "the device's authority is described");
+      send.accept(request(381, "pairDevice", session, ",\"confirmPin\":\"2A3B4C5D\""));
+      equal("devicesDirectory", detailsOf(done(sink, 381)).get("param"), "a folder is required");
+      send.accept(request(382, "pairDevice", session, pairing));
+      equal(
+          "PAIRING_EXISTS",
+          errorCode(done(sink, 382)),
+          "a pairing that is there is not replaced without being asked");
+      send.accept(request(383, "pairDevice", session, pairing + ",\"replace\":true"));
+      equal(Boolean.TRUE, done(sink, 383).get("ok"), "and is replaced when asked");
+
+      // what a certificate says, with no session and no device
+      send.accept(
+          "{\"id\":336,\"method\":\"inspectCertificate\",\"params\":{\"file\":"
+              + Json.write((String) issued.get("certificateFile"))
+              + "}}");
+      equal(Boolean.TRUE, done(sink, 336).get("ok"), "inspectCertificate needs no session");
+      var inspectedCertificate = resultData(sink, 336);
+      check(
+          String.valueOf(inspectedCertificate.get("subject")).contains("BBCGIAUTH"),
+          "inspect: the subject");
+      check(
+          ((Number) inspectedCertificate.get("daysLeft")).longValue() >= 36
+              && ((Number) inspectedCertificate.get("daysLeft")).longValue() <= 37,
+          "inspect: 36 or 37 days left of the 37: " + inspectedCertificate.get("daysLeft"));
+      equal(Boolean.FALSE, inspectedCertificate.get("expired"), "inspect: not expired");
+      send.accept(
+          "{\"id\":337,\"method\":\"inspectCertificate\",\"params\":{\"file\":"
+              + Json.write(devicesDirectory.resolve("nothing.pem").toString())
+              + "}}");
+      var missingCertificate = done(sink, 337);
+      equal("INVALID_ARGUMENT", errorCode(missingCertificate), "inspect: a file that is not there");
+      equal("file", detailsOf(missingCertificate).get("param"), "inspect: names the parameter");
+      device.authority = null;
 
       // disconnect
       send.accept(
