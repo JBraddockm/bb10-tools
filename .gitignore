@@ -43,3 +43,4 @@ build/
 !/libs/.gitkeep
 fixtures/
 /bb-link/certs/
+/bb-link/devices/
