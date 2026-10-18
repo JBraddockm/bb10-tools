@@ -29,6 +29,16 @@
         </blackberry.libs.repo>
 
         <native.maven.plugin.version>0.11.0</native.maven.plugin.version>
+
+        <!-- Testing. The tests are written against the API that JUnit 5.9 and AssertJ 3.14 share with
+             these versions, which is what could be run where they were written. -->
+        <junit.version>5.11.4</junit.version>
+        <assertj.version>3.27.3</assertj.version>
+        <surefire.version>3.5.3</surefire.version>
+        <jacoco.version>0.8.14</jacoco.version>
+
+        <!-- JaCoCo puts its agent here when it is prepared; empty, the tests run without it. -->
+        <argLine/>
     </properties>
 
     <repositories>
@@ -146,6 +156,24 @@
         </dependency>
     </dependencies>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-bom</artifactId>
+                <version>${assertj.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <!-- ============================================================ -->
     <!-- Shared plugin configuration                                  -->
@@ -219,6 +247,39 @@
                     </configuration>
                 </plugin>
 
+
+                <!-- Tests -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${surefire.version}</version>
+                    <configuration>
+                        <!-- The agent of JaCoCo, when it is prepared; see the argLine property. -->
+                        <argLine>@{argLine}</argLine>
+                    </configuration>
+                </plugin>
+
+                <!-- Coverage: the report is in target/site/jacoco/index.html -->
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                    <executions>
+                        <execution>
+                            <id>prepare-agent</id>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <phase>test</phase>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
