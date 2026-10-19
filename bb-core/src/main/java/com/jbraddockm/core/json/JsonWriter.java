@@ -1,6 +1,7 @@
 package com.jbraddockm.core.json;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -19,14 +20,14 @@ final class JsonWriter {
       case Double number when !Double.isFinite(number) -> "null";
       case Float number when !Float.isFinite(number) -> "null";
       case Number number -> number.toString();
-      case java.util.Map<?, ?> map -> writeObject(map);
+      case Map<?, ?> map -> writeObject(map);
       case Iterable<?> items -> writeArray(StreamSupport.stream(items.spliterator(), false));
       case Object[] items -> writeArray(Arrays.stream(items));
       default -> quote(value.toString());
     };
   }
 
-  private static String writeObject(java.util.Map<?, ?> map) {
+  private static String writeObject(Map<?, ?> map) {
     return map.entrySet().stream()
         .filter(entry -> entry.getValue() != null)
         .map(entry -> quote(String.valueOf(entry.getKey())) + ':' + write(entry.getValue()))

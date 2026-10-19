@@ -4,9 +4,12 @@ import com.jbraddockm.core.error.InvalidArgumentException;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
 
 /**
  * Typed access to the {@code params} object of a request. Every problem is an {@link
@@ -31,8 +34,8 @@ public final class RequestParams {
    *
    * @return the parameter names
    */
-  public java.util.Set<String> names() {
-    var names = new java.util.LinkedHashSet<String>();
+  public Set<String> names() {
+    var names = new LinkedHashSet<String>();
     values.keySet().forEach(name -> names.add(String.valueOf(name)));
     return names;
   }
@@ -199,11 +202,11 @@ public final class RequestParams {
    * @return the value, or empty if the parameter is absent
    * @throws InvalidArgumentException if the value is not an integer or outside the range
    */
-  public java.util.OptionalInt optionalInteger(String name, int minimum, int maximum) {
+  public OptionalInt optionalInteger(String name, int minimum, int maximum) {
     return switch (values.get(name)) {
-      case null -> java.util.OptionalInt.empty();
+      case null -> OptionalInt.empty();
       case Long number when number >= minimum && number <= maximum ->
-          java.util.OptionalInt.of(number.intValue());
+          OptionalInt.of(number.intValue());
       case Long _ ->
           throw new InvalidArgumentException(
               name, "must be between " + minimum + " and " + maximum);
