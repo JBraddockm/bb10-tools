@@ -4,6 +4,7 @@ import com.jbraddockm.link.xml.MalformedXmlException;
 import com.jbraddockm.link.xml.XmlElement;
 import com.jbraddockm.link.xml.XmlParser;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * A parsed device response with its envelope removed.
@@ -35,8 +36,7 @@ public record ResponseEnvelope(XmlElement payload) {
       return new ResponseEnvelope(first);
     }
     // Candidates after a revision marker: what it contains, then what follows it.
-    var candidates =
-        java.util.stream.Stream.concat(first.children().stream(), root.children().stream().skip(1));
+    var candidates = Stream.concat(first.children().stream(), root.children().stream().skip(1));
     return new ResponseEnvelope(
         candidates.filter(element -> !element.name().equals(REVISION)).findFirst().orElse(first));
   }

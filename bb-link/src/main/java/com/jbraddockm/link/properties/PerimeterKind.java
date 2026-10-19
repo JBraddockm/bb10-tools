@@ -1,5 +1,7 @@
 package com.jbraddockm.link.properties;
 
+import java.util.Locale;
+
 /** The kind of a perimeter, a separated area of the device with its own owner. */
 public enum PerimeterKind {
 
@@ -26,7 +28,7 @@ public enum PerimeterKind {
    * @return the kind; {@link #UNKNOWN} if the text matches neither
    */
   public static PerimeterKind of(String text) {
-    var lower = text.toLowerCase(java.util.Locale.ROOT);
+    var lower = text.toLowerCase(Locale.ROOT);
     if (lower.startsWith("personal")) {
       return PERSONAL;
     }

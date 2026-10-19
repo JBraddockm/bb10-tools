@@ -13,6 +13,7 @@ import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.Step;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * One request to {@code pimsync.cgi} and what to make of its answer.
@@ -51,7 +52,7 @@ final class PimSyncConversation implements Conversation<PimAnswer> {
       PimCommand command,
       PimService service,
       String purpose,
-      java.util.function.UnaryOperator<CgiRequest.Get> parameters) {
+      UnaryOperator<CgiRequest.Get> parameters) {
     this.command = command;
     this.service = service;
     // An empty answer is an answer: this program answers a request without a command with

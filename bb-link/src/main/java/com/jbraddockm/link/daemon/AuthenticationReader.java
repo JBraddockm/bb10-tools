@@ -5,6 +5,7 @@ import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.session.Authentication;
 import com.jbraddockm.link.session.AuthenticationType;
 import com.jbraddockm.link.session.ClientCertificate;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -95,7 +96,7 @@ final class AuthenticationReader {
                         "is required with the type '" + type.wireName() + "'"));
     try {
       return Path.of(text);
-    } catch (java.nio.file.InvalidPathException _) {
+    } catch (InvalidPathException _) {
       throw new InvalidArgumentException(OBJECT + "." + name, "is not a valid path");
     }
   }
