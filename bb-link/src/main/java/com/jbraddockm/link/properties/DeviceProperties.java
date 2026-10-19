@@ -14,7 +14,7 @@ import java.util.Optional;
  *
  * @param deviceName the name the owner gave the device; may be {@code null}
  * @param modelName the model name; may be {@code null}
- * @param hardwareId the hardware identifier as the device writes it, for example {@code 0x8500240a}
+ * @param hardwareId the hardware identifier as the device writes it, for example {@code 0x0a0b0c0d}
  * @param imei the IMEI; may be {@code null}
  * @param batteryLevel the charge in percent; may be {@code null}
  * @param batteryHealth the battery's state of health in percent; may be {@code null}
