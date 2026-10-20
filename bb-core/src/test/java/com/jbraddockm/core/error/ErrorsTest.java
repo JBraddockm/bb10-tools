@@ -143,11 +143,14 @@ class ErrorsTest {
     }
 
     @Test
-    @DisplayName("needs the name of the argument")
-    void needsTheName() {
+    @DisplayName("needs the name of the argument and the reason")
+    void needsTheNameAndTheReason() {
       assertThatNullPointerException()
           .isThrownBy(() -> new InvalidArgumentException(null, "x"))
           .withMessage("parameter");
+      assertThatNullPointerException()
+          .isThrownBy(() -> new InvalidArgumentException("port", null))
+          .withMessage("reason");
     }
 
     @Test

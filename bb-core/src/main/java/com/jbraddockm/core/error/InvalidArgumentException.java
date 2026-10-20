@@ -18,11 +18,11 @@ public final class InvalidArgumentException extends IllegalArgumentException {
    * @param parameter the name of the offending parameter, which is also its name in the wire
    *     protocol
    * @param reason what is wrong with it, for example {@code is required}
-   * @throws NullPointerException if {@code parameter} is {@code null}
+   * @throws NullPointerException if {@code parameter} or {@code reason} is {@code null}
    */
   public InvalidArgumentException(String parameter, String reason) {
-    Objects.requireNonNull(
-        parameter, "parameter"); // validated before the superclass is initialised
+    Objects.requireNonNull(parameter, "parameter");
+    Objects.requireNonNull(reason, "reason");
     super("'" + parameter + "' " + reason);
     this.parameter = parameter;
   }
