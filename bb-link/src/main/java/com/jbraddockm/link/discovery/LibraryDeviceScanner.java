@@ -18,11 +18,25 @@ final class LibraryDeviceScanner implements DeviceScanner {
   }
 
   private static DiscoveredDevice convert(Device device) {
-    var version = device.version == null ? "" : device.version.strip();
+    return convert(device.hostname, device.ip, device.getType(), device.version);
+  }
+
+  /**
+   * Makes what the daemon says of a device from what the library says of it.
+   *
+   * @param hostname the name that the device gave itself
+   * @param address the address that it was found at
+   * @param type the kind of connection, in the words of the library
+   * @param version the version of the system that it runs, which may be missing or blank
+   * @return the device, with no version when the library gave none
+   * @throws IllegalArgumentException if the library names a kind of connection that is not known
+   */
+  static DiscoveredDevice convert(String hostname, String address, String type, String version) {
+    var stripped = version == null ? "" : version.strip();
     return new DiscoveredDevice(
-        device.hostname,
-        device.ip,
-        ConnectionKind.fromDetectorText(device.getType()),
-        version.isEmpty() ? null : version);
+        hostname,
+        address,
+        ConnectionKind.fromDetectorText(type),
+        stripped.isEmpty() ? null : stripped);
   }
 }
