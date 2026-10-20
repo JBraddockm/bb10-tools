@@ -1,0 +1,11 @@
+<RimTabletResponse>
+  <AuthChallenge>
+    <Status>PasswdChallenge</Status>
+    <Challenge>What's the airspeed velocity of an unladen swallow?3Pfa94fK6iYorCvomr32L2K5h2al</Challenge>
+    <Algorithm>2</Algorithm>
+    <Salt>4EB86E31B720EAFF</Salt>
+    <ICount>6000</ICount>
+    <FailedAttempts>0</FailedAttempts>
+    <RetriesRemaining>5</RetriesRemaining>
+  </AuthChallenge>
+</RimTabletResponse>

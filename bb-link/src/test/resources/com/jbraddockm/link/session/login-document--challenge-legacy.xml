@@ -1,0 +1,1 @@
+<RIM_tablet_response><AuthChallenge><Status>PasswdChallenge</Status><challenge>0123456789</challenge><algorithm>1</algorithm><icount>5000</icount><salt>abcdef0123456789</salt></AuthChallenge></RIM_tablet_response>

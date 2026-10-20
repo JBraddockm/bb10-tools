@@ -1,0 +1,1 @@
+<RimTabletResponse><Auth><Status>Success</Status><Smb><User>element-user</User><Credentials User='attribute-user' Password='abc123'/></Smb></Auth></RimTabletResponse>

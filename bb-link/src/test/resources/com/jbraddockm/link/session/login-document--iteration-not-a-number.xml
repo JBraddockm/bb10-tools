@@ -1,0 +1,1 @@
+<RimTabletResponse><AuthChallenge><Status>PasswdChallenge</Status><Challenge>0123456789</Challenge><Algorithm>1</Algorithm><ICount>many</ICount><Salt>abcdef</Salt></AuthChallenge></RimTabletResponse>
