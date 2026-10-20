@@ -1,0 +1,1 @@
+<RimTabletResponse><Auth><Status>Success</Status><Smb><Credentials User='dtm' Password='TLS-SHARE'/><User>dtm</User><Pwd>TLS-SHARE</Pwd><Workgroup>WORKGROUP</Workgroup><NetBios>%h</NetBios></Smb></Auth></RimTabletResponse>

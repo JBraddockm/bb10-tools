@@ -1,0 +1,1 @@
+<Smb><Credentials User='dtm' Password='{{password}}'/><User>dtm</User><Pwd>{{password}}</Pwd><Workgroup>WORKGROUP</Workgroup><NetBios>%h</NetBios></Smb>

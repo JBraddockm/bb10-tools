@@ -1,11 +1,9 @@
 package com.jbraddockm.link.testing;
 
-import static com.jbraddockm.link.testing.Checks.check;
-
 import com.jbraddockm.core.command.CommandOutcome;
 import com.jbraddockm.core.command.CommandResult;
 
-/** What checks of workflows do with the outcome of a command. */
+/** Extracts the result of a successful {@link CommandOutcome} or the failure of a failed one. */
 public final class Outcomes {
 
   private Outcomes() {}
@@ -15,11 +13,14 @@ public final class Outcomes {
    *
    * @param outcome the outcome
    * @param <T> what the command gives
-   * @return the result; a check fails if there is none
+   * @return the result
+   * @throws AssertionError if the outcome is a failure
    */
   public static <T extends CommandResult> T succeeded(CommandOutcome<T> outcome) {
-    check(outcome instanceof CommandOutcome.Succeeded<T>, "should have succeeded: " + outcome);
-    return ((CommandOutcome.Succeeded<T>) outcome).result();
+    if (outcome instanceof CommandOutcome.Succeeded<T> success) {
+      return success.result();
+    }
+    throw new AssertionError("should have succeeded: " + outcome);
   }
 
   /**
@@ -27,11 +28,14 @@ public final class Outcomes {
    *
    * @param outcome the outcome
    * @param <T> what the command gives
-   * @return the failure; a check fails if the outcome is a success
+   * @return the failure
+   * @throws AssertionError if the outcome is a success
    */
   public static <T extends CommandResult> CommandOutcome.Failed<T> failed(
       CommandOutcome<T> outcome) {
-    check(outcome instanceof CommandOutcome.Failed<T>, "should have failed: " + outcome);
-    return (CommandOutcome.Failed<T>) outcome;
+    if (outcome instanceof CommandOutcome.Failed<T> failure) {
+      return failure;
+    }
+    throw new AssertionError("should have failed: " + outcome);
   }
 }

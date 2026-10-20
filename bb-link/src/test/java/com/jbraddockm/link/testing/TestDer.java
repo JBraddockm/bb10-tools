@@ -3,7 +3,7 @@ package com.jbraddockm.link.testing;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Reads DER, enough to take a certificate request apart; the writing side is the main code's. */
+/** A minimal DER reader that takes a certificate request apart. */
 public final class TestDer {
 
   /**

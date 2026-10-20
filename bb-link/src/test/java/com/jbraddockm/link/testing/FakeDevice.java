@@ -30,10 +30,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A device's web interface as a local HTTP server: the challenge login and the two CGI programs
- * bb-link uses so far. The shapes of the answers are those of a real device (login challenge,
- * success with the file share credentials, denial, the cookies and their dates), taken from a
- * capture. Its behaviour can be bent to reproduce the situations the session must survive.
+ * Simulates the web interface of a device as a local HTTP server: the challenge login and the CGI
+ * programs that bb-link uses. Its behavior can be changed to reproduce failure conditions.
  */
 public final class FakeDevice implements AutoCloseable {
 
@@ -88,33 +86,26 @@ public final class FakeDevice implements AutoCloseable {
   /** The start of the file share password; the device appends the number of the login. */
   public static final String SHARE_PASSWORD_PREFIX = "FAKE-SHARE-PASSWORD-";
 
+  /** The form body that requests the properties of the device. */
   public static final String PROPERTIES_BODY =
       "Get%20Dynamic%20Properties=Get%20Dynamic%20Properties";
+
+  /** The form body that requests the PIN of the device. */
   public static final String PIN_BODY = "wipe=getpin";
 
+  /** The properties that the device answers by default. */
   public static final String DEFAULT_PROPERTIES =
-      """
-      <RimTabletResponse><DynamicProperties><Status>Success</Status>
-      <Applications>
-      <Application><Name>sys.os.fake</Name><Type>os</Type><PackageId>os1</PackageId><PackageVersion>10.3.3.2205</PackageVersion></Application>
-      <Application><Name>sys.radio.fake</Name><Type>radio</Type><PackageId>radio1</PackageId><PackageVersion>10.3.3.2206</PackageVersion></Application>
-      </Applications>
-      <DeviceStatus><BatteryLevel>87</BatteryLevel><BoardSerialNumber>FAKESERIAL0001</BoardSerialNumber></DeviceStatus>
-      <DeviceHardware><HardwareID>0x8500240a</HardwareID></DeviceHardware>
-      <DeviceInformation><DeviceName>Test Z10</DeviceName></DeviceInformation>
-      </DynamicProperties></RimTabletResponse>
-      """;
+      Resources.text(FakeDevice.class, "fake-device--properties.xml");
 
   /**
    * What a real device answers to pimsync without a session; not valid JSON, {@code data} is not
    * quoted.
    */
   public static final String UNAUTHENTICATED_PIM_SYNC =
-      "{\"version\":\"1.0\",\"status\":{\"code\":1013,\"msg\":\"received HTTP 401/403 from"
-          + " server\"},\"data\":DTM NOT LOGGED IN}";
+      Resources.text(FakeDevice.class, "fake-device--pim-unauthenticated.json").strip();
 
-  public static final String DEFAULT_PIN =
-      "<RimTabletResponse><DevicePIN><Status>Success</Status><PIN>PINX2A3B4C5D</PIN><Log></Log></DevicePIN></RimTabletResponse>";
+  /** The PIN answer that the device gives by default. */
+  public static final String DEFAULT_PIN = Resources.text(FakeDevice.class, "fake-device--pin.xml");
 
   private final HttpServer server;
   private final String password;
@@ -188,21 +179,11 @@ public final class FakeDevice implements AutoCloseable {
 
   /** What a real device answers to dynamicProperties.cgi when the request has no valid session. */
   public static final String UNAUTHORIZED_PROPERTIES =
-      """
-      <RimTabletResponse>
-        <DynamicProperties>
-          <Status>Error</Status>
-          <Error>
-            <ErrorIdentifier>1011</ErrorIdentifier>
-            <ErrorDescription>Error - authorization</ErrorDescription>
-          </Error>
-        </DynamicProperties>
-      </RimTabletResponse>
-      """;
+      Resources.text(FakeDevice.class, "fake-device--properties-unauthorized.xml");
 
   /** The answer to a command that has no entry in {@link #pimResponses}. */
   public static final String DEFAULT_PIM_ANSWER =
-      "{\"version\":\"1.0\",\"status\":{\"code\":0,\"msg\":\"OK\"},\"data\":[]}";
+      Resources.text(FakeDevice.class, "fake-device--pim-answer.json").strip();
 
   /** Counts requests to the login program. */
   public final AtomicInteger loginRequests = new AtomicInteger();
@@ -216,12 +197,25 @@ public final class FakeDevice implements AutoCloseable {
   /** Counts requests to the CGI programs, including rejected and dropped ones. */
   public final AtomicInteger cgiRequests = new AtomicInteger();
 
+  /** How the device answers the login. */
   public volatile LoginMode loginMode = LoginMode.CHALLENGE;
+
+  /** How the cookie of a successful login is written. */
   public volatile CookieStyle cookieStyle = CookieStyle.NORMAL;
+
+  /** What the CGI programs do with the session cookie in their answers. */
   public volatile CgiCookie cgiCookie = CgiCookie.RENEW;
+
+  /** How the CGI programs reject a request without a valid session. */
   public volatile StaleStyle staleStyle = StaleStyle.EMPTY;
+
+  /** The properties answer of the device. */
   public volatile String propertiesXml = DEFAULT_PROPERTIES;
+
+  /** The PIN answer of the device. */
   public volatile String pinXml = DEFAULT_PIN;
+
+  /** The number of failed password attempts that the login reports. */
   public volatile int failedAttempts;
 
   /** The number of upcoming CGI requests to drop without an answer. */
@@ -234,9 +228,9 @@ public final class FakeDevice implements AutoCloseable {
   public volatile boolean alwaysRejectCookie;
 
   /**
-   * The percentages that update.cgi answers, as {@code InProgress}, to the successive polls of one
-   * package; the poll after them answers {@code Success}. A real device says {@code InProgress}
-   * with 100 once before {@code Success} **[verified]**.
+   * The percentages that update.cgi reports as {@code InProgress} for the successive polls of a
+   * package; the next poll reports {@code Success}. A real device reports {@code InProgress} with
+   * 100 once before {@code Success}.
    */
   public volatile List<Integer> updateProgress = List.of(3, 100);
 
@@ -259,15 +253,15 @@ public final class FakeDevice implements AutoCloseable {
   public volatile String updateAnswer;
 
   /**
-   * The element that update.cgi answers the start of a removal with; a device answers {@code
-   * UpdateStart}, and the research names {@code DeleteRequest}.
+   * The element that update.cgi answers the start of a removal with. A real device answers {@code
+   * UpdateStart}.
    */
   public volatile String deleteStartElement = "UpdateStart";
 
   /**
-   * The element that update.cgi answers every removal with. When it is {@code null}, as a device
-   * does: {@code DeleteRequest} for the first removal of a conversation and {@code DeleteProgress}
-   * for the others.
+   * The element that update.cgi answers every removal with. When {@code null}, the behavior of a
+   * real device is used: {@code DeleteRequest} for the first removal of a conversation and {@code
+   * DeleteProgress} for the others.
    */
   public volatile String deleteAnswerElement = null;
 
@@ -378,7 +372,12 @@ public final class FakeDevice implements AutoCloseable {
     loginRequests.incrementAndGet();
     var query = exchange.getRequestURI().getRawQuery();
     switch (loginMode) {
-      case GARBAGE -> respond(exchange, 200, "<html><body>maintenance", null);
+      case GARBAGE ->
+          respond(
+              exchange,
+              200,
+              Resources.text(FakeDevice.class, "fake-device--login-maintenance.txt").strip(),
+              null);
       case LEGACY -> respond(exchange, 200, auth("Error", ""), null);
       case NO_PASSWORD -> respond(exchange, 200, success(), cookieHeader());
       case CHALLENGE -> {
@@ -388,21 +387,15 @@ public final class FakeDevice implements AutoCloseable {
           respond(
               exchange,
               200,
-              """
-              <RimTabletResponse>
-                <AuthChallenge>
-                  <Status>PasswdChallenge</Status>
-                  <Challenge>%s</Challenge>
-                  <Algorithm>2</Algorithm>
-                  <Salt>%s</Salt>
-                  <ICount>%d</ICount>
-                  <FailedAttempts>%d</FailedAttempts>
-                  <RetriesRemaining>%d</RetriesRemaining>
-                </AuthChallenge>
-              </RimTabletResponse>
-              """
-                  .formatted(
-                      CHALLENGE, SALT, ITERATIONS, failedAttempts, MAX_ATTEMPTS - failedAttempts),
+              Resources.text(
+                  FakeDevice.class,
+                  "fake-device--login-challenge.xml",
+                  Map.of(
+                      "challenge", CHALLENGE,
+                      "salt", SALT,
+                      "iterations", String.valueOf(ITERATIONS),
+                      "failedAttempts", String.valueOf(failedAttempts),
+                      "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts))),
               "loginsession=PRELOGIN-TOKEN; expires=Fri, 01-Jan-2100 00:00:00 GMT; path=/");
         }
       }
@@ -425,8 +418,13 @@ public final class FakeDevice implements AutoCloseable {
           200,
           auth(
               "Denied",
-              "<FailedAttempts>%d</FailedAttempts><RetriesRemaining>%d</RetriesRemaining>"
-                  .formatted(failedAttempts, MAX_ATTEMPTS - failedAttempts)),
+              Resources.text(
+                      FakeDevice.class,
+                      "fake-device--login-counts.xml",
+                      Map.of(
+                          "failedAttempts", String.valueOf(failedAttempts),
+                          "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts)))
+                  .strip()),
           null);
     }
   }
@@ -440,11 +438,9 @@ public final class FakeDevice implements AutoCloseable {
   }
 
   private static String auth(String status, String more) {
-    return "<RimTabletResponse><Auth><Status>"
-        + status
-        + "</Status>"
-        + more
-        + "</Auth></RimTabletResponse>";
+    return Resources.text(
+            FakeDevice.class, "fake-device--login-auth.xml", Map.of("status", status, "more", more))
+        .strip();
   }
 
   /**
@@ -462,9 +458,11 @@ public final class FakeDevice implements AutoCloseable {
     return auth(
         "Success",
         offersShare
-            ? "<Smb><Credentials User='dtm' Password='%1$s'/><User>dtm</User><Pwd>%1$s</Pwd>"
-                    .formatted(sharePassword)
-                + "<Workgroup>WORKGROUP</Workgroup><NetBios>%h</NetBios></Smb>"
+            ? Resources.text(
+                    FakeDevice.class,
+                    "fake-device--login-share.xml",
+                    Map.of("password", sharePassword))
+                .strip()
             : "");
   }
 
@@ -491,7 +489,7 @@ public final class FakeDevice implements AutoCloseable {
         }
         case AUTH_CHALLENGE ->
             answer =
-                "<RimTabletResponse><AuthChallenge><Status>PasswdChallenge</Status></AuthChallenge></RimTabletResponse>";
+                Resources.text(FakeDevice.class, "fake-device--stale-auth-challenge.xml").strip();
         default -> throw new IllegalStateException();
       }
     } else if (!"POST".equals(exchange.getRequestMethod()) || !expectedBody.equals(body)) {
@@ -506,10 +504,8 @@ public final class FakeDevice implements AutoCloseable {
   }
 
   /**
-   * Runs the hook that a test set for "after the next request", once. It runs after the device has
-   * decided what to answer and before the answer is sent: the client cannot send its next request
-   * before it has this answer, so the hook has always run by then. Running it after the answer is
-   * sent would race with that next request.
+   * Runs the hook set for "after the next request", once, after the answer is decided and before it
+   * is sent. Running it later would race with the next request of the client.
    */
   private void fireHook() {
     var callback = afterNextCgiRequest;
@@ -554,57 +550,28 @@ public final class FakeDevice implements AutoCloseable {
     }
   }
 
-  /** Properties that say how much application space is free. */
-  public static String propertiesWithFreeSpace(long bytes) {
-    return DEFAULT_PROPERTIES.replace(
-        "<DeviceStatus>",
-        "<DeviceStatus><FreeApplicationSpace>" + bytes + "</FreeApplicationSpace>");
-  }
-
-  /**
-   * Properties that list applications with these package ids, besides the operating system and the
-   * radio.
-   */
-  public static String propertiesWithApplications(String... packageIds) {
-    var entries = new StringBuilder();
-    for (var packageId : packageIds) {
-      entries
-          .append("<Application><Name>app.")
-          .append(packageId)
-          .append("</Name><Type>application</Type><PackageId>")
-          .append(packageId)
-          .append("</PackageId><PackageVersion>1.0</PackageVersion></Application>\n");
-    }
-    return DEFAULT_PROPERTIES.replace("</Applications>", entries + "</Applications>");
-  }
-
   private static String updateAnswerOf(String element, String status, String extra) {
-    return "<RimTabletResponse><"
-        + element
-        + "><Status>"
-        + status
-        + "</Status>"
-        + extra
-        + "</"
-        + element
-        + "></RimTabletResponse>";
+    return Resources.text(
+            FakeDevice.class,
+            "fake-device--update-answer.xml",
+            Map.of("element", element, "status", status, "extra", extra))
+        .strip();
   }
 
   private static String updateError(String element, int identifier, String description) {
-    return updateAnswerOf(
-        element,
-        "Error",
-        "<ErrorIdentifier>"
-            + identifier
-            + "</ErrorIdentifier><ErrorDescription>"
-            + description
-            + "</ErrorDescription>");
+    var details =
+        Resources.text(
+                FakeDevice.class,
+                "fake-device--update-error-details.xml",
+                Map.of("identifier", String.valueOf(identifier), "description", description))
+            .strip();
+    return updateAnswerOf(element, "Error", details);
   }
 
   /**
-   * update.cgi as the research describes it: a conversation tracked by a cookie that the start
-   * issues, a start (form with a mode and a size), uploads (raw octet-stream with a type in the
-   * query), polls (an empty form) and a finish (status=success).
+   * Handles update.cgi: a conversation tracked by a cookie issued by the start, with a start (a
+   * form with a mode and a size), uploads (octet-stream bodies, with a type in the query), polls
+   * (an empty form) and a finish (status=success).
    */
   private void update(HttpExchange exchange) throws IOException {
     cgiRequests.incrementAndGet();
@@ -668,8 +635,7 @@ public final class FakeDevice implements AutoCloseable {
                 4,
                 "unable to verify app manifest");
       } else {
-        // The cookie arrives already expired, as on a real device, so a client never keeps it
-        // **[verified]**; nothing about the conversation depends on it.
+        // The cookie arrives already expired, as on a real device, so a client never keeps it.
         setCookie = "update=" + System.nanoTime() + "; expires=" + EXPIRED + "; path=/";
         removalsSinceStart = 0;
         answer =
@@ -697,7 +663,8 @@ public final class FakeDevice implements AutoCloseable {
               case "empty" -> "";
               case "DeleteProgress" -> updateAnswerOf("DeleteProgress", "Success", "");
               case "Weird" -> updateAnswerOf("UpdateEnd", "Weird", "");
-              case "Surprise" -> "<RimTabletResponse><Surprise/></RimTabletResponse>";
+              case "Surprise" ->
+                  Resources.text(FakeDevice.class, "fake-device--surprise.xml").strip();
               default -> updateAnswerOf("UpdateEnd", "Success", "");
             };
       }
@@ -708,9 +675,12 @@ public final class FakeDevice implements AutoCloseable {
           failure.equals("finish")
               ? updateError("UpdateEnd", 6, "Cannot finish")
               : end.isEmpty()
-                  ? "<RimTabletResponse><UpdateEnd/></RimTabletResponse>"
+                  ? Resources.text(FakeDevice.class, "fake-device--update-end-empty.xml").strip()
                   : updateAnswerOf(
-                      "UpdateEnd", end, "<!-- Update ID: \n -->\n<!-- DTM status: success\n -->");
+                      "UpdateEnd",
+                      end,
+                      Resources.text(FakeDevice.class, "fake-device--update-end-comments.txt")
+                          .strip());
     } else {
       updateRequests.add("poll");
       if (updatePollAnswer != null) {
@@ -727,7 +697,11 @@ public final class FakeDevice implements AutoCloseable {
               updateAnswerOf(
                   "UpdateProgress",
                   working ? "InProgress" : "Success",
-                  "<Progress>" + percent + "</Progress>\n<!-- Percentage of Install -->");
+                  Resources.text(
+                          FakeDevice.class,
+                          "fake-device--update-progress-details.xml",
+                          Map.of("percent", String.valueOf(percent)))
+                      .strip());
         }
       }
     }
@@ -747,14 +721,14 @@ public final class FakeDevice implements AutoCloseable {
     return null;
   }
 
-  private static final String UNAUTHENTICATED_PAIRING =
-      "<RimTabletResponse><Pairing><Status>Error</Status><Error><ErrorIdentifier>6</ErrorIdentifier><ErrorDescription>Error"
-          + " - authorization.</ErrorDescription></Error></Pairing></RimTabletResponse>";
+  private static String pairingNotAuthorized() {
+    return Resources.text(FakeDevice.class, "fake-device--pairing-not-authorized.xml").strip();
+  }
 
   /**
-   * A POST to pairing.cgi. The answers are those of the real device where they were captured: its
-   * own authority as the text of {@code Pairing} and no {@code Status}, for an insert that it
-   * takes; error 7 for anything else, a delete and a query included; error 6 without a session.
+   * Handles a POST to pairing.cgi. An insert is answered with the authority of the device as the
+   * text of {@code Pairing}, without {@code Status}; any other request with error 7; a request
+   * without a session with error 6.
    */
   private void pairing(HttpExchange exchange) throws IOException {
     cgiRequests.incrementAndGet();
@@ -770,7 +744,7 @@ public final class FakeDevice implements AutoCloseable {
     var authorised = !alwaysRejectCookie && cookie != null && cookie.contains("dtmauth=" + token);
     String answer;
     if (!authorised) {
-      answer = UNAUTHENTICATED_PAIRING;
+      answer = pairingNotAuthorized();
     } else {
       answer = pairingAnswer != null ? pairingAnswer : pairingAnswerFor(body);
     }
@@ -794,9 +768,11 @@ public final class FakeDevice implements AutoCloseable {
     try {
       CertificateDetails.firstCertificate(certdata);
       pairings.put(deviceId, certdata);
-      return "<RimTabletResponse><Pairing><![CDATA[\n"
-          + authority.rootPem()
-          + "\n]]></Pairing></RimTabletResponse>";
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--pairing-accepted.xml",
+              Map.of("authority", authority.rootPem()))
+          .strip();
     } catch (CertificateException _) {
       return pairingError(7, "Error - insert certificate failed.");
     } catch (GeneralSecurityException failure) {
@@ -805,18 +781,17 @@ public final class FakeDevice implements AutoCloseable {
   }
 
   private static String pairingError(int number, String description) {
-    return "<RimTabletResponse><Pairing><Status>Error</Status><Error><ErrorIdentifier>"
-        + number
-        + "</ErrorIdentifier><ErrorDescription>"
-        + description
-        + "</ErrorDescription></Error></Pairing></RimTabletResponse>";
+    return Resources.text(
+            FakeDevice.class,
+            "fake-device--pairing-error.xml",
+            Map.of("number", String.valueOf(number), "description", description))
+        .strip();
   }
 
   /**
-   * A POST to login.cgi: a certificate request. The answers are those of the real device where they
-   * were captured: the certificate as PEM and nothing else, as {@code application/octet-stream},
-   * and for a body of another content type an error 260 in {@code CgiAuth}. The other errors are
-   * made up.
+   * Handles a certificate request posted to login.cgi: the certificate as PEM in {@code
+   * application/octet-stream}, or error 260 in {@code CgiAuth} for a body of another content type.
+   * The other errors are simulated.
    */
   private void authenticationRequest(HttpExchange exchange) throws IOException {
     cgiRequests.incrementAndGet();
@@ -874,11 +849,11 @@ public final class FakeDevice implements AutoCloseable {
   }
 
   private static String authenticationError(int number, String description) {
-    return "<RimTabletResponse><CgiAuth><Status>Error</Status><Error><ErrorIdentifier>"
-        + number
-        + "</ErrorIdentifier><ErrorDescription>"
-        + description
-        + "</ErrorDescription></Error></CgiAuth></RimTabletResponse>";
+    return Resources.text(
+            FakeDevice.class,
+            "fake-device--authentication-error.xml",
+            Map.of("number", String.valueOf(number), "description", description))
+        .strip();
   }
 
   private static void respond(HttpExchange exchange, int status, String body, String setCookie)

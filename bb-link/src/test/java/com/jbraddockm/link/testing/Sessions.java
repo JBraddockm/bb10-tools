@@ -7,14 +7,13 @@ import com.jbraddockm.link.session.ExchangeObserver;
 import com.jbraddockm.link.session.TransportScheme;
 import java.net.InetAddress;
 
-/** Sessions that checks open to a fake device. */
+/** Opens sessions to a {@link FakeDevice}. */
 public final class Sessions {
 
   private Sessions() {}
 
   /**
-   * A session to a fake device over plain HTTP, with the password that the fake device was made
-   * with in the checks, {@code secret}.
+   * A session to a fake device over plain HTTP, authenticated with the password {@code secret}.
    *
    * @param device the fake device
    * @return the session

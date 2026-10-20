@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLPeerUnverifiedException;
@@ -22,11 +23,8 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 /**
- * A device's mutual-TLS listener: it asks for a client certificate, lists as acceptable only a CA
- * that is not the one that issued the test certificate (like a device whose list names the root
- * while the certificate comes from an intermediate), does not insist on one, and answers with what
- * it saw. It speaks just enough of the device's interface for a session: the login, the properties
- * and the PIN.
+ * A TLS listener that asks for a client certificate and reports what it saw. It accepts only an
+ * authority that did not issue the test certificate, like a device whose list omits the issuer.
  */
 public final class TlsTestDevice implements AutoCloseable {
 
@@ -199,25 +197,17 @@ public final class TlsTestDevice implements AutoCloseable {
     }
   }
 
-  private static final String CHALLENGE =
-      "<RimTabletResponse><AuthChallenge><Status>PasswdChallenge</Status><Challenge>c</Challenge>"
-          + "<Algorithm>2</Algorithm><Salt>0102030405060708</Salt><ICount>10</ICount>"
-          + "<FailedAttempts>0</FailedAttempts><RetriesRemaining>5</RetriesRemaining></AuthChallenge>"
-          + "</RimTabletResponse>";
-
   private String answerTo(String path, String peer) {
     var noCertificate = peer.equals("none");
     if (path.startsWith("/cgi-bin/login.cgi")) {
       if (behaviour == Behaviour.REFUSES_EVERYONE
           || behaviour == Behaviour.LOGIN_ASKS_FOR_PASSWORD) {
-        return CHALLENGE;
+        return Resources.text(TlsTestDevice.class, "tls-test-device--challenge.xml").strip();
       }
       if (behaviour == Behaviour.REFUSES_WITHOUT_CERTIFICATE && noCertificate) {
         return "";
       }
-      return "<RimTabletResponse><Auth><Status>Success</Status><Smb><Credentials User='dtm'"
-                 + " Password='TLS-SHARE'/><User>dtm</User><Pwd>TLS-SHARE</Pwd>"
-                 + "<Workgroup>WORKGROUP</Workgroup><NetBios>%h</NetBios></Smb></Auth></RimTabletResponse>";
+      return Resources.text(TlsTestDevice.class, "tls-test-device--login-success.xml").strip();
     }
     var refuse =
         behaviour == Behaviour.REFUSES_EVERYONE
@@ -227,13 +217,14 @@ public final class TlsTestDevice implements AutoCloseable {
       return FakeDevice.UNAUTHORIZED_PROPERTIES;
     }
     if (path.startsWith("/cgi-bin/wipe.cgi")) {
-      return "<RimTabletResponse><DevicePIN><Status>Success</Status><PIN>PINX2A3B4C5D</PIN></DevicePIN></RimTabletResponse>";
+      return Resources.text(TlsTestDevice.class, "tls-test-device--pin.xml").strip();
     }
     // the name of the device is what the client certificate said, so a test can read it back
-    return "<RimTabletResponse><DynamicProperties><Status>Success</Status><DeviceInformation>"
-        + "<DeviceName>"
-        + peer.replace("&", "&amp;").replace("<", "&lt;")
-        + "</DeviceName></DeviceInformation></DynamicProperties></RimTabletResponse>";
+    return Resources.text(
+            TlsTestDevice.class,
+            "tls-test-device--properties.xml",
+            Map.of("deviceName", peer.replace("&", "&amp;").replace("<", "&lt;")))
+        .strip();
   }
 
   @Override

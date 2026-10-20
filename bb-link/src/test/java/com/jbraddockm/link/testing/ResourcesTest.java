@@ -13,12 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * How tests read their data: {@link Resources} finds a file in the folder that mirrors the package,
- * and fills the placeholders that a file has for values that only exist at run time.
- *
- * <p>Resources, in {@code src/test/resources/com/jbraddockm/link/testing}: {@code greeting.txt}
- * (two placeholders), {@code greeting--filled.txt} (what it is with both filled) and {@code
- * greeting--two-names.txt} (a different second placeholder).
+ * Tests for {@link Resources}: lookup in the folder of the package, and substitution of
+ * placeholders.
  */
 @DisplayName("Resources: the data of the tests, in files that mirror the packages")
 class ResourcesTest {

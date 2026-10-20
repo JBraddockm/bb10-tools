@@ -20,15 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * A certificate authority that signs requests the way a device's does, as far as a certificate that
- * a device issued shows it: the serial number goes into the subject as well, the validity is 37
- * days, the signature is SHA-1 with RSA, and the extensions are the ones that the certificate from
- * a laptop has.
- *
- * <p>It exists so that the issuing of a certificate can be tested without a device and without
- * {@code openssl}.
- */
+/** A certificate authority that signs requests the way a device does. */
 public final class TestAuthority {
 
   private static final String COMMON_NAME = "2.5.4.3";
@@ -130,7 +122,7 @@ public final class TestAuthority {
     return Der.sequence(
         rdn("2.5.4.10", "Research In Motion"),
         rdn("2.5.4.11", "BlackBerry"),
-        rdn(COMMON_NAME, "BB10/f09014cf1810c3d9fa757ca0e7aa9c42117dab02"));
+        rdn(COMMON_NAME, "BB10/0000000000000000000000000000000000000000"));
   }
 
   private static byte[] rdn(String oid, String value) {

@@ -1,0 +1,11 @@
+<RimTabletResponse>
+  <AuthChallenge>
+    <Status>PasswdChallenge</Status>
+    <Challenge>{{challenge}}</Challenge>
+    <Algorithm>2</Algorithm>
+    <Salt>{{salt}}</Salt>
+    <ICount>{{iterations}}</ICount>
+    <FailedAttempts>{{failedAttempts}}</FailedAttempts>
+    <RetriesRemaining>{{retriesRemaining}}</RetriesRemaining>
+  </AuthChallenge>
+</RimTabletResponse>

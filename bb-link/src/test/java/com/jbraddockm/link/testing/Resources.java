@@ -11,15 +11,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Where tests get their data: text, XML, JSON and PEM do not live in test code but in files under
- * {@code src/test/resources}, in a folder that mirrors the package of the test that uses them.
- *
- * <p>A test in {@code com.jbraddockm.link.pairing.store} reads {@code
- * src/test/resources/com/jbraddockm/link/pairing/store/<name>}. A file that needs a value that only
- * exists at run time (a port, a session token, a folder) holds a placeholder written {@code
- * {{name}}}; {@link #text(Class, String, Map)} fills them in. That is all the construction there
- * is: a placeholder with no value, and a value with no placeholder, are both errors, so a typo
- * cannot pass unnoticed.
+ * Reads test data from the resource folder that mirrors the package of the test, and fills
+ * placeholders for values that exist only at run time.
  */
 public final class Resources {
 

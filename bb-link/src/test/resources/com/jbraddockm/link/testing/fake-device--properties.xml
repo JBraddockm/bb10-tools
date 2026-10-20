@@ -1,0 +1,9 @@
+<RimTabletResponse><DynamicProperties><Status>Success</Status>
+<Applications>
+<Application><Name>sys.os.fake</Name><Type>os</Type><PackageId>os1</PackageId><PackageVersion>10.3.3.2205</PackageVersion></Application>
+<Application><Name>sys.radio.fake</Name><Type>radio</Type><PackageId>radio1</PackageId><PackageVersion>10.3.3.2206</PackageVersion></Application>
+</Applications>
+<DeviceStatus><BatteryLevel>87</BatteryLevel><BoardSerialNumber>FAKESERIAL0001</BoardSerialNumber></DeviceStatus>
+<DeviceHardware><HardwareID>0x0a0b0c0d</HardwareID></DeviceHardware>
+<DeviceInformation><DeviceName>Test Z10</DeviceName></DeviceInformation>
+</DynamicProperties></RimTabletResponse>
