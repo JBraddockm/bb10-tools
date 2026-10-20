@@ -2,12 +2,17 @@ package com.jbraddockm.core.bar;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.blackberry.tools.bar.PackageType;
 import com.jbraddockm.core.testing.Resources;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -320,6 +325,22 @@ class BarInspectorTest {
       assertThatThrownBy(() -> BarInspector.validate(folder))
           .isInstanceOf(InvalidBarException.class)
           .hasMessage("it is a folder, not a file");
+    }
+
+    @Test
+    @DisplayName(
+        "a file that cannot be read is an error of access, not of its content, whether it is"
+            + " inspected or validated")
+    void aFileThatCannotBeRead() throws Exception {
+      assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+      var file = BarFiles.withManifest(folder, "locked.bar", "manifest--application.mf");
+      Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("---------"));
+      assumeFalse(Files.isReadable(file), "running as a user that can read everything");
+
+      assertThatThrownBy(() -> BarInspector.inspect(file))
+          .isInstanceOf(AccessDeniedException.class);
+      assertThatThrownBy(() -> BarInspector.validate(file))
+          .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

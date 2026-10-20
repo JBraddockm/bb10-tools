@@ -8,6 +8,7 @@ import com.blackberry.tools.bar.ParseException;
 import com.blackberry.tools.bar.SigningType;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -43,7 +44,9 @@ public final class BarInspector {
    *
    * @param file the bar
    * @return the description
-   * @throws IOException if the file cannot be read, for example because it does not exist
+   * @throws IOException if the file cannot be read: it does not exist ({@link
+   *     java.nio.file.NoSuchFileException}) or access to it is denied ({@link
+   *     AccessDeniedException})
    * @throws InvalidBarException if the file is not a ZIP archive, has no usable manifest, or names
    *     a package type that is not known
    */
@@ -128,7 +131,11 @@ public final class BarInspector {
     if (Files.isDirectory(file)) {
       throw new InvalidBarException("it is a folder, not a file");
     }
-    return Files.size(file);
+    var size = Files.size(file);
+    if (!Files.isReadable(file)) {
+      throw new AccessDeniedException(file.toString());
+    }
+    return size;
   }
 
   private static ZipFile open(Path file) throws IOException, InvalidBarException {

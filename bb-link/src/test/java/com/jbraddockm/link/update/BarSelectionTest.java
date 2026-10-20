@@ -103,7 +103,7 @@ class BarSelectionTest {
     var error = refused(BarSelection.of(List.of(file.toString()))).error();
 
     assertThat(error.code()).isEqualTo(CoreErrorCode.IO_ERROR);
-    assertThat(error.message()).startsWith("The file cannot be read: ");
+    assertThat(error.message()).isEqualTo("The file cannot be read: access is denied");
   }
 
   @Test

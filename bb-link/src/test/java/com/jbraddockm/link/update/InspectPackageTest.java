@@ -78,6 +78,6 @@ class InspectPackageTest {
     var failure = failed(InspectPackage.inspect(file, false));
 
     assertThat(failure.error().code()).isEqualTo(CoreErrorCode.IO_ERROR);
-    assertThat(failure.error().message()).startsWith("The file cannot be read: ");
+    assertThat(failure.error().message()).isEqualTo("The file cannot be read: access is denied");
   }
 }
