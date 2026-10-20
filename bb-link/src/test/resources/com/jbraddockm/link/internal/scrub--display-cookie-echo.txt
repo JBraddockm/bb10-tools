@@ -1,0 +1,1 @@
+boom HTTP_COOKIE=dtmauth=x; y=z

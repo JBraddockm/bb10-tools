@@ -1,0 +1,1 @@
+<BoardSerialNumber>00000000</BoardSerialNumber><Ecoid>0</Ecoid><Fingerprint>00</Fingerprint><PhoneNumber>0</PhoneNumber><BSN>0</BSN><ProcessorId>0</ProcessorId><Meid>0</Meid>

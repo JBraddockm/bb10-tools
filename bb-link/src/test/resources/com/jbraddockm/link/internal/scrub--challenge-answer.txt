@@ -1,0 +1,1 @@
+/login.cgi?challenge_data=AB12CD34 &x
