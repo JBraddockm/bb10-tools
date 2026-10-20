@@ -144,10 +144,13 @@ class PemIdentityTest {
       "test-pki--leaf-certificate.pem, test-pki--other-key-pkcs8.pem",
       "identity--certificate-other-key.pem, test-pki--leaf-key-pkcs8.pem",
       "test-pki--leaf-certificate.pem, test-key--ec-p521.pem",
-      "identity--ec-certificate.pem, test-pki--leaf-key-pkcs8.pem"
+      "identity--ec-certificate.pem, test-pki--leaf-key-pkcs8.pem",
+      "identity--ec-certificate.pem, test-key--ec-p521-other.pem",
+      "identity--ec-certificate.pem, test-key--ec-p256.pem"
     })
     @DisplayName(
-        "a key that does not belong to the certificate: another RSA key, or a key of another kind")
+        "a key that does not belong to the certificate: another RSA key, a key of another kind, or"
+            + " another EC key, on the same curve or on another")
     void aKeyThatDoesNotBelong(String certificate, String key) {
       assertThatThrownBy(() -> load(certificate, key))
           .isInstanceOfSatisfying(

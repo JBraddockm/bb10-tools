@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
+import java.net.URI;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ class DeviceTargetTest {
       "device.local, 80, HTTP, /x, http://device.local:80/x",
       "::1, 443, HTTPS, /x, https://[::1]:443/x",
       "fe80::1, 443, HTTPS, /x, https://[fe80::1]:443/x",
+      "fe80::1%en0, 443, HTTPS, /x, https://[fe80::1%en0]:443/x",
       "[::1], 443, HTTPS, /x, https://[::1]:443/x"
     })
     @DisplayName(
@@ -46,6 +48,15 @@ class DeviceTargetTest {
     void isTheAddress(String host, int port, TransportScheme scheme, String path, String expected) {
       assertThat(target(host, port, scheme).url(path)).isEqualTo(expected);
     }
+  }
+
+  @Test
+  @DisplayName(
+      "keeps the zone of an IPv6 address as written, which is how the URI of the JDK reads it")
+  void keepsTheZoneAsWritten() {
+    var url = target("fe80::1%en0", 443, TransportScheme.HTTPS).url("/x");
+
+    assertThat(URI.create(url).getHost()).isEqualTo("[fe80::1%en0]");
   }
 
   @Nested

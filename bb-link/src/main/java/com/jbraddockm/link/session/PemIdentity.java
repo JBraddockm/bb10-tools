@@ -11,9 +11,13 @@ import java.nio.file.Files;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.Signature;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECPrivateKey;
+import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -57,6 +61,9 @@ final class PemIdentity {
   };
 
   private static final byte[] VERSION_ZERO = {0x02, 0x01, 0x00};
+
+  private static final String EC_SIGNATURE = "SHA256withECDSA";
+  private static final byte[] PROBE = "bb-link key check".getBytes(StandardCharsets.UTF_8);
 
   private PemIdentity() {}
 
@@ -145,19 +152,36 @@ final class PemIdentity {
 
   /**
    * Refuses a key that cannot belong to the certificate, which is a mistake worth catching early. A
-   * key of another kind is always a mismatch; two RSA keys are compared by their modulus. Other
-   * kinds are not compared further.
+   * key of another kind is a mismatch; two RSA keys are compared by their modulus, and an EC key is
+   * shown to belong by a signature that the public key of the certificate accepts.
    */
   private static void checkPair(PrivateKey key, X509Certificate leaf) {
-    var mismatch = !key.getAlgorithm().equals(leaf.getPublicKey().getAlgorithm());
-    if (!mismatch
-        && key instanceof RSAPrivateKey rsaKey
-        && leaf.getPublicKey() instanceof RSAPublicKey rsaPublic) {
-      mismatch = !rsaKey.getModulus().equals(rsaPublic.getModulus());
-    }
-    if (mismatch) {
+    var publicKey = leaf.getPublicKey();
+    var belongs =
+        switch (key) {
+          case RSAPrivateKey rsaKey when publicKey instanceof RSAPublicKey rsaPublic ->
+              rsaKey.getModulus().equals(rsaPublic.getModulus());
+          case ECPrivateKey _ when publicKey instanceof ECPublicKey -> signsFor(key, publicKey);
+          default -> false;
+        };
+    if (!belongs) {
       throw new InvalidArgumentException(
           "clientKey", "does not belong to the certificate in clientCertificate");
+    }
+  }
+
+  /** Whether a signature that the private key makes is accepted by the public key. */
+  private static boolean signsFor(PrivateKey key, PublicKey publicKey) {
+    try {
+      var signer = Signature.getInstance(EC_SIGNATURE);
+      signer.initSign(key);
+      signer.update(PROBE);
+      var verifier = Signature.getInstance(EC_SIGNATURE);
+      verifier.initVerify(publicKey);
+      verifier.update(PROBE);
+      return verifier.verify(signer.sign());
+    } catch (GeneralSecurityException _) {
+      return false;
     }
   }
 

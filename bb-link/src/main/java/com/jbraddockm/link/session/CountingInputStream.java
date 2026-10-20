@@ -8,7 +8,8 @@ import java.io.InputStream;
 /**
  * Passes on a file as it is read, and tells an observer how much has gone out. The observer is told
  * about once for each percent of the file, and at least every 64 KiB, so that a large upload does
- * not flood a client with events.
+ * not flood a client with events. Bytes that are skipped count as read; the stream cannot be reset,
+ * so the count only moves forward.
  */
 final class CountingInputStream extends FilterInputStream {
 
@@ -41,6 +42,30 @@ final class CountingInputStream extends FilterInputStream {
       counted(count);
     }
     return count;
+  }
+
+  @Override
+  public long skip(long count) throws IOException {
+    var skipped = super.skip(count);
+    if (skipped > 0) {
+      counted(skipped);
+    }
+    return skipped;
+  }
+
+  @Override
+  public boolean markSupported() {
+    return false;
+  }
+
+  @Override
+  public synchronized void mark(int readLimit) {
+    // not supported: the count only moves forward
+  }
+
+  @Override
+  public synchronized void reset() throws IOException {
+    throw new IOException("mark/reset not supported");
   }
 
   private void counted(long bytes) {

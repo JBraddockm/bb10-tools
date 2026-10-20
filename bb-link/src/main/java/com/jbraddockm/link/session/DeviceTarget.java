@@ -34,7 +34,9 @@ public record DeviceTarget(
   }
 
   /**
-   * Builds the URL of a path on the device.
+   * Builds the URL of a path on the device. An IPv6 address is put in brackets, and its zone stays
+   * as written ({@code fe80::1%en0}): that is the form that {@link java.net.URI} reads, which takes
+   * a {@code %25} for part of the name of the interface.
    *
    * @param pathAndQuery the path, starting with a slash, and an optional query
    * @return the absolute URL

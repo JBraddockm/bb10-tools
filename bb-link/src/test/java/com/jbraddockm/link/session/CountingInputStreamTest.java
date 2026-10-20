@@ -1,6 +1,7 @@
 package com.jbraddockm.link.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -52,6 +53,32 @@ class CountingInputStreamTest {
     readAll(stream, 16 * KIBIBYTE);
 
     assertThat(reported).isEmpty();
+  }
+
+  @Test
+  @DisplayName(
+      "counts the bytes that are skipped as read: what is reported is the position in the file")
+  void countsSkippedBytes() throws IOException {
+    var stream = streamOf(200 * KIBIBYTE, 200L * KIBIBYTE);
+
+    var skipped = stream.skip(70L * KIBIBYTE);
+
+    assertThat(skipped).isEqualTo(70L * KIBIBYTE);
+    assertThat(reported).containsExactly(70L * KIBIBYTE);
+  }
+
+  @Test
+  @DisplayName(
+      "cannot be marked or reset, though its source can, so that the count never goes back")
+  void cannotBeReset() {
+    var stream = streamOf(10, 10);
+
+    stream.mark(5);
+
+    assertThat(stream.markSupported()).isFalse();
+    assertThatThrownBy(stream::reset)
+        .isInstanceOf(IOException.class)
+        .hasMessage("mark/reset not supported");
   }
 
   @Test
