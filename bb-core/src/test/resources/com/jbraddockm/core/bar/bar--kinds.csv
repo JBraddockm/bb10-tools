@@ -1,0 +1,11 @@
+manifest--application.mf|a.bar|application
+manifest--system.mf|os.bar|operatingSystem
+manifest--system-radio.mf|r1.bar|radio
+manifest--system.mf|my-radio-image.bar|radio
+manifest--application.mf|radioplayer.bar|application
+manifest--patch-system.mf|p1.bar|operatingSystem
+manifest--patch-system-radio.mf|p2.bar|radio
+manifest--patch.mf|p3.bar|other
+manifest--debug-token.mf|t.bar|other
+manifest--device-configuration.mf|c.bar|other
+manifest--system-data.mf|d.bar|other

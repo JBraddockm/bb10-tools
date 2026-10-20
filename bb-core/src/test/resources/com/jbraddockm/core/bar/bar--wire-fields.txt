@@ -1,0 +1,11 @@
+file
+sizeBytes
+kind
+packageType
+packageId
+packageName
+packageVersion
+architecture
+manifestVersion
+developmentMode
+signed

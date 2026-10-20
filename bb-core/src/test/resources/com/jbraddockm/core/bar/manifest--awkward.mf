@@ -1,0 +1,7 @@
+﻿Archive-Manifest-Version: 1.5
+Archive-Created-By: a test
+
+Package-Type: application
+Package-Name: a long name that
+  continues on the next line
+Package-Id: id1

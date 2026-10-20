@@ -1,0 +1,3 @@
+manifest--gizmo.mf|its Package-Type 'gizmo' is not a package type that is known
+manifest--without-type.mf|its manifest has no Package-Type
+manifest--blank.mf|its manifest has no Package-Type
