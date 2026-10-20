@@ -1,0 +1,5 @@
+>>> POST /cgi-bin/wipe.cgi
+wipe=getpin
+
+<<< HTTP 200 text/xml
+<RimTabletResponse><DevicePIN><Status>Success</Status><PIN>***</PIN></DevicePIN></RimTabletResponse>

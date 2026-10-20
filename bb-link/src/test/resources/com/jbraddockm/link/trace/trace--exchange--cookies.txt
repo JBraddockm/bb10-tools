@@ -1,0 +1,6 @@
+>>> GET /cgi-bin/pimsync.cgi?command=list_accounts
+>>> Cookie: dtmauth=***; custom=***
+
+
+<<< HTTP 200 text/xml
+<RimTabletResponse><DynamicProperties><Status>Success</Status></DynamicProperties></RimTabletResponse>

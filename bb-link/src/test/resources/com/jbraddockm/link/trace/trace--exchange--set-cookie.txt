@@ -1,0 +1,6 @@
+>>> GET /cgi-bin/login.cgi?request_version=1
+
+
+<<< HTTP 200 text/xml
+<<< Set-Cookie: dtmauth=***; path=/
+<RimTabletResponse><DynamicProperties><Status>Success</Status></DynamicProperties></RimTabletResponse>

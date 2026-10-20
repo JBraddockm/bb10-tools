@@ -1,0 +1,5 @@
+>>> GET /cgi-bin/x
+
+
+<<< HTTP 204 (no content type)
+
