@@ -25,8 +25,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /** The bb-link service: what the shared daemon server runs. */
 public final class LinkService implements Service<DeviceSession> {
@@ -37,9 +35,6 @@ public final class LinkService implements Service<DeviceSession> {
   private final TransportScheme scheme;
   private final DeviceScanner scanner;
   private final ExchangeObserver observer;
-
-  /** The sessions that were opened to log in and do nothing else, until they are established. */
-  private final Set<DeviceSession> loginOnly = ConcurrentHashMap.newKeySet();
 
   /**
    * Creates the production service: HTTPS, and the original tool's detector.
@@ -75,22 +70,18 @@ public final class LinkService implements Service<DeviceSession> {
             params.integer("port", DeviceTarget.DEFAULT_PORT, 1, 65_535),
             scheme,
             AuthenticationReader.read(params));
-    var describeDevice = params.flag("deviceInfo", true);
-    var session = DeviceSession.forTarget(target, observer);
-    if (!describeDevice) {
-      loginOnly.add(session);
-    }
-    return session;
+    describesDevice(params); // refuses a malformed option while no session exists yet
+    return DeviceSession.forTarget(target, observer);
   }
 
   /**
    * Logs in and reads the device, then reads its PIN. Failing to read the PIN does not prevent the
-   * session: the summary then simply has no {@code pin}. A session that was opened with {@code
-   * deviceInfo} set to {@code false} only logs in, and the result has no device.
+   * session: the summary then simply has no {@code pin}. A connect with {@code deviceInfo} set to
+   * {@code false} only logs in, and the result has no device.
    */
   @Override
-  public Establishment establish(DeviceSession session, Reply reply) {
-    if (loginOnly.remove(session)) {
+  public Establishment establish(DeviceSession session, RequestParams params, Reply reply) {
+    if (!describesDevice(params)) {
       return switch (session.execute(new LoginOnly(), reply)) {
         case CommandOutcome.Succeeded<NoData> _ ->
             new Establishment.Established(described(session, Optional.empty()));
@@ -105,6 +96,11 @@ public final class LinkService implements Service<DeviceSession> {
       case CommandOutcome.Failed<DeviceProperties>(var error, _, _) ->
           new Establishment.Rejected(error);
     };
+  }
+
+  /** Whether a connect asks for the device to be read; it does unless it says {@code false}. */
+  private static boolean describesDevice(RequestParams params) {
+    return params.flag("deviceInfo", true);
   }
 
   /** The result of a connection; the device is {@code null} when nothing of it was read. */

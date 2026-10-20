@@ -1,5 +1,6 @@
 package com.jbraddockm.core.daemon;
 
+import com.jbraddockm.core.error.InvalidArgumentException;
 import java.util.List;
 
 /**
@@ -33,7 +34,7 @@ public interface Service<S extends ServiceSession> {
    *
    * @param params the parameters of the {@code connect} request
    * @return a new, not yet established session
-   * @throws com.jbraddockm.core.error.InvalidArgumentException if a parameter is unacceptable
+   * @throws InvalidArgumentException if a parameter is unacceptable
    */
   S open(RequestParams params);
 
@@ -42,8 +43,9 @@ public interface Service<S extends ServiceSession> {
    * own queue.
    *
    * @param session the session created by {@link #open}
+   * @param params the parameters of the {@code connect} request that created the session
    * @param reply receives log events while the session is established
    * @return whether the session is usable
    */
-  Establishment establish(S session, Reply reply);
+  Establishment establish(S session, RequestParams params, Reply reply);
 }

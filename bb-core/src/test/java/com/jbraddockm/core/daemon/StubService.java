@@ -15,32 +15,19 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * A {@link Service} for server tests whose commands answer at once, fail, forget to finish, or wait
- * at a gate that the test opens.
+ * at a gate that the test opens. The host of a connect selects what its session does: it is
+ * established or rejected, and it closes, fails to close, or waits when closing.
  */
 final class StubService implements Service<StubService.StubSession> {
 
   private static final long PATIENCE_SECONDS = 10;
-
-  /** A session that records whether it was closed. */
-  static final class StubSession implements ServiceSession {
-    final String host;
-    volatile boolean closed;
-
-    StubSession(String host) {
-      this.host = host;
-    }
-
-    @Override
-    public void close() {
-      closed = true;
-    }
-  }
-
   final CountDownLatch establishGate = new CountDownLatch(1);
   final CountDownLatch blockGate = new CountDownLatch(1);
   final CountDownLatch blockStarted = new CountDownLatch(1);
   final CountDownLatch holdGate = new CountDownLatch(1);
   final CountDownLatch holdStarted = new CountDownLatch(1);
+  final CountDownLatch closeGate = new CountDownLatch(1);
+  final CountDownLatch closeEnded = new CountDownLatch(1);
   final List<StubSession> opened = Collections.synchronizedList(new ArrayList<>());
   final List<String> order = Collections.synchronizedList(new ArrayList<>());
   private final List<CommandSpec<StubSession>> extraCommands;
@@ -55,11 +42,14 @@ final class StubService implements Service<StubService.StubSession> {
 
   /**
    * Waits at a gate. Returns {@code true} if the gate was opened and {@code false} if the wait was
-   * interrupted or timed out.
+   * interrupted; a gate that is not opened in time fails the test.
    */
   private static boolean waitAt(CountDownLatch gate) {
     try {
-      return gate.await(PATIENCE_SECONDS, TimeUnit.SECONDS);
+      if (!gate.await(PATIENCE_SECONDS, TimeUnit.SECONDS)) {
+        throw new IllegalStateException("a gate was not opened in time");
+      }
+      return true;
     } catch (InterruptedException _) {
       Thread.currentThread().interrupt();
       return false;
@@ -75,7 +65,7 @@ final class StubService implements Service<StubService.StubSession> {
   public List<CommandSpec<StubSession>> commands() {
     var commands = new ArrayList<CommandSpec<StubSession>>();
     commands.add(
-        new CommandSpec.SessionScoped<StubSession>(
+        new CommandSpec.SessionScoped<>(
             "echo",
             params -> {
               var text = params.requireString("text");
@@ -88,17 +78,17 @@ final class StubService implements Service<StubService.StubSession> {
               };
             }));
     commands.add(
-        new CommandSpec.SessionScoped<StubSession>(
+        new CommandSpec.SessionScoped<>(
             "boom",
             _ ->
                 (_, _) -> {
                   throw new IllegalStateException("kaboom");
                 }));
     commands.add(
-        new CommandSpec.SessionScoped<StubSession>(
+        new CommandSpec.SessionScoped<>(
             "silent", _ -> (_, reply) -> reply.onLog(LogLevel.DEBUG, "nothing more")));
     commands.add(
-        new CommandSpec.SessionScoped<StubSession>(
+        new CommandSpec.SessionScoped<>(
             "block",
             _ ->
                 (_, reply) -> {
@@ -109,7 +99,7 @@ final class StubService implements Service<StubService.StubSession> {
                   reply.succeed();
                 }));
     commands.add(
-        new CommandSpec.SessionScoped<StubSession>(
+        new CommandSpec.SessionScoped<>(
             "hold",
             _ ->
                 (_, reply) -> {
@@ -118,7 +108,7 @@ final class StubService implements Service<StubService.StubSession> {
                   reply.succeed();
                 }));
     commands.add(
-        new CommandSpec.Standalone<StubSession>(
+        new CommandSpec.Standalone<>(
             "ping",
             _ ->
                 reply -> {
@@ -127,7 +117,7 @@ final class StubService implements Service<StubService.StubSession> {
                   reply.succeed();
                 }));
     commands.add(
-        new CommandSpec.SessionScoped<StubSession>(
+        new CommandSpec.SessionScoped<>(
             "illegal",
             _ -> {
               throw new IllegalArgumentException("nope");
@@ -138,13 +128,27 @@ final class StubService implements Service<StubService.StubSession> {
 
   @Override
   public StubSession open(RequestParams params) {
-    var session = new StubSession(params.requireString("host"));
+    var host = params.requireString("host");
+    var session = new StubSession(host, () -> whenClosing(host));
     opened.add(session);
     return session;
   }
 
+  private void whenClosing(String host) {
+    switch (host) {
+      case "unclosable" -> throw new IllegalStateException("close failed");
+      case "stuck-on-close" -> {
+        order.add(waitAt(closeGate) ? "close released" : "close interrupted");
+        closeEnded.countDown();
+      }
+      default -> {
+        // an ordinary session closes at once
+      }
+    }
+  }
+
   @Override
-  public Establishment establish(StubSession session, Reply reply) {
+  public Establishment establish(StubSession session, RequestParams params, Reply reply) {
     switch (session.host) {
       case "bad" -> {
         return new Establishment.Rejected(
@@ -157,5 +161,23 @@ final class StubService implements Service<StubService.StubSession> {
       }
     }
     return new Establishment.Established(Json.object("host", session.host));
+  }
+
+  /** A session that records whether it was closed, after doing what its host asks on closing. */
+  static final class StubSession implements ServiceSession {
+    final String host;
+    private final Runnable onClose;
+    volatile boolean closed;
+
+    StubSession(String host, Runnable onClose) {
+      this.host = host;
+      this.onClose = onClose;
+    }
+
+    @Override
+    public void close() {
+      onClose.run();
+      closed = true;
+    }
   }
 }

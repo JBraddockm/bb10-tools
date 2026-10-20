@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,6 +37,10 @@ import java.util.stream.Stream;
  * <p>When the input ends or {@code shutdown} arrives, requests that were already accepted are still
  * answered: the daemon waits for them, up to the drain timeout, before it returns. So a client may
  * send its requests and close the input straight away.
+ *
+ * <p>Sessions stay open between requests until the client sends {@code disconnect}. When the daemon
+ * ends, the sessions that are still open are closed. If a request outlives the drain timeout, it is
+ * interrupted and its session is left to the process exit.
  *
  * @param <S> the session type of the service
  */
@@ -182,26 +187,31 @@ public final class DaemonServer<S extends ServiceSession> {
         }
       }
     } finally {
-      awaitInFlight();
-      abandonAllSessions();
+      endSessions(awaitInFlight());
       standalone.shutdownNow();
     }
   }
 
-  /** Lets accepted requests send their final event, unless they take longer than the timeout. */
-  private void awaitInFlight() {
+  /**
+   * Lets accepted requests send their final event, unless they take longer than the drain timeout.
+   *
+   * @return whether every accepted request ended in time
+   */
+  private boolean awaitInFlight() {
     var phase = inFlight.arriveAndDeregister();
     try {
       inFlight.awaitAdvanceInterruptibly(phase, drainTimeout.toMillis(), TimeUnit.MILLISECONDS);
+      return true;
     } catch (TimeoutException _) {
       System.err.println(
           service.info().tool()
               + ": requests still running after "
               + drainTimeout.toSeconds()
-              + " s, exiting without their reply");
+              + " s were interrupted");
     } catch (InterruptedException _) {
       Thread.currentThread().interrupt();
     }
+    return false;
   }
 
   /**
@@ -243,11 +253,36 @@ public final class DaemonServer<S extends ServiceSession> {
     }
   }
 
-  private void abandonAllSessions() {
-    Stream.concat(sessions.values().stream(), connecting.values().stream())
-        .forEach(SessionWorker::abandon);
+  /**
+   * Ends the sessions that are still open. After a complete drain no command is running, so each
+   * session is closed on its own queue. After a timeout a command may still be using its session,
+   * so the workers are only interrupted and the sessions are left to the process exit.
+   */
+  private void endSessions(boolean drained) {
+    var workers = Stream.concat(sessions.values().stream(), connecting.values().stream()).toList();
     sessions.clear();
     connecting.clear();
+    if (drained) {
+      closeAndAwait(workers);
+    }
+    workers.forEach(SessionWorker::abandon);
+  }
+
+  /** Closes the sessions of {@code workers}, waiting for them no longer than the drain timeout. */
+  private void closeAndAwait(List<SessionWorker<S>> workers) {
+    var closed = new CountDownLatch(workers.size());
+    workers.forEach(worker -> worker.closeAfterPending(closed::countDown));
+    try {
+      if (!closed.await(drainTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+        System.err.println(
+            service.info().tool()
+                + ": sessions still closing after "
+                + drainTimeout.toSeconds()
+                + " s were interrupted");
+      }
+    } catch (InterruptedException _) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   private void handle(String line) {
@@ -285,13 +320,14 @@ public final class DaemonServer<S extends ServiceSession> {
     connecting.put(worker.id(), worker);
     // The reply may be sent later, once the session has been closed, so it need not be finished
     // yet.
-    runTracked(worker::submit, () -> guarded(reply, () -> finishConnect(worker, reply), false));
+    runTracked(
+        worker::submit, () -> guarded(reply, () -> finishConnect(worker, params, reply), false));
   }
 
-  private void finishConnect(SessionWorker<S> worker, Reply reply) {
+  private void finishConnect(SessionWorker<S> worker, RequestParams params, Reply reply) {
     Establishment establishment;
     try {
-      establishment = service.establish(worker.session(), reply);
+      establishment = service.establish(worker.session(), params, reply);
     } catch (RuntimeException failure) {
       establishment = new Establishment.Rejected(toError(failure));
     }

@@ -77,8 +77,9 @@ class LinkServiceTest {
   }
 
   private Establishment establish(String resource) {
-    session = service.open(connect(resource));
-    return service.establish(session, reply);
+    var params = connect(resource);
+    session = service.open(params);
+    return service.establish(session, params, reply);
   }
 
   private List<Map<String, Object>> events() {
@@ -163,6 +164,17 @@ class LinkServiceTest {
               invalid -> assertThat(invalid.parameter()).isEqualTo("host"));
     }
 
+    @Test
+    @DisplayName(
+        "is refused when deviceInfo is not a boolean, naming deviceInfo, with no session made")
+    void deviceInfoMustBeABoolean() {
+      assertThatThrownBy(
+              () -> service.open(request("link-service--connect-device-info-not-boolean.json")))
+          .isInstanceOfSatisfying(
+              InvalidArgumentException.class,
+              invalid -> assertThat(invalid.parameter()).isEqualTo("deviceInfo"));
+    }
+
     @ParameterizedTest(name = "{0}")
     @CsvSource({
       "link-service--connect-port-zero.json",
@@ -220,6 +232,18 @@ class LinkServiceTest {
       assertThat(JsonObjects.object(described.get("smb"))).containsEntry("user", "dtm");
       assertThat(device.cgiRequests.get()).isZero();
       assertThat(device.successfulLogins.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName(
+        "takes what to do from the parameters that it is given, which are those of the connect")
+    void takesItsInstructionsFromTheParameters() {
+      session = service.open(connect("link-service--connect.json"));
+
+      var described =
+          data(service.establish(session, connect("link-service--connect-login-only.json"), reply));
+
+      assertThat(described.get("device")).isNull();
     }
 
     @Test

@@ -50,7 +50,24 @@ class DaemonServerTest {
     service.blockGate.countDown();
     service.holdGate.countDown();
     service.establishGate.countDown();
+    service.closeGate.countDown();
     run.close();
+  }
+
+  private interface Scenario {
+    void run() throws Exception;
+  }
+
+  private static String errorOutputOf(Scenario scenario) throws Exception {
+    var captured = new ByteArrayOutputStream();
+    var original = System.err;
+    System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+    try {
+      scenario.run();
+    } finally {
+      System.setErr(original);
+    }
+    return captured.toString(StandardCharsets.UTF_8);
   }
 
   private void connect(String id, String host) {
@@ -426,6 +443,22 @@ class DaemonServerTest {
     }
 
     @Test
+    @DisplayName("of a session that fails to close still ends, and says so on the error output")
+    void aSessionThatFailsToClose() throws Exception {
+      var session = established("1", "unclosable");
+
+      var errorOutput =
+          errorOutputOf(
+              () -> {
+                run.send("30", "request--disconnect.json", Map.of("session", session));
+                run.done(30L);
+              });
+
+      assertThat(errorOutput)
+          .contains(Resources.text(DaemonServerTest.class, "server--close-failure.txt").strip());
+    }
+
+    @Test
     @DisplayName("needs the session, as INVALID_ARGUMENT naming it")
     void needsTheSession() throws Exception {
       run.send("33", "request--disconnect-without-session.json");
@@ -516,34 +549,97 @@ class DaemonServerTest {
     }
 
     @Test
+    @DisplayName("closes the sessions that are still open once the requests are answered")
+    void closesTheSessionsThatAreStillOpen() throws Exception {
+      established("1", "ok");
+      established("2", "ok");
+
+      run.endInput();
+
+      assertThat(run.stoppedWithin(Duration.ofSeconds(10))).isTrue();
+      assertThat(service.opened).hasSize(2).allMatch(session -> session.closed);
+    }
+
+    @Test
+    @DisplayName("does not wait for a session that fails to close, and says so on the error output")
+    void doesNotWaitForASessionThatFailsToClose() throws Exception {
+      established("1", "unclosable");
+
+      var errorOutput =
+          errorOutputOf(
+              () -> {
+                run.endInput();
+                assertThat(run.stoppedWithin(Duration.ofSeconds(3)))
+                    .as("the failed close is not waited for")
+                    .isTrue();
+              });
+
+      assertThat(errorOutput)
+          .contains(Resources.text(DaemonServerTest.class, "server--close-failure.txt").strip());
+    }
+
+    @Test
+    @DisplayName(
+        "gives up on a session that does not close within the time to drain, says so on the error"
+            + " output, and interrupts the close")
+    void givesUpOnASessionThatDoesNotClose() throws Exception {
+      var errorOutput =
+          errorOutputOf(
+              () -> {
+                try (var impatient = new ServerRun<>(service, Duration.ofMillis(100))) {
+                  impatient.hello();
+                  impatient.send("1", "request--connect.json", Map.of("host", "stuck-on-close"));
+                  impatient.done(1L);
+
+                  impatient.endInput();
+
+                  assertThat(impatient.stoppedWithin(Duration.ofSeconds(10))).isTrue();
+                }
+              });
+
+      assertThat(service.closeEnded.await(10, TimeUnit.SECONDS)).isTrue();
+      assertThat(service.order).containsExactly("close interrupted");
+      assertThat(errorOutput)
+          .contains(
+              Resources.text(DaemonServerTest.class, "server--close-timeout-warning.txt").strip());
+    }
+
+    @Test
     @DisplayName(
         "gives up on a command that does not end within the time to drain, says so on the error"
             + " output, and interrupts the command that is still running")
     void givesUpAfterTheDrainTime() throws Exception {
-      var captured = new ByteArrayOutputStream();
-      var original = System.err;
-      System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
-      try (var impatient = new ServerRun<>(service, Duration.ofMillis(100))) {
-        impatient.hello();
-        impatient.send("1", "request--connect.json", Map.of("host", "ok"));
-        impatient.done(1L);
-        impatient.send(
-            "2", "request--session-command.json", Map.of("method", "hold", "session", "s1"));
-        assertThat(service.holdStarted.await(10, TimeUnit.SECONDS)).isTrue();
+      var errorOutput =
+          errorOutputOf(
+              () -> {
+                try (var impatient = new ServerRun<>(service, Duration.ofMillis(100))) {
+                  impatient.hello();
+                  impatient.send("1", "request--connect.json", Map.of("host", "ok"));
+                  impatient.done(1L);
+                  impatient.send(
+                      "2",
+                      "request--session-command.json",
+                      Map.of("method", "hold", "session", "s1"));
+                  assertThat(service.holdStarted.await(10, TimeUnit.SECONDS)).isTrue();
 
-        impatient.endInput();
+                  impatient.endInput();
 
-        assertThat(impatient.stoppedWithin(Duration.ofSeconds(10))).isTrue();
-        impatient.done(2L);
-        assertThat(service.order)
-            .as("the held command was interrupted and not released")
-            .containsExactly("hold interrupted");
-      } finally {
-        System.setErr(original);
-      }
+                  assertThat(impatient.stoppedWithin(Duration.ofSeconds(10))).isTrue();
+                  impatient.done(2L);
+                }
+              });
 
-      assertThat(captured.toString(StandardCharsets.UTF_8))
-          .contains(Resources.text(DaemonServerTest.class, "server--drain-warning.txt").strip());
+      assertThat(service.order)
+          .as("the held command was interrupted and not released")
+          .containsExactly("hold interrupted");
+      assertThat(service.opened.getFirst().closed)
+          .as("its session is left to the process exit")
+          .isFalse();
+      assertThat(errorOutput)
+          .contains(Resources.text(DaemonServerTest.class, "server--drain-warning.txt").strip())
+          .as("no close is attempted after a drain that timed out")
+          .doesNotContain(
+              Resources.text(DaemonServerTest.class, "server--close-timeout-warning.txt").strip());
     }
   }
 

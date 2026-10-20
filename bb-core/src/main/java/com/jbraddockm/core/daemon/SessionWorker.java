@@ -35,21 +35,28 @@ final class SessionWorker<S extends ServiceSession> {
   }
 
   /**
-   * Runs {@code afterwards} once everything already queued has finished and the session is closed.
+   * Closes the session once everything already queued has finished, then runs {@code afterwards}. A
+   * session that fails to close is reported on the error output and does not stop {@code
+   * afterwards} from running.
    */
   void closeAfterPending(Runnable afterwards) {
     queue.execute(
         () -> {
-          session.close();
-          afterwards.run();
+          try {
+            session.close();
+          } catch (RuntimeException failure) {
+            System.err.println("session " + id + ": could not close: " + failure.getMessage());
+          } finally {
+            afterwards.run();
+          }
         });
     queue.shutdown();
   }
 
   /**
-   * Abandons queued work without waiting. A command that is running is not interrupted and the
-   * session is not closed here, because closing may wait for the running command; the process exit
-   * that follows ends it.
+   * Abandons queued work without waiting and interrupts the command that is running. The session is
+   * not closed here, because closing may wait for that command; the process exit that follows ends
+   * it.
    */
   void abandon() {
     queue.shutdownNow();

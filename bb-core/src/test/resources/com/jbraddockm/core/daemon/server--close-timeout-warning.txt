@@ -1,0 +1,1 @@
+stub: sessions still closing after 0 s were interrupted
