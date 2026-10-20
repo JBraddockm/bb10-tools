@@ -1,0 +1,1 @@
+{"command":"listAccounts","service":null,"httpStatus":200,"contentType":"application/json","code":0,"message":"OK","bodyFormat":"json","body":{"version":"1.0","status":{"code":0,"msg":"OK"},"data":[{"accountId":1,"name":"Device"},{"accountId":2,"name":"Work"}]}}

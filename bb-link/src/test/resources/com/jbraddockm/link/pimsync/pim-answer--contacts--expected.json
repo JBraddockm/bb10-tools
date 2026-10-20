@@ -1,0 +1,1 @@
+{"command":"get","service":"contacts","httpStatus":200,"contentType":"application/json","code":0,"message":"OK","bodyFormat":"json","body":{"version":"1.0","status":{"code":0,"msg":"OK"},"data":[]}}
