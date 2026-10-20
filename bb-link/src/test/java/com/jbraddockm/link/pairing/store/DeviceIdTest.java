@@ -3,9 +3,9 @@ package com.jbraddockm.link.pairing.store;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
+import com.jbraddockm.link.testing.FixedRandom;
 import com.jbraddockm.link.testing.Resources;
 import java.security.SecureRandom;
-import java.util.Arrays;
 import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,31 +14,10 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * What a {@link DeviceId} is: the identifier that a computer gives itself when it pairs with a
- * device, which is {@code 01} and 32 hexadecimal digits in capitals when BlackBerry Link makes it.
- *
- * <p>Resources, in {@code src/test/resources/com/jbraddockm/link/pairing/store}: {@code
- * device-id--*.txt}, one text for each identifier that is refused or made.
+ * Tests for {@link DeviceId}: the identifier a computer gives itself when it pairs with a device.
  */
 @DisplayName("DeviceId: the identifier that a computer gives itself when it pairs")
 class DeviceIdTest {
-
-  /** A source of randomness that always gives the same byte, so that what is made is known. */
-  private static final class SameByte extends SecureRandom {
-
-    private static final long serialVersionUID = 1L;
-
-    private final byte value;
-
-    SameByte(int value) {
-      this.value = (byte) value;
-    }
-
-    @Override
-    public void nextBytes(byte[] bytes) {
-      Arrays.fill(bytes, value);
-    }
-  }
 
   @Test
   @DisplayName("generate gives 01 and 32 hexadecimal digits in capitals")
@@ -59,7 +38,7 @@ class DeviceIdTest {
   void generateWritesTheBytesAsCapitals() {
     var expected = Resources.text(DeviceIdTest.class, "device-id--from-fixed-bytes.txt").strip();
 
-    assertThat(DeviceId.generate(new SameByte(0xAB))).isEqualTo(expected);
+    assertThat(DeviceId.generate(new FixedRandom(0xAB))).isEqualTo(expected);
   }
 
   @ParameterizedTest(name = "\"{0}\" is written \"{1}\"")
