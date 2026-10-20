@@ -1,0 +1,1 @@
+{"installed":[{"file":"{{file}}","packageId":"idFirst","packageName":"Test App","packageVersion":"1.0.0.1","sizeBytes":{{size}}}],"bodyFormat":"xml","body":{"UpdateEnd":""}}

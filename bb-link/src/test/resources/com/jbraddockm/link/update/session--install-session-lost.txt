@@ -1,0 +1,3 @@
+start mode=bar&size={{size}}
+upload type=bar bytes={{size}} type=application/octet-stream
+no session
