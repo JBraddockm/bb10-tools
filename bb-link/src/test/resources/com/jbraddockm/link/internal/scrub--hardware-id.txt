@@ -1,0 +1,1 @@
+<HardwareID>0x0a0b0c0d</HardwareID><Name>keep</Name>

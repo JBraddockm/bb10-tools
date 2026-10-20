@@ -47,6 +47,7 @@ class CertificateRetrievalTest {
 
   private static final Instant NOW = Instant.parse("2026-10-18T10:00:00Z");
   private static final String COMMON_NAME = "BBCGIAUTH [2A3B4C5D] workstation";
+  private static final String LOGGED_NAME = "BBCGIAUTH [***] workstation";
 
   private record Trial(ClientCertificate identity, int port, String pin, boolean filesExisted) {}
 
@@ -185,10 +186,14 @@ class CertificateRetrievalTest {
     void logsWhatItDoes() {
       assertThat(logs.messages(LogLevel.INFO))
           .containsSubsequence(
-              "Asking the device to sign a certificate for " + COMMON_NAME,
-              "Writing the identity to " + devices.resolve("2A3B4C5D"),
+              "Asking the device to sign a certificate for " + LOGGED_NAME,
+              "Writing the identity",
               "Trying the new certificate: a login with it and nothing else");
       assertThat(logs.messages(LogLevel.WARN)).isEmpty();
+      assertThat(logs.entries())
+          .extracting(Logs.Entry::message)
+          .as("the PIN is in no message")
+          .noneMatch(message -> message.contains("2A3B4C5D"));
       assertThat(logs.entries())
           .extracting(Logs.Entry::message)
           .as("the log says what is done and never shows the request")

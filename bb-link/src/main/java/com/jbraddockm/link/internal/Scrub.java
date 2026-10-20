@@ -6,8 +6,8 @@ import java.util.regex.Pattern;
  * Removes what must never leave the process from text that came from, or goes to, the device.
  *
  * <p>Three levels exist: {@link #secrets} for credentials that are removed from everything, {@link
- * #identifiers} for traces that are shared with others, and {@link #forDisplay} for device messages
- * shown to a user.
+ * #identifiers} for everything that is written down for debugging (traces, logs and raw answers),
+ * and {@link #forDisplay} for device messages shown to a user.
  */
 public final class Scrub {
 
@@ -25,11 +25,16 @@ public final class Scrub {
 
   /**
    * Names are matched ignoring case: the device writes {@code Imei}, other sources {@code IMEI}.
+   * The device name is included because it carries the last digits of the PIN.
    */
   private static final Pattern IDENTIFIER_ELEMENTS =
       Pattern.compile(
-          "(?i)(<(PIN|BoardSerialNumber|Bbid|Ecoid|Fingerprint|Imei|Meid|PhoneNumber|Ecid|Scid|BSN|ProcessorId)"
+          "(?i)(<(PIN|HardwareID|DeviceName|BoardSerialNumber|Bbid|Ecoid|Fingerprint|Imei|Meid|PhoneNumber|Ecid|Scid|BSN|ProcessorId)"
               + "(?:\\s[^>]*)?>)[^<]+(</\\2>)");
+
+  /** The PIN in the common name of a client certificate, {@code BBCGIAUTH [PIN] computer}. */
+  private static final Pattern CERTIFICATE_NAME_PIN =
+      Pattern.compile("(?<=BBCGIAUTH \\[)[0-9A-Fa-f]+(?=])");
 
   private Scrub() {}
 
@@ -49,15 +54,17 @@ public final class Scrub {
   }
 
   /**
-   * Masks secrets and the values that identify one device or its owner (PIN, serial number, IMEI,
-   * chip identifiers, BlackBerry ID, package fingerprints), so a trace can be shared. An element
-   * that is empty stays empty, which keeps "no value" visible.
+   * Masks secrets and the values that identify one device or its owner (PIN, hardware ID, device
+   * name, serial number, IMEI, chip identifiers, BlackBerry ID, package fingerprints, and the PIN
+   * in the name of a client certificate), so that nothing identifying reaches a trace, a log or a
+   * raw answer. An element that is empty stays empty, which keeps "no value" visible.
    *
    * @param text any text
    * @return the text with identifying values replaced by {@code ***}
    */
   public static String identifiers(String text) {
-    return IDENTIFIER_ELEMENTS.matcher(secrets(text)).replaceAll("$1***$3");
+    var withoutElements = IDENTIFIER_ELEMENTS.matcher(secrets(text)).replaceAll("$1***$3");
+    return CERTIFICATE_NAME_PIN.matcher(withoutElements).replaceAll("***");
   }
 
   /**

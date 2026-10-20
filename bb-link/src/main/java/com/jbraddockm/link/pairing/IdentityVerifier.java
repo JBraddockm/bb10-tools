@@ -2,12 +2,12 @@ package com.jbraddockm.link.pairing;
 
 import com.jbraddockm.core.command.CommandListener;
 import com.jbraddockm.core.command.CommandOutcome;
+import com.jbraddockm.core.command.NoData;
 import com.jbraddockm.link.actions.ConfirmedByPin;
-import com.jbraddockm.link.actions.DevicePin;
-import com.jbraddockm.link.actions.GetPin;
 import com.jbraddockm.link.session.Authentication;
 import com.jbraddockm.link.session.ClientCertificate;
 import com.jbraddockm.link.session.DeviceSession;
+import com.jbraddockm.link.session.LoginOnly;
 import com.jbraddockm.link.session.TransportScheme;
 
 /** Tries a new identity against the device that issued its certificate. */
@@ -32,8 +32,8 @@ public interface IdentityVerifier {
       CommandListener listener);
 
   /**
-   * A trial that logs in with the identity alone, over TLS, and reads the PIN. What worked for the
-   * certificate that came from a laptop **[verified]**.
+   * A trial that logs in with the identity alone, over TLS, and has the device confirm its PIN. The
+   * only request after the login is the one that reads the PIN.
    *
    * @return the verifier
    */
@@ -50,9 +50,9 @@ public interface IdentityVerifier {
     try (var certificateSession =
         session.sibling(TransportScheme.HTTPS, port, new Authentication.Certificate(identity))) {
       return switch (certificateSession.execute(
-          new ConfirmedByPin<>(new GetPin(), pin), listener)) {
-        case CommandOutcome.Succeeded<DevicePin> _ -> Verification.verified();
-        case CommandOutcome.Failed<DevicePin>(var error, _, _) -> Verification.failed(error);
+          new ConfirmedByPin<>(new LoginOnly(), pin), listener)) {
+        case CommandOutcome.Succeeded<NoData> _ -> Verification.verified();
+        case CommandOutcome.Failed<NoData>(var error, _, _) -> Verification.failed(error);
       };
     }
   }

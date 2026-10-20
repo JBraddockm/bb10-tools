@@ -71,12 +71,18 @@ class TracedSessionTest {
 
   @Test
   @DisplayName(
-      "hides what identifies the device and shows that it is hidden, and keeps the other values,"
-          + " and an empty value as empty")
+      "hides what identifies the device (serial number, hardware ID, name, BlackBerry ID, IMEI) and"
+          + " shows that it is hidden, and keeps the other values, and an empty value as empty")
   void hidesIdentifiers() {
-    assertThat(trace).doesNotContain("REALSERIAL", "REALBBID", "359999999999999");
     assertThat(trace)
-        .contains("<BoardSerialNumber>***</BoardSerialNumber>", "Mine", "<Meid></Meid>");
+        .doesNotContain("REALSERIAL", "REALBBID", "359999999999999", "0x0a0b0c0d", "Mine");
+    assertThat(trace)
+        .contains(
+            "<BoardSerialNumber>***</BoardSerialNumber>",
+            "<HardwareID>***</HardwareID>",
+            "<DeviceName>***</DeviceName>",
+            "<BatteryLevel>80</BatteryLevel>",
+            "<Meid></Meid>");
   }
 
   @Test

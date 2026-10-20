@@ -228,6 +228,7 @@ final class InstallConversation implements Conversation<InstallResult> {
 
   /** The device has installed the package that was sent last; send the next or finish. */
   private Step<InstallResult> packageDone(boolean endedEarly) {
+    var finished = report(100);
     installed.add(InstalledPackage.of(bars.get(index)));
     index++;
     if (index < bars.size()) {
@@ -238,7 +239,7 @@ final class InstallConversation implements Conversation<InstallResult> {
                 "The device ended the installation before all packages were sent"));
       }
       stage = Stage.SENDING;
-      return new Step.Send<>(uploadRequest(), List.of(report(100)));
+      return new Step.Send<>(uploadRequest(), List.of(finished));
     }
     if (endedEarly) {
       return new Step.Finish<>(new InstallResult(installed, ResponseBody.of(lastAnswer)));
@@ -249,7 +250,7 @@ final class InstallConversation implements Conversation<InstallResult> {
             .withText(FormField.STATUS, "success")
             .describedAs("Finishing the installation")
             .waitingUpTo(SLOW_STEP),
-        List.of(report(100)));
+        List.of(finished));
   }
 
   /**
@@ -299,7 +300,7 @@ final class InstallConversation implements Conversation<InstallResult> {
   }
 
   private String nameOfCurrent() {
-    var name = bars.get(Math.min(index, bars.size() - 1)).file().getFileName();
+    var name = bars.get(index).file().getFileName();
     return name == null ? "" : name.toString();
   }
 

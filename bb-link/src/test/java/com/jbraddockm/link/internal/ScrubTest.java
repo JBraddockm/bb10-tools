@@ -67,7 +67,9 @@ class ScrubTest {
           "imei",
           "imei-capitals",
           "chip-identifiers",
-          "other-identifier-elements"
+          "other-identifier-elements",
+          "hardware-id",
+          "device-name"
         })
     @DisplayName(
         "hides the content of the elements that identify a device, in any case, with attributes")
@@ -76,8 +78,18 @@ class ScrubTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {"empty-identifier", "user-name", "nothing-secret"})
-    @DisplayName("leaves alone an empty element, and elements that do not identify a device")
+    @ValueSource(strings = {"certificate-name", "certificate-name-short-pin"})
+    @DisplayName("hides the PIN in the name of a client certificate, whatever its length")
+    void hidesThePinInACertificateName(String name) {
+      assertThat(Scrub.identifiers(given(name))).isEqualTo(expected(name));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(
+        strings = {"empty-identifier", "user-name", "nothing-secret", "brackets-elsewhere"})
+    @DisplayName(
+        "leaves alone an empty element, elements that do not identify a device, and text in"
+            + " brackets that is not the name of a certificate")
     void leavesTheRest(String name) {
       assertThat(Scrub.identifiers(given(name))).isEqualTo(expected(name));
     }

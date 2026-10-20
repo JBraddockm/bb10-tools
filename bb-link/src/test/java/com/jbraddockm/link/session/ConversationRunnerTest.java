@@ -235,6 +235,23 @@ class ConversationRunnerTest {
 
     @Test
     @DisplayName(
+        "an identifier in an answer is taken out of the raw answer too, but the conversation is"
+            + " given the answer as it was")
+    void identifiersAreTakenOutOfTheRawAnswer() throws Exception {
+      var script = new Script(send(ASKING)).then(finish("done"));
+
+      var outcome =
+          ConversationRunner.run(
+              script,
+              new Answering(answer("conversation-runner--identifiers-body.txt")),
+              new Logs());
+
+      assertThat(rawOf(outcome).getFirst()).contains("<PIN>***</PIN>").doesNotContain("2A3B4C5D");
+      assertThat(script.responses.getFirst().body()).contains("2A3B4C5D");
+    }
+
+    @Test
+    @DisplayName(
         "an answer that is XML is given to the conversation with its envelope, and one that is not,"
             + " without")
     void theEnvelopeIsGivenWhenThereIsOne() throws Exception {

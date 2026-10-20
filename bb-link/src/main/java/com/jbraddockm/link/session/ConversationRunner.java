@@ -55,7 +55,7 @@ final class ConversationRunner {
             lastDescribed = request.describe();
           }
           var response = exchange.send(request, observerFor(request, listener));
-          raw.add(Scrub.secrets(response.body()));
+          raw.add(Scrub.identifiers(response.body()));
           var envelope = parse(response);
           if (StaleSession.indicatedBy(request, response, envelope)) {
             throw new StaleSessionException(exchanges == 0);

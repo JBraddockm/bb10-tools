@@ -8,6 +8,7 @@ import com.jbraddockm.core.error.ErrorCode;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.LinkErrorCode;
+import com.jbraddockm.link.internal.Scrub;
 import com.jbraddockm.link.pairing.pki.CertificateRequest;
 import com.jbraddockm.link.pairing.pki.CertificateRequest.Rdn;
 import com.jbraddockm.link.pairing.pki.RsaKeys;
@@ -94,11 +95,13 @@ public final class CertificateRetrieval {
               keys, List.of(Rdn.commonName(commonName)), SignatureScheme.SHA1_WITH_RSA);
       var stored = new StoredIdentity(commonName, clock.instant());
       try (var pending = identity.prepare(keys, stored, request.replace())) {
-        listener.onLog(LogLevel.INFO, "Asking the device to sign a certificate for " + commonName);
+        listener.onLog(
+            LogLevel.INFO,
+            "Asking the device to sign a certificate for " + Scrub.identifiers(commonName));
         var issued =
             certificateFor(
                 steps.run(new GetAuthenticationCertificate(certificateRequest.pem())), keys);
-        listener.onLog(LogLevel.INFO, "Writing the identity to " + identity.directory());
+        listener.onLog(LogLevel.INFO, "Writing the identity");
         pending.commit(issued.pem(), stored);
         return CommandOutcome.succeeded(
             new CertificateRetrievalResult(

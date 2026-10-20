@@ -44,7 +44,7 @@ class CommandTest {
       assertThat(success).isEqualTo(new CommandOutcome.Succeeded<>(NoData.INSTANCE, List.of()));
       assertThat(success.raw()).isEmpty();
       assertThat(failure)
-          .isEqualTo(new CommandOutcome.Failed<NoData>(error, Optional.empty(), List.of()));
+          .isEqualTo(new CommandOutcome.Failed<>(error, Optional.empty(), List.of()));
       assertThat(failure.raw()).isEmpty();
     }
 

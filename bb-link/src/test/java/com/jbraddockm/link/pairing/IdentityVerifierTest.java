@@ -58,7 +58,7 @@ class IdentityVerifierTest {
   @Test
   @DisplayName(
       "says verified when the device takes the certificate, which it was shown on every request:"
-          + " the login, the confirmation of the PIN and the command")
+          + " the login and the confirmation of the PIN")
   void aCertificateThatIsTaken() throws Exception {
     var subject =
         CertificateDetails.firstCertificate(
@@ -69,7 +69,7 @@ class IdentityVerifierTest {
     var verification = verify(identity("test-pki--leaf-key-pkcs8.pem"), "2A3B4C5D");
 
     assertThat(verification).isEqualTo(Verification.verified());
-    assertThat(device.peers()).containsExactly(subject, subject, subject);
+    assertThat(device.peers()).containsExactly(subject, subject);
   }
 
   @Test
@@ -132,13 +132,12 @@ class IdentityVerifierTest {
   @Test
   @DisplayName(
       "does not use the session that it was given: it opens a sibling, on the other port, and"
-          + " closes it")
+          + " closes it; the device is asked for its PIN once")
   void theOriginalSessionIsNotUsed() {
     verify(identity("test-pki--leaf-key-pkcs8.pem"), "2A3B4C5D");
 
     assertThat(original.target().port()).isEqualTo(443);
     assertThat(device.paths())
-        .containsExactly(
-            "/cgi-bin/login.cgi?request_version=1", "/cgi-bin/wipe.cgi", "/cgi-bin/wipe.cgi");
+        .containsExactly("/cgi-bin/login.cgi?request_version=1", "/cgi-bin/wipe.cgi");
   }
 }

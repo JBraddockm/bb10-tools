@@ -43,6 +43,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class InstallConversationTest {
 
   private static final String FIRST_NAME = "application--first.bar";
+  private static final String SECOND_NAME = "application--second.bar";
 
   @TempDir private Path folder;
   private BarInfo first;
@@ -485,6 +486,14 @@ class InstallConversationTest {
     }
   }
 
+  private static List<String> itemsReportedBy(Step<InstallResult> step) {
+    return effects(step).stream()
+        .filter(StepEffect.Report.class::isInstance)
+        .map(StepEffect.Report.class::cast)
+        .map(report -> report.progress().item())
+        .toList();
+  }
+
   @Nested
   @DisplayName("more than one package")
   class SeveralPackages {
@@ -508,7 +517,26 @@ class InstallConversationTest {
               report -> {
                 assertThat(report.progress().percent()).isEqualTo(100);
                 assertThat(report.progress().phase()).isEqualTo(UpdatePhase.INSTALLING);
+                assertThat(report.progress().item())
+                    .as("the package that has just finished")
+                    .isEqualTo(FIRST_NAME);
               });
+    }
+
+    @Test
+    @DisplayName(
+        "names the package that has just finished in the report of 100 percent, for the last one"
+            + " as for the others")
+    void namesThePackageThatFinished() {
+      var dialogue = afterStart(installing(first, second), firstSize + secondSize);
+      dialogue.answer("UpdateSend", "Success");
+      var afterFirst = dialogue.answer("UpdateProgress", "Success");
+      dialogue.answer("UpdateSend", "Success");
+
+      var afterSecond = dialogue.answer("UpdateProgress", "Complete");
+
+      assertThat(itemsReportedBy(afterFirst)).containsExactly(FIRST_NAME);
+      assertThat(itemsReportedBy(afterSecond)).containsExactly(SECOND_NAME);
     }
 
     @Test
