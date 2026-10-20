@@ -1,0 +1,1 @@
+{"string":"s","char":"c","flag":true,"integer":1,"long":2,"double":1.5,"float":2.5,"big":1.50,"nan":null,"infinity":null,"floatNan":null,"list":[1,2],"set":["x","y"],"array":["a",null],"ints":[1,2],"flags":[true,false],"doubles":[1.5,null],"chars":["a","b"],"present":"x","optionals":["x",null],"nested":{"k":"v"},"explicitNull":null,"enum":"WARN","builder":"text"}

@@ -46,7 +46,9 @@ public final class Json {
   /**
    * Serialises a value to compact JSON.
    *
-   * @param value a map, list, array, string, number, boolean, {@link #NULL} or {@code null}
+   * @param value a map, list, array (of objects or of primitives), optional, string, number,
+   *     boolean, {@link #NULL} or {@code null}; a member that is {@code null} or an empty optional
+   *     is left out of an object
    * @return the JSON text
    */
   public static String write(Object value) {

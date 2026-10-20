@@ -1,8 +1,11 @@
 package com.jbraddockm.core.json;
 
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -23,15 +26,27 @@ final class JsonWriter {
       case Map<?, ?> map -> writeObject(map);
       case Iterable<?> items -> writeArray(StreamSupport.stream(items.spliterator(), false));
       case Object[] items -> writeArray(Arrays.stream(items));
+      case Optional<?> optional -> write(optional.orElse(null));
+      case Object array when array.getClass().isArray() -> writeArray(itemsOf(array));
       default -> quote(value.toString());
     };
   }
 
   private static String writeObject(Map<?, ?> map) {
     return map.entrySet().stream()
-        .filter(entry -> entry.getValue() != null)
+        .filter(entry -> !isAbsent(entry.getValue()))
         .map(entry -> quote(String.valueOf(entry.getKey())) + ':' + write(entry.getValue()))
         .collect(Collectors.joining(",", "{", "}"));
+  }
+
+  /** The members of an array of primitives, boxed. */
+  private static Stream<Object> itemsOf(Object array) {
+    return IntStream.range(0, Array.getLength(array)).mapToObj(index -> Array.get(array, index));
+  }
+
+  /** Whether a member is left out of an object: it is {@code null}, or an empty optional. */
+  private static boolean isAbsent(Object value) {
+    return value == null || value instanceof Optional<?> optional && optional.isEmpty();
   }
 
   private static String writeArray(Stream<?> items) {

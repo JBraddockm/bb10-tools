@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,9 +34,10 @@ class JsonWriteTest {
 
     @Test
     @DisplayName(
-        "each kind of value, in the compact form: text, numbers, flags, lists, sets, arrays, maps,"
-            + " and what has no JSON of its own by its text; a member that is null is left out, and"
-            + " null that is meant is written")
+        "each kind of value, in the compact form: text, numbers, flags, lists, sets, arrays of"
+            + " objects and of primitives, optionals, maps, and what has no JSON of its own by its"
+            + " text; a member that is null or an empty optional is left out, and null that is"
+            + " meant is written")
     void everyKindOfValue() {
       var values = new LinkedHashMap<String, Object>();
       values.put("string", "s");
@@ -52,6 +54,13 @@ class JsonWriteTest {
       values.put("list", List.of(1, 2));
       values.put("set", new LinkedHashSet<>(List.of("x", "y")));
       values.put("array", new Object[] {"a", null});
+      values.put("ints", new int[] {1, 2});
+      values.put("flags", new boolean[] {true, false});
+      values.put("doubles", new double[] {1.5, Double.NaN});
+      values.put("chars", new char[] {'a', 'b'});
+      values.put("present", Optional.of("x"));
+      values.put("missing", Optional.empty());
+      values.put("optionals", Arrays.asList(Optional.of("x"), Optional.empty()));
       values.put("nested", Json.object("k", "v"));
       values.put("explicitNull", Json.NULL);
       values.put("absent", null);

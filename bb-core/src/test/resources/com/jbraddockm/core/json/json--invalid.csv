@@ -1,0 +1,35 @@
+[1,2|unexpected end of input at position 4
+[1,2,3|unexpected end of input at position 6
+{"a":1|unexpected end of input at position 6
+"abc|unexpected end of input at position 4
+[1 2]|expected ',' or ']' at position 3
+{"a" 1}|expected ':' at position 5
+{a:1}|expected string key at position 1
+{"a":1,}|expected string key at position 7
+[1,]|unexpected character ']' at position 3
+True|unexpected character 'T' at position 0
+tru|unexpected token at position 0
+nul|unexpected token at position 0
+1 2|unexpected trailing characters at position 2
+{"a":1}}|unexpected trailing characters at position 7
+"a\x"|bad escape at position 3
+"\u12"|bad unicode escape at position 3
+"\uZZZZ"|bad unicode escape at position 3
+-|bad number at position 0
+1.2.3|unexpected trailing characters at position 3
++1|unexpected character '+' at position 0
+.5|unexpected character '.' at position 0
+01|unexpected trailing characters at position 1
+-01|unexpected trailing characters at position 2
+[1,01]|expected ',' or ']' at position 4
+0x10|unexpected trailing characters at position 1
+1.|bad number at position 0
+1.e5|bad number at position 0
+1e|bad number at position 0
+1e+|bad number at position 0
+--1|bad number at position 0
+99999999999999999999|bad number at position 0
+1e999|bad number at position 0
+"\u+123"|bad unicode escape at position 3
+"\u-123"|bad unicode escape at position 3
+"\u12G4"|bad unicode escape at position 3
