@@ -1,0 +1,15 @@
+not json|[none]|not valid JSON: unexpected token at position 0
+[1,2]|[none]|a request must be a JSON object
+null|[none]|a request must be a JSON object
+"text"|[none]|a request must be a JSON object
+{"method":"x"}|[none]|'id' must be an integer or a string
+{"id":null,"method":"x"}|[none]|'id' must be an integer or a string
+{"id":1.5,"method":"x"}|[none]|'id' must be an integer or a string
+{"id":true,"method":"x"}|[none]|'id' must be an integer or a string
+{"id":[1],"method":"x"}|[none]|'id' must be an integer or a string
+{"id":7}|7|'method' is required
+{"id":7,"method":5}|7|'method' is required
+{"id":7,"method":null}|7|'method' is required
+{"id":"abc"}|"abc"|'method' is required
+{"id":"a","method":"x","params":[1]}|"a"|'params' must be an object
+{"id":8,"method":"x","params":"text"}|8|'params' must be an object

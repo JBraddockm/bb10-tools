@@ -1,0 +1,4 @@
+{"id":1,"method":"connect"}|1|connect|[]
+{"id":"abc","method":"getPin","params":{}}|"abc"|getPin|[]
+{"id":2,"method":"m","params":{"k":1,"a":"x"}}|2|m|[k, a]
+{"id":0,"method":"","params":null}|0||[]

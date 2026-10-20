@@ -1,0 +1,10 @@
+connect
+disconnect
+shutdown
+echo
+boom
+silent
+block
+hold
+ping
+illegal

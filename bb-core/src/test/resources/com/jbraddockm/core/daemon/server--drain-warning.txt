@@ -1,0 +1,1 @@
+stub: requests still running after 0 s, exiting without their reply
