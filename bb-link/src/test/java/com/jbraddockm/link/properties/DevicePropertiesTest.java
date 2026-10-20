@@ -66,7 +66,8 @@ class DevicePropertiesTest {
       "keeps its own copy of the lists that it was given, which cannot be changed afterwards by"
           + " anyone")
   void keepsItsOwnCopy() {
-    var given = new ArrayList<>(List.of(new Perimeter(PerimeterKind.WORK, "bbid-work")));
+    var given =
+        new ArrayList<>(List.of(new Perimeter(PerimeterKind.ENTERPRISE, "bbid-enterprise")));
     var properties =
         new DeviceProperties(
             "name", null, null, null, null, null, null, null, null, null, null, given, List.of(),

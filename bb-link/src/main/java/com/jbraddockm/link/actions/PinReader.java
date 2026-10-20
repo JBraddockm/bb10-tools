@@ -10,7 +10,8 @@ import com.jbraddockm.link.cgi.Step;
 
 /**
  * Reads the answer to the request for the PIN: {@code
- * <DevicePIN><PIN>…X&lt;pin&gt;</PIN></DevicePIN>}; the PIN is the text after the last {@code X}.
+ * <DevicePIN><PIN>…X&lt;pin&gt;</PIN></DevicePIN>}; the PIN is the text after the last {@code X},
+ * in either case.
  */
 final class PinReader {
 
@@ -25,7 +26,8 @@ final class PinReader {
       return new Step.Fail<>(ResponseFailures.notExpected(response, ResponseElement.DEVICE_PIN));
     }
     var text = response.payload().childText("PIN").orElse("");
-    var pin = text.substring(text.lastIndexOf('X') + 1).strip();
+    var marker = Math.max(text.lastIndexOf('X'), text.lastIndexOf('x'));
+    var pin = text.substring(marker + 1).strip();
     if (pin.isEmpty()) {
       return new Step.Fail<>(
           new ServiceError(

@@ -24,9 +24,16 @@ class PinReaderTest {
   }
 
   @ParameterizedTest(name = "{0}")
-  @ValueSource(strings = {"pin--success.xml", "pin--without-prefix.xml", "pin--with-blanks.xml"})
+  @ValueSource(
+      strings = {
+        "pin--success.xml",
+        "pin--lowercase-prefix.xml",
+        "pin--without-prefix.xml",
+        "pin--with-blanks.xml"
+      })
   @DisplayName(
-      "reads the PIN after the last X, or the whole text when there is no X, and strips the blanks")
+      "reads the PIN after the last X in either case, or the whole text when there is no X, and"
+          + " strips the blanks")
   void readsThePin(String resource) {
     assertThat(finished(PinReader.read(answer(resource)))).isEqualTo(new DevicePin("2A3B4C5D"));
   }

@@ -94,7 +94,7 @@ class DevicePropertiesParserTest {
       assertThat(parse("properties--full.xml").orElseThrow().perimeters())
           .containsExactly(
               new Perimeter(PerimeterKind.PERSONAL, "bbid-personal"),
-              new Perimeter(PerimeterKind.WORK, "bbid-work"));
+              new Perimeter(PerimeterKind.ENTERPRISE, "bbid-enterprise"));
     }
 
     @Test
@@ -105,8 +105,25 @@ class DevicePropertiesParserTest {
       assertThat(parse("properties--perimeters-by-name.xml").orElseThrow().perimeters())
           .containsExactly(
               new Perimeter(PerimeterKind.PERSONAL, "bbid-a"),
-              new Perimeter(PerimeterKind.WORK, null),
+              new Perimeter(PerimeterKind.ENTERPRISE, null),
               new Perimeter(PerimeterKind.UNKNOWN, "bbid-c"));
+    }
+  }
+
+  @Nested
+  @DisplayName("the types of perimeter of the platform")
+  class PlatformPerimeters {
+
+    @Test
+    @DisplayName(
+        "are read by their names: Default and Personal are the personal perimeter, Enterprise the"
+            + " enterprise one")
+    void areReadByTheirNames() {
+      assertThat(parse("properties--perimeters-platform-names.xml").orElseThrow().perimeters())
+          .containsExactly(
+              new Perimeter(PerimeterKind.PERSONAL, "bbid-default"),
+              new Perimeter(PerimeterKind.ENTERPRISE, "bbid-enterprise"),
+              new Perimeter(PerimeterKind.PERSONAL, "bbid-personal"));
     }
   }
 

@@ -22,7 +22,7 @@
     <PolicyRestrictions>none</PolicyRestrictions>
     <Perimeters>
       <Perimeter><PerimeterType>Personal</PerimeterType><Bbid>bbid-personal</Bbid></Perimeter>
-      <Perimeter><PerimeterType>Work</PerimeterType><Bbid>bbid-work</Bbid></Perimeter>
+      <Perimeter><PerimeterType>Enterprise</PerimeterType><Bbid>bbid-enterprise</Bbid></Perimeter>
     </Perimeters>
     <Applications>
       <Application><Name>sys.os.test</Name><Type>os</Type><PackageId>os1</PackageId><PackageVersionId>osv1</PackageVersionId><PackageVersion>10.3.3.2205</PackageVersion><Fingerprint>fingerprint-os</Fingerprint></Application>

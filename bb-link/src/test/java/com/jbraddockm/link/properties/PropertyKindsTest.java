@@ -1,10 +1,12 @@
 package com.jbraddockm.link.properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -71,9 +73,14 @@ class PropertyKindsTest {
       "personal, PERSONAL",
       "PERSONALPERIMETER, PERSONAL",
       "Personal Perimeter 1, PERSONAL",
-      "Work, WORK",
-      "work, WORK",
-      "WorkPerimeter, WORK",
+      "Enterprise, ENTERPRISE",
+      "enterprise, ENTERPRISE",
+      "EnterprisePerimeter, ENTERPRISE",
+      "Work, UNKNOWN",
+      "WorkPerimeter, UNKNOWN",
+      "Default, PERSONAL",
+      "DEFAULT, PERSONAL",
+      "DefaultPerimeter, PERSONAL",
       "Other, UNKNOWN",
       "Corporate, UNKNOWN",
       "my personal, UNKNOWN"
@@ -90,8 +97,14 @@ class PropertyKindsTest {
       assertThat(PerimeterKind.of(text)).isEqualTo(PerimeterKind.UNKNOWN);
     }
 
+    @Test
+    @DisplayName("of refuses no text at all, saying what it needs")
+    void ofNeedsAText() {
+      assertThatNullPointerException().isThrownBy(() -> PerimeterKind.of(null)).withMessage("text");
+    }
+
     @ParameterizedTest(name = "{0} is \"{1}\"")
-    @CsvSource({"PERSONAL, personal", "WORK, work", "UNKNOWN, unknown"})
+    @CsvSource({"PERSONAL, personal", "ENTERPRISE, enterprise", "UNKNOWN, unknown"})
     @DisplayName("each kind has the name that the protocol of the daemon uses")
     void eachKindHasItsJsonName(PerimeterKind kind, String jsonName) {
       assertThat(kind.jsonName()).isEqualTo(jsonName);
