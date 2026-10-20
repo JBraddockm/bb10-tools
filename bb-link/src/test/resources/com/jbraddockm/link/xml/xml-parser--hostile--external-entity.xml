@@ -1,0 +1,2 @@
+<!DOCTYPE Root [<!ENTITY secret SYSTEM "file://{{secret-file}}">]>
+<Root>&secret;</Root>

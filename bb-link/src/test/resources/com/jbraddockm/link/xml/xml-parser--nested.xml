@@ -1,0 +1,1 @@
+<Root z="1" a="2"><Child> text </Child><Child/><Group><Child>deep</Child></Group><!-- ignored --></Root>
