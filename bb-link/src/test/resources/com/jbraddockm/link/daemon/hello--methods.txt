@@ -1,0 +1,16 @@
+connect
+disconnect
+shutdown
+getDeviceProperties
+getPin
+getSmbCredentials
+listPimAccounts
+findPimAccount
+getPimItems
+pairDevice
+getAuthenticationCertificate
+listDevices
+inspectPackage
+installPackages
+uninstallPackages
+inspectCertificate

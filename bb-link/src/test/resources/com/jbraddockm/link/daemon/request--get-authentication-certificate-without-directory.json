@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"getAuthenticationCertificate","params":{"session":"{{session}}","confirmPin":"2A3B4C5D"}}

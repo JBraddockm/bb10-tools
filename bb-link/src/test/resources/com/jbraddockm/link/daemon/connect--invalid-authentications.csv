@@ -1,0 +1,13 @@
+request--connect-invalid-authentication-01.json,authentication
+request--connect-invalid-authentication-02.json,authentication.type
+request--connect-invalid-authentication-03.json,authentication.type
+request--connect-invalid-authentication-04.json,authentication.type
+request--connect-invalid-authentication-05.json,authentication.password
+request--connect-invalid-authentication-06.json,authentication.password
+request--connect-invalid-authentication-07.json,authentication.password
+request--connect-invalid-authentication-08.json,authentication.clientKey
+request--connect-invalid-authentication-09.json,authentication.clientKey
+request--connect-invalid-authentication-10.json,authentication.clientCertificate
+request--connect-invalid-authentication-11.json,authentication.password
+request--connect-invalid-authentication-12.json,authentication.password
+request--connect-invalid-authentication-13.json,authentication.clientCertificate

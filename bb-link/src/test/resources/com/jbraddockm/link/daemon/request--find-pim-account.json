@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"findPimAccount","params":{"session":"{{session}}","workstationId":"W1"}}

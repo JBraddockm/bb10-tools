@@ -1,0 +1,1 @@
+GET /cgi-bin/pimsync.cgi?command=get&workstation_id=W1&service=contacts&updated_time=T&limit=5&dirty_only=true&local_only=true&offset=10

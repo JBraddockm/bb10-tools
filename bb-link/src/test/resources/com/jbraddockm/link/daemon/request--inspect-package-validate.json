@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"inspectPackage","params":{"file":"{{file}}","validate":true}}

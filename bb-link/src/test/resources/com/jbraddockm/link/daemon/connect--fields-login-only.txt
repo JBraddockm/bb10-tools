@@ -1,0 +1,5 @@
+session
+host
+port
+authentication
+smb

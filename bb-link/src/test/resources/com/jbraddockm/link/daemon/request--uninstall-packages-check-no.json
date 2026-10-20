@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"uninstallPackages","params":{"session":"{{session}}","packageIds":["{{packageId}}"],"check":"no"}}

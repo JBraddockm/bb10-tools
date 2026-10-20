@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"getPimItems","params":{"session":"{{session}}","workstationId":"W1","service":"{{service}}","updatedTime":"T","limit":5,"dirtyOnly":true,"localOnly":true,"offset":10}}
