@@ -1,6 +1,6 @@
 package com.jbraddockm.link.session;
 
-import java.security.GeneralSecurityException;
+import com.jbraddockm.link.internal.Impossible;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import javax.net.ssl.KeyManager;
@@ -33,16 +33,16 @@ final class TrustAllTls {
    *     to offer none
    */
   static Scheme scheme(KeyManager[] keyManagers) {
-    try {
-      var context = SSLContext.getInstance("SSL");
-      context.init(
-          keyManagers, new TrustManager[] {new AcceptAnyCertificate()}, new SecureRandom());
-      var factory = new SSLSocketFactory(context);
-      factory.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-      return new Scheme("https", factory, HTTPS_PORT);
-    } catch (GeneralSecurityException failure) {
-      throw new IllegalStateException("the TLS context could not be created", failure);
-    }
+    return Impossible.call(
+        () -> {
+          var context = SSLContext.getInstance("SSL");
+          context.init(
+              keyManagers, new TrustManager[] {new AcceptAnyCertificate()}, new SecureRandom());
+          var factory = new SSLSocketFactory(context);
+          factory.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+          return new Scheme("https", factory, HTTPS_PORT);
+        },
+        "the TLS context could not be created");
   }
 
   /** Trusts everything; see the class description for why. */
