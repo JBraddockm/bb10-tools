@@ -86,6 +86,27 @@ class AuthenticationExchangeTest {
   }
 
   @Test
+  @DisplayName("an error whose description carries a secret is said without it")
+  void anErrorWithASecretInItsDescription() {
+    assertThat(answered("authentication-answer--error-with-cookie.xml", true))
+        .isInstanceOfSatisfying(
+            Step.Fail.class,
+            fail -> {
+              assertThat(fail.error().message()).isEqualTo("Denied");
+              assertThat(fail.error().details()).containsEntry("errorIdentifier", 260);
+            });
+  }
+
+  @Test
+  @DisplayName("an error with an empty description says that the device reported an error")
+  void anErrorWithAnEmptyDescription() {
+    assertThat(answered("authentication-answer--error-with-empty-description.xml", true))
+        .isInstanceOfSatisfying(
+            Step.Fail.class,
+            fail -> assertThat(fail.error().message()).isEqualTo("The device reported an error"));
+  }
+
+  @Test
   @DisplayName(
       "an error with no description says that the device reported an error, and has no details")
   void anErrorWithoutADescription() {

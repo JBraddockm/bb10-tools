@@ -1,6 +1,5 @@
 package com.jbraddockm.link.pairing;
 
-import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.LinkErrorCode;
@@ -42,14 +41,8 @@ final class PairingExchange implements Conversation<PairingReply> {
       case SUCCESS -> new Step.Finish<>(reply);
       case ERROR ->
           new Step.Fail<>(
-              new ServiceError(
-                  CoreErrorCode.COMMAND_FAILED,
-                  reply.errorDescription() == null
-                      ? "The device reported an error"
-                      : reply.errorDescription(),
-                  reply.errorIdentifier() == null
-                      ? Map.of()
-                      : Json.object("errorIdentifier", reply.errorIdentifier())),
+              ResponseFailures.deviceError(
+                  reply.errorDescription(), reply.errorIdentifier(), Map.of()),
               Optional.of(reply));
       case READY, IN_PROGRESS, DENIED, PASSWORD_CHALLENGE, UNKNOWN ->
           new Step.Fail<>(

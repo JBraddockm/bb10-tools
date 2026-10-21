@@ -1,0 +1,1 @@
+<RimTabletResponse><CgiAuth><Status>Error</Status><Error><ErrorIdentifier>260</ErrorIdentifier><ErrorDescription>Denied HTTP_COOKIE=dtmauth=abc123; loginsession=def456</ErrorDescription></Error></CgiAuth></RimTabletResponse>

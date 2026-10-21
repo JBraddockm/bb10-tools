@@ -73,6 +73,27 @@ class PairingExchangeTest {
   }
 
   @Test
+  @DisplayName("an error whose description carries a secret is said without it")
+  void anErrorWithASecretInItsDescription() {
+    assertThat(answered("pairing-reply--error-with-cookie.xml"))
+        .isInstanceOfSatisfying(
+            Step.Fail.class,
+            fail -> {
+              assertThat(fail.error().message()).isEqualTo("Denied");
+              assertThat(fail.error().details()).containsEntry("errorIdentifier", 7);
+            });
+  }
+
+  @Test
+  @DisplayName("an error with an empty description says that the device reported an error")
+  void anErrorWithAnEmptyDescription() {
+    assertThat(answered("pairing-reply--error-with-empty-description.xml"))
+        .isInstanceOfSatisfying(
+            Step.Fail.class,
+            fail -> assertThat(fail.error().message()).isEqualTo("The device reported an error"));
+  }
+
+  @Test
   @DisplayName(
       "an error with no description says that the device reported an error, and has no details")
   void anErrorWithoutADescription() {

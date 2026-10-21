@@ -5,10 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.link.LinkErrorCode;
 import com.jbraddockm.link.testing.Resources;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -138,6 +141,59 @@ class ResponseFailuresTest {
                 assertThat(failure.message()).isEqualTo("Denied");
                 assertThat(failure.message()).doesNotContain("abc123").doesNotContain("def456");
               });
+    }
+  }
+
+  @Nested
+  @DisplayName("deviceError")
+  class DeviceError {
+
+    @Test
+    @DisplayName("is COMMAND_FAILED with the description of the device and its number")
+    void isACommandThatFailed() {
+      var error = ResponseFailures.deviceError("Denied", 7, Map.of());
+
+      assertThat(error.code()).isEqualTo(CoreErrorCode.COMMAND_FAILED);
+      assertThat(error.message()).isEqualTo("Denied");
+      assertThat(error.details()).containsEntry("errorIdentifier", 7);
+    }
+
+    @ParameterizedTest(name = "\"{0}\"")
+    @NullAndEmptySource
+    @DisplayName("says that the device reported an error when it gave no description")
+    void saysThatAnErrorWasReported(String description) {
+      assertThat(ResponseFailures.deviceError(description, null, Map.of()).message())
+          .isEqualTo("The device reported an error");
+    }
+
+    @Test
+    @DisplayName("takes the secrets out of the description")
+    void takesTheSecretsOut() {
+      var description =
+          Resources.text(
+                  ResponseFailuresTest.class, "response-failures--description-with-cookie.txt")
+              .strip();
+
+      var error = ResponseFailures.deviceError(description, null, Map.of());
+
+      assertThat(error.message()).isEqualTo("Denied");
+    }
+
+    @Test
+    @DisplayName("has no number among its details when there is none, and only those it was given")
+    void hasNoNumberWhenThereIsNone() {
+      var error = ResponseFailures.deviceError("Denied", null, Map.of("element", "Pairing"));
+
+      assertThat(error.details()).containsOnlyKeys("element");
+    }
+
+    @Test
+    @DisplayName("puts the number after the details that it was given")
+    void putsTheNumberLast() {
+      var error = ResponseFailures.deviceError("Denied", 7, Map.of("element", "Pairing"));
+
+      assertThat(List.copyOf(error.details().keySet()))
+          .containsExactly("element", "errorIdentifier");
     }
   }
 

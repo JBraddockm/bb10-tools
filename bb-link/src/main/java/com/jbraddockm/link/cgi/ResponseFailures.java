@@ -6,6 +6,7 @@ import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.LinkErrorCode;
 import com.jbraddockm.link.internal.Scrub;
 import com.jbraddockm.link.xml.XmlElement;
+import java.util.Map;
 import java.util.Optional;
 
 /** Turns an answer that is not the expected one into the right error. */
@@ -16,6 +17,7 @@ public final class ResponseFailures {
   private static final String ERROR = "Error";
   private static final String ERROR_IDENTIFIER = "ErrorIdentifier";
   private static final String ERROR_DESCRIPTION = "ErrorDescription";
+  private static final String PLAIN_ERROR = "The device reported an error";
 
   private ResponseFailures() {}
 
@@ -32,16 +34,34 @@ public final class ResponseFailures {
     if (!payload.childText(STATUS).orElse("").equalsIgnoreCase(ERROR_STATUS)) {
       return Optional.empty();
     }
-    var description =
-        errorText(payload, ERROR_DESCRIPTION)
-            .map(Scrub::forDisplay)
-            .filter(text -> !text.isEmpty())
-            .orElse("The device reported an error");
-    var details = Json.object("element", response.name());
-    errorText(payload, ERROR_IDENTIFIER)
-        .flatMap(ResponseFailures::integer)
-        .ifPresent(identifier -> details.put("errorIdentifier", identifier));
-    return Optional.of(new ServiceError(CoreErrorCode.COMMAND_FAILED, description, details));
+    var identifier =
+        errorText(payload, ERROR_IDENTIFIER).flatMap(ResponseFailures::integer).orElse(null);
+    return Optional.of(
+        deviceError(
+            errorText(payload, ERROR_DESCRIPTION).orElse(null),
+            identifier,
+            Json.object("element", response.name())));
+  }
+
+  /**
+   * Builds the error of a command that the device reported as failed: its description with secrets
+   * removed, or a plain sentence when it gave none, and the number of the error when it gave one.
+   *
+   * @param description what the device said; may be {@code null} or empty
+   * @param identifier the number of the error; {@code null} if there is none
+   * @param details what else to say of the error; the number is added after it
+   * @return {@code COMMAND_FAILED}
+   */
+  public static ServiceError deviceError(
+      String description, Integer identifier, Map<String, Object> details) {
+    var text = description == null ? "" : Scrub.forDisplay(description);
+    var allDetails = Json.object();
+    allDetails.putAll(details);
+    if (identifier != null) {
+      allDetails.put("errorIdentifier", identifier);
+    }
+    return new ServiceError(
+        CoreErrorCode.COMMAND_FAILED, text.isEmpty() ? PLAIN_ERROR : text, allDetails);
   }
 
   /**

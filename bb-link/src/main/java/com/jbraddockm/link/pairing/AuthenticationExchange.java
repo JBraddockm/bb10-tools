@@ -1,12 +1,10 @@
 package com.jbraddockm.link.pairing;
 
-import com.jbraddockm.core.error.CoreErrorCode;
-import com.jbraddockm.core.error.ServiceError;
-import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.cgi.CgiRequest;
 import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.Conversation;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
+import com.jbraddockm.link.cgi.ResponseFailures;
 import com.jbraddockm.link.cgi.Step;
 import java.util.Map;
 import java.util.Optional;
@@ -35,14 +33,8 @@ final class AuthenticationExchange implements Conversation<AuthenticationAnswer>
     var answer = AuthenticationAnswer.read(response, envelope);
     if ("Error".equalsIgnoreCase(answer.statusText())) {
       return new Step.Fail<>(
-          new ServiceError(
-              CoreErrorCode.COMMAND_FAILED,
-              answer.errorDescription() == null
-                  ? "The device reported an error"
-                  : answer.errorDescription(),
-              answer.errorIdentifier() == null
-                  ? Map.of()
-                  : Json.object("errorIdentifier", answer.errorIdentifier())),
+          ResponseFailures.deviceError(
+              answer.errorDescription(), answer.errorIdentifier(), Map.of()),
           Optional.of(answer));
     }
     return new Step.Finish<>(answer);
