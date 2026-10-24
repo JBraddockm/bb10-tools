@@ -65,11 +65,19 @@ public final class ResponseFailures {
   }
 
   /**
-   * Reads a field of the error. Devices put it in an {@code Error} element inside the answer; the
-   * answer itself is also looked at, in case a program writes the field there.
+   * Looks for an error field: inside an {@code Error} element first, then as a direct child. This
+   * is the one strategy for reading device errors from any answer.
+   *
+   * @param payload the payload element of the answer
+   * @param name the name of the field ({@code ErrorIdentifier} or {@code ErrorDescription})
+   * @return the text; empty when the field is absent
    */
-  private static Optional<String> errorText(XmlElement payload, String name) {
+  public static Optional<String> errorField(XmlElement payload, String name) {
     return payload.textAt(ERROR, name).or(() -> payload.childText(name));
+  }
+
+  private static Optional<String> errorText(XmlElement payload, String name) {
+    return errorField(payload, name);
   }
 
   private static Optional<Integer> integer(String text) {

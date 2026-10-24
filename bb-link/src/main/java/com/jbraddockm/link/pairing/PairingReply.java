@@ -5,6 +5,7 @@ import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.ResponseBody;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
+import com.jbraddockm.link.cgi.ResponseFailures;
 import com.jbraddockm.link.cgi.ResponseStatus;
 import com.jbraddockm.link.xml.XmlElement;
 import java.util.Map;
@@ -49,8 +50,11 @@ public record PairingReply(
         text(payload, "Certificate")
             .filter(text -> !text.isBlank())
             .or(() -> certificateIn(payload.text()));
-    var identifier = text(payload, "ErrorIdentifier").flatMap(PairingReply::integer).orElse(null);
-    var description = text(payload, "ErrorDescription").orElse(null);
+    var identifier =
+        ResponseFailures.errorField(payload, "ErrorIdentifier")
+            .flatMap(PairingReply::integer)
+            .orElse(null);
+    var description = ResponseFailures.errorField(payload, "ErrorDescription").orElse(null);
     var status = ResponseStatus.of(statusText);
     if (statusText == null && authority.isPresent() && identifier == null) {
       // what the device really answers to an insert that it takes: a certificate, and no status

@@ -29,6 +29,39 @@ class PairingReplyTest {
   }
 
   @Nested
+  @DisplayName("reading the error fields")
+  class ReadingTheError {
+
+    @Test
+    @DisplayName("reads the error fields from inside an Error element")
+    void readsFromInsideAnErrorElement() {
+      var reply = read("pairing-reply--error.xml");
+
+      assertThat(reply.errorIdentifier()).isEqualTo(7);
+      assertThat(reply.errorDescription()).isEqualTo("Error - insert certificate failed.");
+    }
+
+    @Test
+    @DisplayName("reads the error fields from beside the status when there is no Error element")
+    void readsFromBesideTheStatus() {
+      var reply = read("pairing-reply--error-with-authority.xml");
+
+      assertThat(reply.errorDescription()).isEqualTo("Refused");
+    }
+
+    @Test
+    @DisplayName(
+        "does not look past an immediate child for error fields: a deeply nested Error element is"
+            + " ignored")
+    void doesNotReachPastAnImmediateChild() {
+      var reply = read("pairing-reply--error-deeply-nested.xml");
+
+      assertThat(reply.errorIdentifier()).isNull();
+      assertThat(reply.errorDescription()).isNull();
+    }
+  }
+
+  @Nested
   @DisplayName("the answer of a device that takes the authority")
   class Accepted {
 
