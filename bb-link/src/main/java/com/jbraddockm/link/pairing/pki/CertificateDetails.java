@@ -151,6 +151,7 @@ public record CertificateDetails(
     try {
       return certificate.getEncoded();
     } catch (CertificateException failure) {
+      // Cannot happen: the certificate was returned by the JDK and always has an encoding.
       throw new IllegalStateException("a parsed certificate has an encoding", failure);
     }
   }
@@ -163,6 +164,7 @@ public record CertificateDetails(
           .mapToObj(index -> hex.substring(index * 2, index * 2 + 2))
           .collect(Collectors.joining(":"));
     } catch (NoSuchAlgorithmException failure) {
+      // Cannot happen: SHA-256 has been a required algorithm since Java 7.
       throw new IllegalStateException("every JDK has SHA-256", failure);
     }
   }

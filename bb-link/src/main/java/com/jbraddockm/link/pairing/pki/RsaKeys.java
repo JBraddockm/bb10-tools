@@ -13,8 +13,6 @@ public final class RsaKeys {
    */
   public static final int DEVICE_KEY_BITS = 2048;
 
-  private static final String PRIVATE_KEY_LABEL = "PRIVATE KEY";
-
   private RsaKeys() {}
 
   /**

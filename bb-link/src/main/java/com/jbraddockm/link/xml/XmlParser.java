@@ -31,6 +31,8 @@ public final class XmlParser {
   public static XmlElement parse(String document) {
     var factory = XMLInputFactory.newDefaultFactory();
     factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+    // Belt and braces: external entities are already inert with DTD support off, but disabling
+    // them explicitly makes the intent unambiguous.
     factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
     factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, false);
     var open = new ArrayDeque<Builder>();

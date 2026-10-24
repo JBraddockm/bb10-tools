@@ -127,13 +127,6 @@ class DerTest {
   @DisplayName("simple values")
   class Simple {
 
-    @ParameterizedTest(name = "{0} is {1}")
-    @CsvSource({"true, 0101FF", "false, 010100"})
-    @DisplayName("bool writes FF for true and 00 for false")
-    void boolIsFFOr00(boolean value, String expected) {
-      assertThat(hex(Der.bool(value))).isEqualTo(expected);
-    }
-
     @Test
     @DisplayName("nullValue writes 05 00")
     void nullValueIsFiveZero() {

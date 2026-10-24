@@ -156,6 +156,7 @@ class LinkServiceTest {
     }
 
     @Test
+    @SuppressWarnings("resource") // open() throws before creating a session
     @DisplayName("is refused when it has no host, naming host")
     void needsAHost() {
       assertThatThrownBy(() -> service.open(request("link-service--connect-without-host.json")))
@@ -165,6 +166,7 @@ class LinkServiceTest {
     }
 
     @Test
+    @SuppressWarnings("resource") // open() throws before creating a session
     @DisplayName(
         "is refused when deviceInfo is not a boolean, naming deviceInfo, with no session made")
     void deviceInfoMustBeABoolean() {
@@ -180,6 +182,7 @@ class LinkServiceTest {
       "link-service--connect-port-zero.json",
       "link-service--connect-port-too-large.json"
     })
+    @SuppressWarnings("resource") // open() throws before creating a session
     @DisplayName("is refused when the port is not from 1 to 65535, naming port")
     void needsAGoodPort(String resource) {
       assertThatThrownBy(() -> service.open(request(resource)))

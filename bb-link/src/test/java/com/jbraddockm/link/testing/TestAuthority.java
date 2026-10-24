@@ -145,7 +145,11 @@ public final class TestAuthority {
             3,
             Der.sequence(
                 extension("2.5.29.15", new byte[] {0x03, 0x02, 0x05, (byte) 0xE0}),
-                extension("2.5.29.19", authority ? Der.sequence(Der.bool(true)) : Der.sequence()),
+                extension(
+                    "2.5.29.19",
+                    authority
+                        ? Der.sequence(new byte[] {0x01, 0x01, (byte) 0xFF})
+                        : Der.sequence()),
                 extension("2.5.29.14", Der.octetString(keyIdentifier)),
                 extension(
                     "2.16.840.1.113730.1.13",

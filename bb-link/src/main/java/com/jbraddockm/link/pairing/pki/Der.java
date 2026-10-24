@@ -95,16 +95,6 @@ public final class Der {
   }
 
   /**
-   * A BOOLEAN.
-   *
-   * @param value the value
-   * @return the encoded element
-   */
-  public static byte[] bool(boolean value) {
-    return encode(BOOLEAN, new byte[] {(byte) (value ? 0xFF : 0x00)});
-  }
-
-  /**
    * A NULL.
    *
    * @return the encoded element
