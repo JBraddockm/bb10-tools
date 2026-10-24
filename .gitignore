@@ -5,6 +5,7 @@ libs-repo/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .kotlin
+bb-smb
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
@@ -42,5 +43,9 @@ build/
 /libs/*
 !/libs/.gitkeep
 fixtures/
-/bb-link/certs/
+# Keep certs/ folders in the repo (so the layout stays visible) but never commit
+# the certificate material inside them. A README / .gitkeep marks the folder.
+**/certs/**
+!**/certs/README.md
+!**/certs/.gitkeep
 /bb-link/devices/
