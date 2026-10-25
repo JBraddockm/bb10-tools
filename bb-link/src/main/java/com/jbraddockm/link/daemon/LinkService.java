@@ -13,6 +13,8 @@ import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.actions.DevicePin;
 import com.jbraddockm.link.actions.GetPin;
 import com.jbraddockm.link.discovery.DeviceScanner;
+import com.jbraddockm.link.pairing.CertificateRetrieval;
+import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.GetDeviceProperties;
 import com.jbraddockm.link.session.DeviceSession;
@@ -35,6 +37,8 @@ public final class LinkService implements Service<DeviceSession> {
   private final TransportScheme scheme;
   private final DeviceScanner scanner;
   private final ExchangeObserver observer;
+  private final Pairing pairing;
+  private final CertificateRetrieval retrieval;
 
   /**
    * Creates the production service: HTTPS, and the original tool's detector.
@@ -42,14 +46,26 @@ public final class LinkService implements Service<DeviceSession> {
    * @param observer told about every exchange with a device, for example to record a trace
    */
   public LinkService(ExchangeObserver observer) {
-    this(TransportScheme.HTTPS, DeviceScanner.library(), observer);
+    this(
+        TransportScheme.HTTPS,
+        DeviceScanner.library(),
+        observer,
+        new Pairing(),
+        new CertificateRetrieval());
   }
 
   /** Creates a service with its collaborators replaced, which tests use. */
-  LinkService(TransportScheme scheme, DeviceScanner scanner, ExchangeObserver observer) {
+  LinkService(
+      TransportScheme scheme,
+      DeviceScanner scanner,
+      ExchangeObserver observer,
+      Pairing pairing,
+      CertificateRetrieval retrieval) {
     this.scheme = scheme;
     this.scanner = scanner;
     this.observer = observer;
+    this.pairing = pairing;
+    this.retrieval = retrieval;
   }
 
   @Override
@@ -59,7 +75,9 @@ public final class LinkService implements Service<DeviceSession> {
 
   @Override
   public List<CommandSpec<DeviceSession>> commands() {
-    return Arrays.stream(LinkMethod.values()).map(method -> method.spec(scanner)).toList();
+    return Arrays.stream(LinkMethod.values())
+        .map(method -> method.spec(scanner, pairing, retrieval))
+        .toList();
   }
 
   @Override

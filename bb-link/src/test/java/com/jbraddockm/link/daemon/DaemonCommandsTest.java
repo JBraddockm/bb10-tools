@@ -8,6 +8,8 @@ import static com.jbraddockm.link.testing.JsonObjects.object;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.core.json.Json;
+import com.jbraddockm.link.pairing.CertificateRetrieval;
+import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.session.ExchangeObserver;
 import com.jbraddockm.link.session.TransportScheme;
 import com.jbraddockm.link.testing.FakeDevice;
@@ -37,7 +39,14 @@ class DaemonCommandsTest {
   @BeforeEach
   void connect() throws Exception {
     device = new FakeDevice("secret");
-    daemon = new DaemonRun(new LinkService(TransportScheme.HTTP, _ -> {}, ExchangeObserver.NONE));
+    daemon =
+        new DaemonRun(
+            new LinkService(
+                TransportScheme.HTTP,
+                _ -> {},
+                ExchangeObserver.NONE,
+                new Pairing(),
+                new CertificateRetrieval()));
     daemon.hello();
     daemon.send(
         1,

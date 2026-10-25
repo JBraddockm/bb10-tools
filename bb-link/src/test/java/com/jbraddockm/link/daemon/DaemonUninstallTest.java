@@ -6,6 +6,8 @@ import static com.jbraddockm.link.daemon.DaemonRun.errorMessage;
 import static com.jbraddockm.link.testing.JsonObjects.array;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.jbraddockm.link.pairing.CertificateRetrieval;
+import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.session.ExchangeObserver;
 import com.jbraddockm.link.session.TransportScheme;
 import com.jbraddockm.link.testing.FakeDevice;
@@ -33,7 +35,14 @@ class DaemonUninstallTest {
     device = new FakeDevice("secret");
     device.propertiesXml =
         Resources.text(InstallPackages.class, "session--uninstall-properties.xml");
-    daemon = new DaemonRun(new LinkService(TransportScheme.HTTP, _ -> {}, ExchangeObserver.NONE));
+    daemon =
+        new DaemonRun(
+            new LinkService(
+                TransportScheme.HTTP,
+                _ -> {},
+                ExchangeObserver.NONE,
+                new Pairing(),
+                new CertificateRetrieval()));
     daemon.hello();
     daemon.send(
         CONNECT,

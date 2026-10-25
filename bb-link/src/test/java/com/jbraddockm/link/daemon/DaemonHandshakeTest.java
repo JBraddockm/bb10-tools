@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.link.discovery.ConnectionKind;
 import com.jbraddockm.link.discovery.DiscoveredDevice;
+import com.jbraddockm.link.pairing.CertificateRetrieval;
+import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.session.ExchangeObserver;
 import com.jbraddockm.link.session.TransportScheme;
 import com.jbraddockm.link.testing.Resources;
@@ -33,7 +35,13 @@ class DaemonHandshakeTest {
 
   @BeforeEach
   void startTheDaemon() throws Exception {
-    var service = new LinkService(TransportScheme.HTTP, FOUND::forEach, ExchangeObserver.NONE);
+    var service =
+        new LinkService(
+            TransportScheme.HTTP,
+            FOUND::forEach,
+            ExchangeObserver.NONE,
+            new Pairing(),
+            new CertificateRetrieval());
     daemon = new DaemonRun(service);
   }
 

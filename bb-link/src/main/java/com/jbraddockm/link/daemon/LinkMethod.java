@@ -126,10 +126,6 @@ enum LinkMethod {
   /** The port that takes client certificates, which a new identity is tried against. */
   private static final int CERTIFICATE_PORT = 8443;
 
-  private static final CertificateRetrieval RETRIEVAL = new CertificateRetrieval();
-
-  private static final Pairing PAIRING = new Pairing();
-
   private final String wireName;
 
   LinkMethod(String wireName) {
@@ -182,7 +178,8 @@ enum LinkMethod {
     };
   }
 
-  CommandSpec<DeviceSession> spec(DeviceScanner scanner) {
+  CommandSpec<DeviceSession> spec(
+      DeviceScanner scanner, Pairing pairing, CertificateRetrieval retrieval) {
     return switch (this) {
       case GET_DEVICE_PROPERTIES -> onSession(_ -> new GetDeviceProperties());
       case GET_PIN -> onSession(_ -> new GetPin());
@@ -191,9 +188,11 @@ enum LinkMethod {
           onSession(params -> new FindPimAccount(params.requireString("workstationId")));
       case GET_PIM_ITEMS -> onSession(LinkMethod::getPimItems);
       case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
-      case PAIR_DEVICE -> new CommandSpec.SessionScoped<>(wireName, this::pairDevice);
+      case PAIR_DEVICE ->
+          new CommandSpec.SessionScoped<>(wireName, params -> pairDevice(params, pairing));
       case GET_AUTHENTICATION_CERTIFICATE ->
-          new CommandSpec.SessionScoped<>(wireName, this::getAuthenticationCertificate);
+          new CommandSpec.SessionScoped<>(
+              wireName, params -> getAuthenticationCertificate(params, retrieval));
       case INSPECT_CERTIFICATE ->
           new CommandSpec.Standalone<>(
               wireName,
@@ -310,7 +309,7 @@ enum LinkMethod {
    * A method that runs one device command on the session. The parameters are read, and the command
    * built, before anything is queued, so a bad parameter is answered at once.
    */
-  private SessionCommand<DeviceSession> pairDevice(RequestParams params) {
+  private SessionCommand<DeviceSession> pairDevice(RequestParams params, Pairing pairing) {
     var request =
         new PairingRequest(
             params.optionalString("confirmPin").orElse(null),
@@ -320,10 +319,11 @@ enum LinkMethod {
             params.flag("replace"));
     var includeRaw = params.flag("raw");
     return (session, reply) ->
-        reply.complete(wireName, PAIRING.run(session, request, reply), includeRaw);
+        reply.complete(wireName, pairing.run(session, request, reply), includeRaw);
   }
 
-  private SessionCommand<DeviceSession> getAuthenticationCertificate(RequestParams params) {
+  private SessionCommand<DeviceSession> getAuthenticationCertificate(
+      RequestParams params, CertificateRetrieval retrieval) {
     var request =
         new CertificateRetrievalRequest(
             params.optionalString("confirmPin").orElse(null),
@@ -336,7 +336,7 @@ enum LinkMethod {
             params.integer("verifyPort", CERTIFICATE_PORT, 1, 65_535));
     var includeRaw = params.flag("raw");
     return (session, reply) ->
-        reply.complete(wireName, RETRIEVAL.run(session, request, reply), includeRaw);
+        reply.complete(wireName, retrieval.run(session, request, reply), includeRaw);
   }
 
   private <R extends CommandResult> CommandSpec<DeviceSession> onSession(

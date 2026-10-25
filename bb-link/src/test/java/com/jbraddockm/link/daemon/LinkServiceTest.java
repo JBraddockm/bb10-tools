@@ -12,6 +12,8 @@ import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.actions.GetPin;
+import com.jbraddockm.link.pairing.CertificateRetrieval;
+import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.properties.GetDeviceProperties;
 import com.jbraddockm.link.session.Authentication;
 import com.jbraddockm.link.session.DeviceSession;
@@ -52,7 +54,13 @@ class LinkServiceTest {
   @BeforeEach
   void startTheDevice() throws IOException {
     device = new FakeDevice("secret");
-    service = new LinkService(TransportScheme.HTTP, _ -> {}, ExchangeObserver.NONE);
+    service =
+        new LinkService(
+            TransportScheme.HTTP,
+            _ -> {},
+            ExchangeObserver.NONE,
+            new Pairing(),
+            new CertificateRetrieval());
     reply = Reply.standalone(new PrintStream(written, true, StandardCharsets.UTF_8), REQUEST_ID);
   }
 

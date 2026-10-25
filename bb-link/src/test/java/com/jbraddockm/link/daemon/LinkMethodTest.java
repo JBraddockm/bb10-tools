@@ -6,8 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.jbraddockm.core.daemon.CommandSpec;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.actions.GetPin;
+import com.jbraddockm.link.pairing.CertificateRetrieval;
 import com.jbraddockm.link.pairing.GetAuthenticationCertificate;
 import com.jbraddockm.link.pairing.PairWithDevice;
+import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.pimsync.FindPimAccount;
 import com.jbraddockm.link.pimsync.GetPimItems;
 import com.jbraddockm.link.pimsync.ListPimAccounts;
@@ -209,7 +211,8 @@ class LinkMethodTest {
 
     private final List<CommandSpec<?>> specs =
         Arrays.stream(LinkMethod.values())
-            .<CommandSpec<?>>map(method -> method.spec(_ -> {}))
+            .<CommandSpec<?>>map(
+                method -> method.spec(_ -> {}, new Pairing(), new CertificateRetrieval()))
             .toList();
 
     @Test
@@ -225,7 +228,8 @@ class LinkMethodTest {
     @ValueSource(strings = {"LIST_DEVICES", "INSPECT_PACKAGE", "INSPECT_CERTIFICATE"})
     @DisplayName("works on its own, with no session, when it looks at a file or at the network")
     void worksOnItsOwn(String name) {
-      assertThat(LinkMethod.valueOf(name).spec(_ -> {})).isInstanceOf(CommandSpec.Standalone.class);
+      assertThat(LinkMethod.valueOf(name).spec(_ -> {}, new Pairing(), new CertificateRetrieval()))
+          .isInstanceOf(CommandSpec.Standalone.class);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -244,7 +248,7 @@ class LinkMethodTest {
         })
     @DisplayName("works on the session of a device when it talks to one")
     void worksOnASession(String name) {
-      assertThat(LinkMethod.valueOf(name).spec(_ -> {}))
+      assertThat(LinkMethod.valueOf(name).spec(_ -> {}, new Pairing(), new CertificateRetrieval()))
           .isInstanceOf(CommandSpec.SessionScoped.class);
     }
   }
