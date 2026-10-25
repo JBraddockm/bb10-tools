@@ -1,13 +1,24 @@
 # BlackBerry 10 Native Tools
 
-This repository builds Java-based tools from the **BlackBerry 10 NDK** into standalone native executables using
-**GraalVM Native Image**.
+This repository implements the **BlackBerry Link** and **BlackBerry Blend** device protocols and the bp2p
+Wi-Fi **tunnel** they run over, alongside wrappers for BlackBerry's own NDK tools — each module builds to
+a standalone native executable with **GraalVM Native Image**.
 
 The project uses the **Community Edition of GraalVM 25**.
 
 > **Important:** This repository does not contain any proprietary BlackBerry tools or libraries. You must provide the
 > required libraries from your own BlackBerry 10 NDK installation. Neither blackberry-deploy nor any other BlackBerry
 > tool is modified.
+
+## Modules
+
+- [bb-core](bb-core) — Shared library (JSON, the daemon server, error handling) the other modules build on.
+- [bb-connect](bb-connect) — starts the device's SSH daemon.
+- [bb-deploy](bb-deploy) — BlackBerry 10 NDK's own `blackberry-deploy` tool.
+- [bb-packager](bb-packager) — BlackBerry 10 NDK's own `blackberry-packager` tool.
+- [bb-link](bb-link) — Implementation of the BlackBerry Link protocol.
+- [bb-tunnel](bb-tunnel) — Implementation of the bp2p Wi-Fi tunnel.
+- **bb-blend** — Implementation of BlackBerry Blend; coming soon.
 
 ## Requirements
 
@@ -203,6 +214,16 @@ To build the `bb-link` module:
 ```bash
 mvn -pl bb-link -am package
 ```
+
+To build the `bb-tunnel` module:
+
+```bash
+mvn -pl bb-tunnel package
+```
+
+Run it with `sudo ./bb-tunnel/target/bb-tunnel <device-ip>` — root is required to create the `utun`
+interface. See [bb-tunnel/README.md](bb-tunnel/README.md) for the identity certificate and pairing
+requirements.
 
 ### Build Output
 
