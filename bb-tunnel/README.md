@@ -78,16 +78,23 @@ certificate — any such P-521 self-signed cert works **as long as the device ha
 
 ## Build & run
 
+`mvn package` produces **both** a GraalVM native executable and a self-contained fat jar:
+
 ```sh
 cd bb-tunnel
-mvn -q package      # target/bb-tunnel-1.0-SNAPSHOT.jar (BouncyCastle bundled, Main-Class set)
-sudo java --enable-native-access=ALL-UNNAMED -jar target/bb-tunnel-1.0-SNAPSHOT.jar [device-ip]
+mvn -q package      # → target/bb-tunnel (native) + target/bb-tunnel-1.0-SNAPSHOT.jar
+
+sudo ./target/bb-tunnel [device-ip]                              # native — the intended way
+sudo java -jar target/bb-tunnel-1.0-SNAPSHOT.jar [device-ip]     # or the fat jar (any JDK 25)
 ```
 
-`sudo` is required (creating the `utun` and setting its addresses/routes) and
-`--enable-native-access=ALL-UNNAMED` is required for Panama FFM on JDK 25. The demo `main` opens a
-tunnel to `192.168.1.118` (override with the first argument), prints the resolved ULAs and how to use
-them, and parks until Ctrl-C or the link drops:
+Building the native image needs a **GraalVM** JDK with `native-image` (this project uses GraalVM CE 25);
+on a stock JDK 25, `mvn -DskipNativeBuild=true package` builds just the fat jar. `sudo` is a **run-time**
+requirement only — creating the `utun` and
+setting its addresses/routes needs root. The native binary takes no JVM flags, so the fat jar's
+`--enable-native-access=ALL-UNNAMED` is not needed. The demo `main` opens a tunnel to `192.168.1.118`
+(override with the first argument), prints the resolved ULAs and how to use them, and parks until Ctrl-C
+or the link drops:
 
 ```
 tunnel up on utun6
@@ -97,6 +104,30 @@ tunnel up on utun6
 The device ULA is the device's address on this tunnel; reach its Wi-Fi
 services at  https://[<device ULA>]:<port>/  (e.g. :8443 CGIs, :8080 WebDAV, :2708 Blend).
 ```
+
+### Native image notes
+
+- **GraalVM for the build only.** `native-image` produces `target/bb-tunnel`; the fat jar is the
+  fallback where GraalVM isn't available. The native config lives in this module's `pom.xml` plus the
+  parent `pom.xml` (shared `buildArgs`).
+- **BouncyCastle.** The low-level `BcTlsCrypto` path (not the JCA provider) needs almost no reflection;
+  the build enables the GraalVM **reachability-metadata repository**, which covers the rest — no
+  hand-written reflect config. (The *signed*-BC-jar problem is a fat-jar concern, handled by the shade
+  signature filter; it does not affect the native image.)
+- **Panama FFM (the `utun`).** GraalVM 25 supports the Foreign Function & Memory API, but native image
+  does **not** auto-discover downcalls — each must be registered, or the binary throws
+  `MissingForeignRegistrationError` on the first `utun` call (after a successful handshake).
+  `ForeignRegistrationFeature` (wired via `--features=…`) registers `TunDevice`'s libc downcalls
+  (`TunDevice.DOWNCALLS`, its single source of truth) at build time — no reachability-metadata JSON to
+  hand-write. The build also passes `--enable-native-access=ALL-UNNAMED` so the binary doesn't print the
+  FFM "restricted method" warnings (and keeps working once native access is *enforced* in a future JDK).
+  `sudo` (not a build flag) is what the `utun` needs at run time.
+- **Embedded certs.** `-H:IncludeResources=certs/.*\.pem` bakes the identity into the binary so
+  `fromClasspath()` works like the fat jar. **These are secrets** — this binary is for local use, not
+  distribution. For a shippable binary, load the identity at run time via `TunnelConfig.fromFiles(...)`
+  and drop that `IncludeResources` arg.
+- **macOS only, for now.** Only `TunDevice` (`utun`) and the macOS errno glue are platform-specific (see
+  [`PROTOCOL.md`](PROTOCOL.md) §5); the native-build config itself is portable.
 
 ## Use as an API
 

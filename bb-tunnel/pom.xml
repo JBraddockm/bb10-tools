@@ -17,6 +17,11 @@
         reaches the device's services (device-manager CGIs, WebDAV, Blend, discovery) over Wi-Fi.
     </description>
 
+    <properties>
+        <main.class>com.jbraddockm.tunnel.Tunnel</main.class>
+        <native.image.name>bb-tunnel</native.image.name>
+    </properties>
+
     <dependencies>
         <!-- Low-level BouncyCastle TLS: the device speaks TLS/DTLS 1.0 + static-ECDH 0xC005 on P-521,
              which stock JSSE/OpenSSL 1.1+/3.x no longer offer. Not managed by the parent. -->
@@ -35,6 +40,16 @@
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcutil-jdk18on</artifactId>
             <version>1.86</version>
+        </dependency>
+
+        <!-- GraalVM native-image build-time API (Feature + RuntimeForeignAccess) used by
+             ForeignRegistrationFeature to register the utun FFM downcalls. 'provided': needed only by
+             native-image at build, never at run time, and not bundled in the jar. -->
+        <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>nativeimage</artifactId>
+            <version>25.0.1</version>
+            <scope>provided</scope>
         </dependency>
 
         <!-- Tests (versions from the parent's junit/assertj BOMs). -->
@@ -71,7 +86,9 @@
                 <executions>
                     <execution>
                         <phase>package</phase>
-                        <goals><goal>shade</goal></goals>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
                         <configuration>
                             <filters>
                                 <filter>
@@ -85,13 +102,40 @@
                             </filters>
                             <transformers>
                                 <transformer
-                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.jbraddockm.tunnel.Tunnel</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.graalvm.buildtools</groupId>
+                <artifactId>native-maven-plugin</artifactId>
+
+                <configuration>
+                    <!-- Pulls community reachability metadata for BouncyCastle (reflection/resources). -->
+                    <metadataRepository>
+                        <enabled>true</enabled>
+                    </metadataRepository>
+
+                    <buildArgs combine.children="append">
+                        <buildArg>--no-fallback</buildArg>
+
+                        <buildArg>-H:IncludeResources=certs/.*\.pem</buildArg>
+
+                        <!-- Register TunDevice's Panama FFM (utun) downcalls — native image does not
+                             auto-discover them. See ForeignRegistrationFeature. -->
+                        <buildArg>--features=com.jbraddockm.tunnel.ForeignRegistrationFeature</buildArg>
+
+                        <!-- Grant the app (unnamed module) native access so the produced binary does
+                             not print the FFM "restricted method" warnings; the native-image form of
+                             the fat jar's enable-native-access launcher flag. -->
+                        <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
+                    </buildArgs>
+                </configuration>
             </plugin>
         </plugins>
     </build>
