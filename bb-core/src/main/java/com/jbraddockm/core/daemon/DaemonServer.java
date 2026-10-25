@@ -94,18 +94,15 @@ public final class DaemonServer<S extends ServiceSession> {
   }
 
   /**
-   * Runs the daemon on the process's standard input and output.
-   *
-   * <p>The protocol owns the real standard output. Anything else the process prints through {@link
-   * System#out} is redirected to standard error so it cannot corrupt the protocol.
+   * Serves the protocol on the real standard input and output of this process. Standard output is
+   * claimed for the protocol; stray prints go to the error output instead.
    *
    * @param service the tool's methods
    * @param <S> the session type
    * @throws IOException if reading the input fails
    */
   public static <S extends ServiceSession> void run(Service<S> service) throws IOException {
-    var protocolStream = StandardOutputGuard.claimProtocolStream();
-    new DaemonServer<>(service, new EventWriter(protocolStream), DRAIN_TIMEOUT).serve(System.in);
+    serve(service, System.in, StandardOutputGuard.claimProtocolStream(), DRAIN_TIMEOUT);
   }
 
   /**

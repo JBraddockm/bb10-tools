@@ -9,8 +9,11 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import com.jbraddockm.core.daemon.StubService.StubSession;
 import com.jbraddockm.core.testing.Resources;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -87,6 +90,40 @@ class DaemonServerTest {
     assertThat(run.done(Long.valueOf(id)).get("ok")).isEqualTo(true);
     return String.valueOf(
         object(run.eventOf(Long.valueOf(id), "result").get("data")).get("session"));
+  }
+
+  @Nested
+  @DisplayName("run(service, input, output)")
+  class RunOverride {
+
+    @Test
+    @DisplayName(
+        "delegates to serve: the greeting is written to the given output, read from the given"
+            + " input")
+    void delegatesToServe() throws Exception {
+      var input = new PipedInputStream();
+      var toServer = new PipedOutputStream(input);
+      var output = new ByteArrayOutputStream();
+
+      var thread =
+          Thread.ofPlatform()
+              .daemon()
+              .start(
+                  () -> {
+                    try {
+                      DaemonServer.serve(service, input, output, Duration.ofSeconds(5));
+                    } catch (IOException _) {
+                    }
+                  });
+
+      // close immediately so the server drains and exits
+      toServer.close();
+      thread.join(Duration.ofSeconds(10).toMillis());
+
+      assertThat(new String(output.toByteArray(), StandardCharsets.UTF_8))
+          .as("the greeting is on the given output stream")
+          .contains("\"type\":\"hello\"");
+    }
   }
 
   @Nested
