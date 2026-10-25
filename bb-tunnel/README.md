@@ -155,22 +155,17 @@ can observe and steer it:
 Tunnel t = Tunnel.open(
         TunnelConfig.fromClasspath("192.168.1.118"),
         cause -> log.warn("tunnel down: {}", cause));   // onClosed: null = clean close, else drop cause
-```
 
-```java
 t.state();     // CONNECTING | UP | CLOSED | FAILED
-t.
 
-isOpen();    // true while UP
-t.
+t.isOpen();    // true while UP
 
-failure();   // the cause of a FAILED drop (else null)
-t.
+t.failure();   // the cause of a FAILED drop (else null)
 
-restart();   // tear down and bring the same handle back up (e.g. after a drop)
-t.
+t.restart();   // tear down and bring the same handle back up (e.g. after a drop)
 
-close();     // idempotent; AutoCloseable
+t.close();     // idempotent; AutoCloseable
+
 ```
 
 - `open(cfg, onClosed)` registers the listener *before* bring-up, so even an early drop is reported;
