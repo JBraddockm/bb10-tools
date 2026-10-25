@@ -1,7 +1,6 @@
 package com.jbraddockm.link.cgi;
 
 import com.jbraddockm.core.command.CommandResult;
-import java.util.Optional;
 
 /**
  * A conversation whose answers are device envelopes. An answer that is not XML ends the
@@ -23,9 +22,9 @@ public abstract class XmlConversation<R extends CommandResult> implements Conver
   protected abstract Step<R> onResponse(ResponseEnvelope response);
 
   @Override
-  public final Step<R> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope) {
-    return envelope
-        .map(this::onResponse)
-        .orElseGet(() -> new Step.Fail<>(ResponseFailures.notXml(response)));
+  public final Step<R> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
+    return envelope != null
+        ? onResponse(envelope)
+        : new Step.Fail<>(ResponseFailures.notXml(response));
   }
 }

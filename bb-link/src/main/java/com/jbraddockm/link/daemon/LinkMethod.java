@@ -136,52 +136,12 @@ enum LinkMethod {
     this.wireName = wireName;
   }
 
-  static Optional<LinkMethod> byWireName(String name) {
-    return Arrays.stream(values()).filter(method -> method.wireName.equals(name)).findFirst();
-  }
-
-  /**
-   * A removal to replay a recording with: one package, or as many as the argument says (1 to 9), as
-   * in {@code uninstallPackages.2}. The package ids are made up; what the recording says is kept.
-   */
-  private static Optional<DeviceCommand<?>> replayedRemoval(Optional<String> argument) {
-    var text = argument.orElse("1");
-    if (!text.matches("[1-9]")) {
-      return Optional.empty();
-    }
-    var count = Integer.parseInt(text);
-    var packageIds =
-        count == 1
-            ? List.of("replay.package")
-            : IntStream.rangeClosed(1, count)
-                .mapToObj(number -> "replay.package." + number)
-                .toList();
-    return Optional.of(new UninstallPackages(packageIds, false));
-  }
-
-  /**
-   * Reads the parameters of {@code uninstallPackages}; a bad one is reported before anything is
-   * sent.
-   */
-  private static UninstallPackages uninstallPackages(RequestParams params) {
-    return new UninstallPackages(params.requireStrings("packageIds"), params.flag("check", true));
-  }
-
-  /** Reads the parameters of {@code getPimItems}; a bad one is reported before anything is sent. */
-  private static GetPimItems getPimItems(RequestParams params) {
-    return new GetPimItems(
-        params.requireString("workstationId"),
-        PimService.of(params.requireString("service")),
-        new PimFilters(
-            params.optionalString("updatedTime"),
-            params.optionalInteger("limit", 1, Integer.MAX_VALUE),
-            params.flag("dirtyOnly"),
-            params.flag("localOnly"),
-            params.optionalInteger("offset", 0, Integer.MAX_VALUE)));
-  }
-
   String wireName() {
     return wireName;
+  }
+
+  static Optional<LinkMethod> byWireName(String name) {
+    return Arrays.stream(values()).filter(method -> method.wireName.equals(name)).findFirst();
   }
 
   /**
@@ -190,30 +150,30 @@ enum LinkMethod {
    * @param argument what follows the method name after a dot in {@code -parse}, for example the
    *     service of {@code getPimItems.contacts}; only {@link #GET_PIM_ITEMS} takes one, and needs
    *     it
-   * @throws InvalidArgumentException if the argument is not accepted
+   * @throws com.jbraddockm.core.error.InvalidArgumentException if the argument is not accepted
    */
-  Optional<DeviceCommand<?>> replayCommand(Optional<String> argument) {
+  Optional<DeviceCommand<?>> replayCommand(String argument) {
     return switch (this) {
       case GET_DEVICE_PROPERTIES ->
-          argument.isEmpty() ? Optional.of(new GetDeviceProperties()) : Optional.empty();
-      case GET_PIN -> argument.isEmpty() ? Optional.of(new GetPin()) : Optional.empty();
+          argument == null ? Optional.of(new GetDeviceProperties()) : Optional.empty();
+      case GET_PIN -> argument == null ? Optional.of(new GetPin()) : Optional.empty();
       case LIST_PIM_ACCOUNTS ->
-          argument.isEmpty() ? Optional.of(new ListPimAccounts()) : Optional.empty();
+          argument == null ? Optional.of(new ListPimAccounts()) : Optional.empty();
       case FIND_PIM_ACCOUNT ->
-          argument.isEmpty()
-              ? Optional.of(new FindPimAccount(REPLAY_WORKSTATION))
-              : Optional.empty();
+          argument == null ? Optional.of(new FindPimAccount(REPLAY_WORKSTATION)) : Optional.empty();
       case PAIR_DEVICE ->
-          argument.isEmpty() ? Optional.of(new PairWithDevice("REPLAY", "x")) : Optional.empty();
+          argument == null ? Optional.of(new PairWithDevice("REPLAY", "x")) : Optional.empty();
       case GET_AUTHENTICATION_CERTIFICATE ->
-          argument.isEmpty()
+          argument == null
               ? Optional.of(new GetAuthenticationCertificate("replay"))
               : Optional.empty();
       case GET_PIM_ITEMS ->
-          argument.map(
-              name -> new GetPimItems(REPLAY_WORKSTATION, PimService.of(name), PimFilters.none()));
+          argument != null
+              ? Optional.of(
+                  new GetPimItems(REPLAY_WORKSTATION, PimService.of(argument), PimFilters.none()))
+              : Optional.empty();
       case INSTALL_PACKAGES ->
-          argument.isEmpty()
+          argument == null
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
               : Optional.empty();
       case UNINSTALL_PACKAGES -> replayedRemoval(argument);
@@ -307,6 +267,46 @@ enum LinkMethod {
   }
 
   /**
+   * A removal to replay a recording with: one package, or as many as the argument says (1 to 9), as
+   * in {@code uninstallPackages.2}. The package ids are made up; what the recording says is kept.
+   */
+  private static Optional<DeviceCommand<?>> replayedRemoval(String argument) {
+    var text = argument != null ? argument : "1";
+    if (!text.matches("[1-9]")) {
+      return Optional.empty();
+    }
+    var count = Integer.parseInt(text);
+    var packageIds =
+        count == 1
+            ? List.of("replay.package")
+            : IntStream.rangeClosed(1, count)
+                .mapToObj(number -> "replay.package." + number)
+                .toList();
+    return Optional.of(new UninstallPackages(packageIds, false));
+  }
+
+  /**
+   * Reads the parameters of {@code uninstallPackages}; a bad one is reported before anything is
+   * sent.
+   */
+  private static UninstallPackages uninstallPackages(RequestParams params) {
+    return new UninstallPackages(params.requireStrings("packageIds"), params.flag("check", true));
+  }
+
+  /** Reads the parameters of {@code getPimItems}; a bad one is reported before anything is sent. */
+  private static GetPimItems getPimItems(RequestParams params) {
+    return new GetPimItems(
+        params.requireString("workstationId"),
+        PimService.of(params.requireString("service")),
+        new PimFilters(
+            params.optionalString("updatedTime").orElse(null),
+            params.optionalInteger("limit", 1, Integer.MAX_VALUE),
+            params.flag("dirtyOnly"),
+            params.flag("localOnly"),
+            params.optionalInteger("offset", 0, Integer.MAX_VALUE)));
+  }
+
+  /**
    * A method that runs one device command on the session. The parameters are read, and the command
    * built, before anything is queued, so a bad parameter is answered at once.
    */
@@ -330,7 +330,7 @@ enum LinkMethod {
             params
                 .optionalPath("devicesDirectory")
                 .orElseThrow(() -> new InvalidArgumentException("devicesDirectory", "is required")),
-            params.optionalString("hostName"),
+            params.optionalString("hostName").orElse(null),
             params.flag("replace"),
             params.flag("verify", true),
             params.integer("verifyPort", CERTIFICATE_PORT, 1, 65_535));

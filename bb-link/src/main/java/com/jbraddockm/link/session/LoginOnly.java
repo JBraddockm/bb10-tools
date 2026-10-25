@@ -5,7 +5,6 @@ import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.Conversation;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.Step;
-import java.util.Optional;
 
 /**
  * A command that asks the device for nothing: running it makes a session log in, and that is all.
@@ -36,7 +35,7 @@ public record LoginOnly() implements DeviceCommand<NoData> {
     }
 
     @Override
-    public Step<NoData> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope) {
+    public Step<NoData> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
       throw new IllegalStateException("nothing was asked, so nothing can be answered");
     }
   }

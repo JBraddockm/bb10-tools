@@ -7,7 +7,6 @@ import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.Endpoint;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.testing.Resources;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -25,10 +24,7 @@ class StaleSessionTest {
 
   private static boolean indicated(CgiRequest request, int status, String resource) {
     var text = resource.isEmpty() ? "" : Resources.text(StaleSessionTest.class, resource);
-    var envelope =
-        text.strip().startsWith("<")
-            ? Optional.of(ResponseEnvelope.parse(text))
-            : Optional.<ResponseEnvelope>empty();
+    var envelope = text.strip().startsWith("<") ? ResponseEnvelope.parse(text) : null;
     return StaleSession.indicatedBy(
         request, new CgiResponse(status, "text/xml", text, null), envelope);
   }

@@ -8,7 +8,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.cgi.CgiRequest;
 import com.jbraddockm.link.session.DeviceCommand;
-import java.util.Optional;
 import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -109,7 +108,7 @@ class PimCommandsTest {
                       items(
                           PimService.EVENTS,
                           new PimFilters(
-                              Optional.of("2026-10-15T09:00:00Z"),
+                              "2026-10-15T09:00:00Z",
                               OptionalInt.empty(),
                               false,
                               false,
@@ -121,11 +120,7 @@ class PimCommandsTest {
                       items(
                           PimService.EVENTS,
                           new PimFilters(
-                              Optional.empty(),
-                              OptionalInt.of(50),
-                              false,
-                              false,
-                              OptionalInt.empty())))
+                              null, OptionalInt.of(50), false, false, OptionalInt.empty())))
                   .pathAndQuery())
           .isEqualTo(base + "&limit=50");
       assertThat(
@@ -133,11 +128,7 @@ class PimCommandsTest {
                       items(
                           PimService.EVENTS,
                           new PimFilters(
-                              Optional.empty(),
-                              OptionalInt.empty(),
-                              true,
-                              false,
-                              OptionalInt.empty())))
+                              null, OptionalInt.empty(), true, false, OptionalInt.empty())))
                   .pathAndQuery())
           .isEqualTo(base + "&dirty_only=true");
       assertThat(
@@ -145,11 +136,7 @@ class PimCommandsTest {
                       items(
                           PimService.EVENTS,
                           new PimFilters(
-                              Optional.empty(),
-                              OptionalInt.empty(),
-                              false,
-                              true,
-                              OptionalInt.empty())))
+                              null, OptionalInt.empty(), false, true, OptionalInt.empty())))
                   .pathAndQuery())
           .isEqualTo(base + "&local_only=true");
       assertThat(
@@ -157,11 +144,7 @@ class PimCommandsTest {
                       items(
                           PimService.EVENTS,
                           new PimFilters(
-                              Optional.empty(),
-                              OptionalInt.empty(),
-                              false,
-                              true,
-                              OptionalInt.of(10))))
+                              null, OptionalInt.empty(), false, true, OptionalInt.of(10))))
                   .pathAndQuery())
           .isEqualTo(base + "&local_only=true&offset=10");
     }
@@ -173,11 +156,7 @@ class PimCommandsTest {
     void addsAllTheFiltersInOrder() {
       var filters =
           new PimFilters(
-              Optional.of("2026-10-15T09:00:00Z"),
-              OptionalInt.of(50),
-              true,
-              true,
-              OptionalInt.of(10));
+              "2026-10-15T09:00:00Z", OptionalInt.of(50), true, true, OptionalInt.of(10));
 
       assertThat(requestOf(items(PimService.EVENTS, filters)).pathAndQuery())
           .isEqualTo(
@@ -188,8 +167,7 @@ class PimCommandsTest {
     @Test
     @DisplayName("has no filter for a flag that is false, and no offset of 0 is dropped")
     void anOffsetOfZeroIsKept() {
-      var filters =
-          new PimFilters(Optional.empty(), OptionalInt.empty(), false, true, OptionalInt.of(0));
+      var filters = new PimFilters(null, OptionalInt.empty(), false, true, OptionalInt.of(0));
 
       assertThat(requestOf(items(PimService.CONTACTS, filters)).pathAndQuery())
           .endsWith("&local_only=true&offset=0");

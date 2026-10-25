@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.ServiceError;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,21 +27,21 @@ class VerificationTest {
   @DisplayName("verified has no error")
   void verifiedHasNoError() {
     assertThat(Verification.verified())
-        .isEqualTo(new Verification(Verification.State.VERIFIED, Optional.empty()));
+        .isEqualTo(new Verification(Verification.State.VERIFIED, null));
   }
 
   @Test
   @DisplayName("skipped has no error")
   void skippedHasNoError() {
     assertThat(Verification.skipped().state()).isEqualTo(Verification.State.SKIPPED);
-    assertThat(Verification.skipped().error()).isEmpty();
+    assertThat(Verification.skipped().error()).isNull();
   }
 
   @Test
   @DisplayName("failed holds the error that the device gave")
   void failedHoldsTheError() {
     assertThat(Verification.failed(REFUSED).state()).isEqualTo(Verification.State.FAILED);
-    assertThat(Verification.failed(REFUSED).error()).contains(REFUSED);
+    assertThat(Verification.failed(REFUSED).error()).isEqualTo(REFUSED);
   }
 
   @Test

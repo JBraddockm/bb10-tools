@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
-import java.util.Optional;
 import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +33,7 @@ class PimFiltersTest {
   void noneIsNoFilter() {
     var none = PimFilters.none();
 
-    assertThat(none.updatedTime()).isEmpty();
+    assertThat(none.updatedTime()).isNull();
     assertThat(none.limit()).isEmpty();
     assertThat(none.dirtyOnly()).isFalse();
     assertThat(none.localOnly()).isFalse();
@@ -46,9 +45,7 @@ class PimFiltersTest {
   @DisplayName("refuses a time that is blank, naming updatedTime")
   void refusesABlankTime(String time) {
     assertRefused(
-        () ->
-            new PimFilters(
-                Optional.of(time), OptionalInt.empty(), false, false, OptionalInt.empty()),
+        () -> new PimFilters(time, OptionalInt.empty(), false, false, OptionalInt.empty()),
         "updatedTime",
         "must not be blank");
   }
@@ -58,9 +55,7 @@ class PimFiltersTest {
   @DisplayName("refuses a limit under 1, naming limit")
   void refusesALimitUnderOne(int limit) {
     assertRefused(
-        () ->
-            new PimFilters(
-                Optional.empty(), OptionalInt.of(limit), false, false, OptionalInt.empty()),
+        () -> new PimFilters(null, OptionalInt.of(limit), false, false, OptionalInt.empty()),
         "limit",
         "at least 1");
   }
@@ -68,9 +63,7 @@ class PimFiltersTest {
   @Test
   @DisplayName("takes a limit of 1")
   void takesALimitOfOne() {
-    assertThat(
-            new PimFilters(Optional.empty(), OptionalInt.of(1), false, false, OptionalInt.empty())
-                .limit())
+    assertThat(new PimFilters(null, OptionalInt.of(1), false, false, OptionalInt.empty()).limit())
         .hasValue(1);
   }
 
@@ -78,8 +71,7 @@ class PimFiltersTest {
   @DisplayName("refuses an offset that is negative, naming offset")
   void refusesANegativeOffset() {
     assertRefused(
-        () ->
-            new PimFilters(Optional.empty(), OptionalInt.empty(), false, true, OptionalInt.of(-1)),
+        () -> new PimFilters(null, OptionalInt.empty(), false, true, OptionalInt.of(-1)),
         "offset",
         "must not be negative");
   }
@@ -89,8 +81,7 @@ class PimFiltersTest {
       "refuses an offset without localOnly, since the device only takes one into what is local")
   void refusesAnOffsetWithoutLocalOnly() {
     assertRefused(
-        () ->
-            new PimFilters(Optional.empty(), OptionalInt.empty(), false, false, OptionalInt.of(5)),
+        () -> new PimFilters(null, OptionalInt.empty(), false, false, OptionalInt.of(5)),
         "offset",
         "only applies together with localOnly");
   }
@@ -98,24 +89,19 @@ class PimFiltersTest {
   @Test
   @DisplayName("takes an offset of 0 with localOnly")
   void takesAnOffsetOfZero() {
-    assertThat(
-            new PimFilters(Optional.empty(), OptionalInt.empty(), false, true, OptionalInt.of(0))
-                .offset())
+    assertThat(new PimFilters(null, OptionalInt.empty(), false, true, OptionalInt.of(0)).offset())
         .hasValue(0);
   }
 
   @Test
-  @DisplayName("needs the three optional values to be given, even if empty")
-  void needsTheOptionals() {
+  @DisplayName(
+      "accepts null for the time (meaning no filter), but requires the two OptionalInt values")
+  void requiresTheTwoOptionalInts() {
     assertThatNullPointerException()
-        .isThrownBy(
-            () -> new PimFilters(null, OptionalInt.empty(), false, false, OptionalInt.empty()))
-        .withMessage("updatedTime");
-    assertThatNullPointerException()
-        .isThrownBy(() -> new PimFilters(Optional.empty(), null, false, false, OptionalInt.empty()))
+        .isThrownBy(() -> new PimFilters(null, null, false, false, OptionalInt.empty()))
         .withMessage("limit");
     assertThatNullPointerException()
-        .isThrownBy(() -> new PimFilters(Optional.empty(), OptionalInt.empty(), false, false, null))
+        .isThrownBy(() -> new PimFilters(null, OptionalInt.empty(), false, false, null))
         .withMessage("offset");
   }
 }

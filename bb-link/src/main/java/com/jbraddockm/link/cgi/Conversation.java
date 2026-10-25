@@ -1,7 +1,6 @@
 package com.jbraddockm.link.cgi;
 
 import com.jbraddockm.core.command.CommandResult;
-import java.util.Optional;
 
 /**
  * The exchange of requests and responses that makes up one command, as a state machine.
@@ -25,8 +24,8 @@ public interface Conversation<R extends CommandResult> {
    * Continues after the device answered.
    *
    * @param response the answer as it came, whatever its content
-   * @param envelope the answer parsed as a device envelope, or empty if it is not XML
+   * @param envelope the answer parsed as a device envelope, or {@code null} if it is not XML
    * @return the next step
    */
-  Step<R> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope);
+  Step<R> onAnswer(CgiResponse response, ResponseEnvelope envelope);
 }

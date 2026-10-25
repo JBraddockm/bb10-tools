@@ -42,8 +42,8 @@ public record GetPimItems(String workstationId, PimService service, PimFilters f
               request
                   .withText(QueryParameter.WORKSTATION_ID, workstationId)
                   .with(QueryParameter.SERVICE, service);
-          if (filters.updatedTime().isPresent()) {
-            query = query.withText(QueryParameter.UPDATED_TIME, filters.updatedTime().get());
+          if (filters.updatedTime() != null) {
+            query = query.withText(QueryParameter.UPDATED_TIME, filters.updatedTime());
           }
           if (filters.limit().isPresent()) {
             query =

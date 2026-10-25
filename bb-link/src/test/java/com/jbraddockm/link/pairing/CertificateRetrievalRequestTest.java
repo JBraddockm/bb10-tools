@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
 import java.nio.file.Path;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -19,7 +18,7 @@ class CertificateRetrievalRequestTest {
 
   private static final Path DEVICES = Path.of("devices");
 
-  private static CertificateRetrievalRequest requestWith(Optional<String> host, int port) {
+  private static CertificateRetrievalRequest requestWith(String host, int port) {
     return new CertificateRetrievalRequest("2A3B4C5D", DEVICES, host, false, true, port);
   }
 
@@ -27,12 +26,11 @@ class CertificateRetrievalRequestTest {
   @DisplayName("holds what it was given")
   void holdsWhatItWasGiven() {
     var request =
-        new CertificateRetrievalRequest(
-            "2A3B4C5D", DEVICES, Optional.of("workstation"), true, false, 8443);
+        new CertificateRetrievalRequest("2A3B4C5D", DEVICES, "workstation", true, false, 8443);
 
     assertThat(request.confirmPin()).isEqualTo("2A3B4C5D");
     assertThat(request.devicesDirectory()).isEqualTo(DEVICES);
-    assertThat(request.hostName()).contains("workstation");
+    assertThat(request.hostName()).isEqualTo("workstation");
     assertThat(request.replace()).isTrue();
     assertThat(request.verify()).isFalse();
     assertThat(request.verifyPort()).isEqualTo(8443);
@@ -41,21 +39,20 @@ class CertificateRetrievalRequestTest {
   @Test
   @DisplayName("strips the blanks around a host name")
   void stripsTheHostName() {
-    assertThat(requestWith(Optional.of("  workstation  "), 8443).hostName())
-        .contains("workstation");
+    assertThat(requestWith("  workstation  ", 8443).hostName()).isEqualTo("workstation");
   }
 
   @Test
   @DisplayName("takes no host name, and then there is none")
   void takesNoHostName() {
-    assertThat(requestWith(Optional.empty(), 8443).hostName()).isEmpty();
+    assertThat(requestWith(null, 8443).hostName()).isNull();
   }
 
   @ParameterizedTest(name = "\"{0}\" is not a host name")
   @ValueSource(strings = {"", "   ", "\t"})
   @DisplayName("refuses a host name that is blank, naming hostName")
   void refusesABlankHostName(String host) {
-    assertThatThrownBy(() -> requestWith(Optional.of(host), 8443))
+    assertThatThrownBy(() -> requestWith(host, 8443))
         .isInstanceOfSatisfying(
             InvalidArgumentException.class,
             invalid -> assertThat(invalid.parameter()).isEqualTo("hostName"));
@@ -65,14 +62,14 @@ class CertificateRetrievalRequestTest {
   @ValueSource(ints = {1, 443, 8443, 65_535})
   @DisplayName("takes a port from 1 to 65535")
   void takesAPort(int port) {
-    assertThat(requestWith(Optional.empty(), port).verifyPort()).isEqualTo(port);
+    assertThat(requestWith(null, port).verifyPort()).isEqualTo(port);
   }
 
   @ParameterizedTest(name = "port {0} is not a port")
   @ValueSource(ints = {0, -1, 65_536, 100_000})
   @DisplayName("refuses a port outside 1 to 65535, naming verifyPort")
   void refusesAnotherPort(int port) {
-    assertThatThrownBy(() -> requestWith(Optional.empty(), port))
+    assertThatThrownBy(() -> requestWith(null, port))
         .isInstanceOfSatisfying(
             InvalidArgumentException.class,
             invalid -> assertThat(invalid.parameter()).isEqualTo("verifyPort"));
@@ -83,9 +80,7 @@ class CertificateRetrievalRequestTest {
   @ValueSource(strings = {"   "})
   @DisplayName("refuses a PIN to confirm that is missing or blank, naming confirmPin")
   void refusesABlankPin(String pin) {
-    assertThatThrownBy(
-            () ->
-                new CertificateRetrievalRequest(pin, DEVICES, Optional.empty(), false, true, 8443))
+    assertThatThrownBy(() -> new CertificateRetrievalRequest(pin, DEVICES, null, false, true, 8443))
         .isInstanceOfSatisfying(
             InvalidArgumentException.class,
             invalid -> assertThat(invalid.parameter()).isEqualTo("confirmPin"));
@@ -96,9 +91,7 @@ class CertificateRetrievalRequestTest {
   void refusesAMissingFolder() {
     assertThatNullPointerException()
         .isThrownBy(
-            () ->
-                new CertificateRetrievalRequest(
-                    "2A3B4C5D", null, Optional.empty(), false, true, 8443))
+            () -> new CertificateRetrievalRequest("2A3B4C5D", null, null, false, true, 8443))
         .withMessage("devicesDirectory");
   }
 }

@@ -7,7 +7,6 @@ import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.pairing.pki.TestKeys;
 import com.jbraddockm.link.testing.Resources;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,13 +21,13 @@ class AuthenticationAnswerTest {
   private static AuthenticationAnswer pemAnswer(String resource) {
     var text = Resources.text(AuthenticationAnswerTest.class, resource);
     return AuthenticationAnswer.read(
-        new CgiResponse(200, "application/octet-stream", text, null), Optional.empty());
+        new CgiResponse(200, "application/octet-stream", text, null), null);
   }
 
   private static AuthenticationAnswer xmlAnswer(String resource) {
     var text = Resources.text(AuthenticationAnswerTest.class, resource);
     return AuthenticationAnswer.read(
-        new CgiResponse(200, "text/xml", text, null), Optional.of(ResponseEnvelope.parse(text)));
+        new CgiResponse(200, "text/xml", text, null), ResponseEnvelope.parse(text));
   }
 
   @Nested

@@ -14,7 +14,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,12 +47,12 @@ class CertificateRetrievalRefusalsTest {
     fixture.close();
   }
 
-  private CertificateRetrievalRequest request(Path folder, Optional<String> host, boolean replace) {
+  private CertificateRetrievalRequest request(Path folder, String host, boolean replace) {
     return new CertificateRetrievalRequest("2A3B4C5D", folder, host, replace, false, 8443);
   }
 
   private CertificateRetrievalRequest request() {
-    return request(devices, Optional.of("workstation"), false);
+    return request(devices, "workstation", false);
   }
 
   private void assertNothingKept() throws IOException {
@@ -61,7 +60,7 @@ class CertificateRetrievalRefusalsTest {
     var folder = devices.resolve("2A3B4C5D");
     if (Files.exists(folder)) {
       try (var names = Files.list(folder)) {
-        assertThat(names).isEmpty();
+        assertThat(names.toList()).isEmpty();
       }
     }
   }
@@ -202,9 +201,7 @@ class CertificateRetrievalRefusalsTest {
       var keyBefore = Files.readString(first.keyFile());
 
       var second =
-          succeeded(
-              plain.run(
-                  fixture.session(), request(devices, Optional.of("another"), true), new Logs()));
+          succeeded(plain.run(fixture.session(), request(devices, "another", true), new Logs()));
 
       assertThat(Files.readString(second.keyFile())).isNotEqualTo(keyBefore);
       assertThat(fixture.device().authenticationRequests()).hasSize(2);
@@ -217,9 +214,7 @@ class CertificateRetrievalRefusalsTest {
         "a PIN that is not the device's is refused before anything is made: nothing is sent, and no"
             + " folder is made")
     void aPinThatIsNotTheDevices() throws Exception {
-      var wrong =
-          new CertificateRetrievalRequest(
-              "FFFFFFFF", devices, Optional.empty(), false, false, 8443);
+      var wrong = new CertificateRetrievalRequest("FFFFFFFF", devices, null, false, false, 8443);
 
       var failure = failed(retrieval.run(fixture.session(), wrong, new Logs()));
 
@@ -230,7 +225,7 @@ class CertificateRetrievalRefusalsTest {
       assertThat(fixture.device().authenticationRequests()).isEmpty();
       assertThat(fixture.device().cgiRequests.get()).as("only the PIN was read").isEqualTo(1);
       try (var names = Files.list(devices)) {
-        assertThat(names).isEmpty();
+        assertThat(names.toList()).isEmpty();
       }
     }
 
@@ -244,9 +239,7 @@ class CertificateRetrievalRefusalsTest {
       var failure =
           failed(
               retrieval.run(
-                  fixture.session(),
-                  request(notAFolder, Optional.of("workstation"), false),
-                  new Logs()));
+                  fixture.session(), request(notAFolder, "workstation", false), new Logs()));
 
       assertThat(failure.error().code()).isEqualTo(CoreErrorCode.IO_ERROR);
       assertThat(failure.error().message())
@@ -273,9 +266,7 @@ class CertificateRetrievalRefusalsTest {
               .strip();
 
       var result =
-          succeeded(
-              plain.run(
-                  fixture.session(), request(devices, Optional.of(longName), false), new Logs()));
+          succeeded(plain.run(fixture.session(), request(devices, longName, false), new Logs()));
 
       assertThat(result.commonName()).isEqualTo(expected);
     }
@@ -284,9 +275,7 @@ class CertificateRetrievalRefusalsTest {
     @DisplayName("has the characters that the device may not take written as dashes")
     void isMadeSafe() {
       var result =
-          succeeded(
-              plain.run(
-                  fixture.session(), request(devices, Optional.of("my host"), false), new Logs()));
+          succeeded(plain.run(fixture.session(), request(devices, "my host", false), new Logs()));
 
       assertThat(result.commonName()).isEqualTo("BBCGIAUTH [2A3B4C5D] my-host");
     }
@@ -295,8 +284,7 @@ class CertificateRetrievalRefusalsTest {
     @DisplayName("is the name of this computer when none is given, safe to write")
     void isThisComputersWhenNoneIsGiven() {
       var result =
-          succeeded(
-              plain.run(fixture.session(), request(devices, Optional.empty(), false), new Logs()));
+          succeeded(plain.run(fixture.session(), request(devices, null, false), new Logs()));
 
       assertThat(result.commonName()).matches("BBCGIAUTH \\[2A3B4C5D] [A-Za-z0-9._-]{1,19}");
     }

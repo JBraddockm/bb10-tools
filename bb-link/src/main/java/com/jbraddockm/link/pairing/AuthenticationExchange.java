@@ -28,8 +28,7 @@ final class AuthenticationExchange implements Conversation<AuthenticationAnswer>
   }
 
   @Override
-  public Step<AuthenticationAnswer> onAnswer(
-      CgiResponse response, Optional<ResponseEnvelope> envelope) {
+  public Step<AuthenticationAnswer> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
     var answer = AuthenticationAnswer.read(response, envelope);
     if ("Error".equalsIgnoreCase(answer.statusText())) {
       return new Step.Fail<>(

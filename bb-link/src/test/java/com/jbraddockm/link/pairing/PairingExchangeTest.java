@@ -30,7 +30,7 @@ class PairingExchangeTest {
   private Step<PairingReply> answered(String resource) {
     var text = Resources.text(PairingExchangeTest.class, resource);
     return exchange.onAnswer(
-        new CgiResponse(200, "text/xml", text, null), Optional.of(ResponseEnvelope.parse(text)));
+        new CgiResponse(200, "text/xml", text, null), ResponseEnvelope.parse(text));
   }
 
   @Test
@@ -142,7 +142,7 @@ class PairingExchangeTest {
   void anAnswerThatIsNotXmlFails() {
     var text = Resources.text(PairingExchangeTest.class, "pairing-reply--not-xml.txt");
 
-    var step = exchange.onAnswer(new CgiResponse(502, "text/html", text, null), Optional.empty());
+    var step = exchange.onAnswer(new CgiResponse(502, "text/html", text, null), null);
 
     assertThat(step)
         .isInstanceOfSatisfying(

@@ -30,7 +30,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -80,7 +79,7 @@ class CertificateRetrievalTest {
             .run(
                 fixture.session(),
                 new CertificateRetrievalRequest(
-                    "2A3B4C5D", devices, Optional.of("workstation"), false, verify, 8443),
+                    "2A3B4C5D", devices, "workstation", false, verify, 8443),
                 logs));
   }
 

@@ -80,9 +80,8 @@ class IdentityVerifierTest {
     var verification = verify(identity("test-pki--leaf-key-pkcs8.pem"), "FFFFFFFF");
 
     assertThat(verification.state()).isEqualTo(Verification.State.FAILED);
-    assertThat(verification.error())
-        .hasValueSatisfying(
-            error -> assertThat(error.code()).isEqualTo(LinkErrorCode.PIN_MISMATCH));
+    assertThat(verification.error()).isNotNull();
+    assertThat(verification.error().code()).isEqualTo(LinkErrorCode.PIN_MISMATCH);
   }
 
   @Test
@@ -93,12 +92,9 @@ class IdentityVerifierTest {
     var verification = verify(identity("test-pki--leaf-key-pkcs8.pem"), "2A3B4C5D");
 
     assertThat(verification.state()).isEqualTo(Verification.State.FAILED);
-    assertThat(verification.error())
-        .hasValueSatisfying(
-            error -> {
-              assertThat(error.code()).isEqualTo(CoreErrorCode.AUTH_FAILED);
-              assertThat(error.message()).contains("did not accept the client certificate");
-            });
+    assertThat(verification.error()).isNotNull();
+    assertThat(verification.error().code()).isEqualTo(CoreErrorCode.AUTH_FAILED);
+    assertThat(verification.error().message()).contains("did not accept the client certificate");
   }
 
   @Test
@@ -110,11 +106,9 @@ class IdentityVerifierTest {
     var verification = verify(identity("test-pki--leaf-key-pkcs8.pem"), "2A3B4C5D");
 
     assertThat(verification.state()).isEqualTo(Verification.State.FAILED);
-    assertThat(verification.error())
-        .hasValueSatisfying(
-            error ->
-                assertThat(error.code())
-                    .isIn(CoreErrorCode.CONNECTION_FAILED, CoreErrorCode.CONNECTION_LOST));
+    assertThat(verification.error()).isNotNull();
+    assertThat(verification.error().code())
+        .isIn(CoreErrorCode.CONNECTION_FAILED, CoreErrorCode.CONNECTION_LOST);
   }
 
   @Test
@@ -123,9 +117,8 @@ class IdentityVerifierTest {
     var verification = verify(identity("test-pki--leaf-key-encrypted.pem"), "2A3B4C5D");
 
     assertThat(verification.state()).isEqualTo(Verification.State.FAILED);
-    assertThat(verification.error())
-        .hasValueSatisfying(
-            error -> assertThat(error.code()).isEqualTo(CoreErrorCode.INVALID_ARGUMENT));
+    assertThat(verification.error()).isNotNull();
+    assertThat(verification.error().code()).isEqualTo(CoreErrorCode.INVALID_ARGUMENT);
     assertThat(device.paths()).isEmpty();
   }
 

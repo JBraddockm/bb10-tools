@@ -40,7 +40,7 @@ public final class FixtureReplay {
     Optional<DeviceCommand<?>> command;
     try {
       var argument = parts.length == 2 ? Optional.of(parts[1]) : Optional.<String>empty();
-      command = method.flatMap(found -> found.replayCommand(argument));
+      command = method.flatMap(found -> found.replayCommand(argument.orElse(null)));
     } catch (InvalidArgumentException failure) {
       System.err.println(failure.getMessage());
       return 2;

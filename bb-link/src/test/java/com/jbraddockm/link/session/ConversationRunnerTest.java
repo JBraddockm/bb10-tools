@@ -54,7 +54,7 @@ class ConversationRunnerTest {
     private final Step<TestResult> first;
     private final Deque<Step<TestResult>> later = new ArrayDeque<>();
     final List<CgiResponse> responses = new ArrayList<>();
-    final List<Optional<ResponseEnvelope>> envelopes = new ArrayList<>();
+    final List<ResponseEnvelope> envelopes = new ArrayList<>();
 
     Script(Step<TestResult> first) {
       this.first = first;
@@ -71,7 +71,7 @@ class ConversationRunnerTest {
     }
 
     @Override
-    public Step<TestResult> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope) {
+    public Step<TestResult> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
       responses.add(response);
       envelopes.add(envelope);
       return later.poll();
@@ -263,10 +263,9 @@ class ConversationRunnerTest {
       ConversationRunner.run(
           text, new Answering(answer("conversation-runner--not-xml.txt")), new Logs());
 
-      assertThat(xml.envelopes.getFirst())
-          .hasValueSatisfying(
-              envelope -> assertThat(envelope.name()).isEqualTo("DynamicProperties"));
-      assertThat(text.envelopes.getFirst()).isEmpty();
+      assertThat(xml.envelopes.getFirst()).isNotNull();
+      assertThat(xml.envelopes.getFirst().name()).isEqualTo("DynamicProperties");
+      assertThat(text.envelopes.getFirst()).isNull();
     }
   }
 

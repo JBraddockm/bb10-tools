@@ -12,7 +12,6 @@ import com.jbraddockm.link.cgi.Step;
 import com.jbraddockm.link.session.DeviceCommand;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Runs a command that changes who the device trusts, or what it holds, only after the caller has
@@ -59,14 +58,14 @@ public record ConfirmedByPin<R extends CommandResult>(DeviceCommand<R> command, 
       }
 
       @Override
-      public Step<R> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope) {
+      public Step<R> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
         if (guarded != null) {
           return guarded.onAnswer(response, envelope);
         }
-        if (envelope.isEmpty()) {
+        if (envelope == null) {
           return new Step.Fail<>(ResponseFailures.notXml(response));
         }
-        return switch (PinReader.read(envelope.get())) {
+        return switch (PinReader.read(envelope)) {
           case Step.Fail<DevicePin>(var error, _) -> new Step.Fail<>(error);
           case Step.Finish<DevicePin>(var devicePin)
               when normalise(devicePin.pin()).equals(normalise(confirmPin)) -> {

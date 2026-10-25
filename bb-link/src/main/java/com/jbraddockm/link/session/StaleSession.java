@@ -4,7 +4,6 @@ import com.jbraddockm.link.cgi.CgiRequest;
 import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.ResponseElement;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
-import java.util.Optional;
 
 /**
  * Recognises that the device has forgotten the login.
@@ -35,8 +34,7 @@ final class StaleSession {
 
   private StaleSession() {}
 
-  static boolean indicatedBy(
-      CgiRequest request, CgiResponse response, Optional<ResponseEnvelope> envelope) {
+  static boolean indicatedBy(CgiRequest request, CgiResponse response, ResponseEnvelope envelope) {
     if (response.statusCode() == UNAUTHORIZED || response.statusCode() == FORBIDDEN) {
       return true;
     }
@@ -48,17 +46,21 @@ final class StaleSession {
     if (response.body().contains(NOT_LOGGED_IN)) {
       return true;
     }
-    if (envelope
-        .flatMap(found -> found.payload().textAt("Error", "ErrorDescription"))
-        .filter(StaleSession::isNotAuthorized)
-        .isPresent()) {
+    if (envelope != null
+        && envelope
+            .payload()
+            .textAt("Error", "ErrorDescription")
+            .filter(StaleSession::isNotAuthorized)
+            .isPresent()) {
       return true;
     }
-    return envelope
-        .flatMap(ResponseEnvelope::element)
-        .map(
-            element -> element == ResponseElement.AUTH_CHALLENGE || element == ResponseElement.AUTH)
-        .orElse(false);
+    return envelope != null
+        && envelope
+            .element()
+            .map(
+                element ->
+                    element == ResponseElement.AUTH_CHALLENGE || element == ResponseElement.AUTH)
+            .orElse(false);
   }
 
   /** Tells whether an error description says that the request had no valid session. */

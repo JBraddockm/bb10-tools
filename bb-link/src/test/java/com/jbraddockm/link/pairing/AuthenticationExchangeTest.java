@@ -9,7 +9,6 @@ import com.jbraddockm.link.cgi.Endpoint;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.Step;
 import com.jbraddockm.link.testing.Resources;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -27,8 +26,7 @@ class AuthenticationExchangeTest {
 
   private Step<AuthenticationAnswer> answered(String resource, boolean xml) {
     var text = Resources.text(AuthenticationExchangeTest.class, resource);
-    var envelope =
-        xml ? Optional.of(ResponseEnvelope.parse(text)) : Optional.<ResponseEnvelope>empty();
+    var envelope = xml ? ResponseEnvelope.parse(text) : null;
     return exchange.onAnswer(
         new CgiResponse(200, xml ? "text/xml" : "application/octet-stream", text, null), envelope);
   }

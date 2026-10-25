@@ -38,8 +38,8 @@ public record AuthenticationAnswer(
    * @param envelope its XML, if it is XML
    * @return what it says
    */
-  static AuthenticationAnswer read(CgiResponse response, Optional<ResponseEnvelope> envelope) {
-    var payload = envelope.map(ResponseEnvelope::payload);
+  static AuthenticationAnswer read(CgiResponse response, ResponseEnvelope envelope) {
+    var payload = Optional.ofNullable(envelope).map(ResponseEnvelope::payload);
     var statusText = payload.flatMap(element -> element.childText("Status")).orElse(null);
     var identifier =
         payload

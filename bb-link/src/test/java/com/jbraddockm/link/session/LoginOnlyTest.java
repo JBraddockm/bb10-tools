@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.jbraddockm.core.command.NoData;
 import com.jbraddockm.link.cgi.CgiResponse;
 import com.jbraddockm.link.cgi.Step;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +33,7 @@ class LoginOnlyTest {
     var conversation = new LoginOnly().conversation();
     var answer = new CgiResponse(200, "text/xml", "", null);
 
-    assertThatThrownBy(() -> conversation.onAnswer(answer, Optional.empty()))
+    assertThatThrownBy(() -> conversation.onAnswer(answer, null))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("nothing was asked, so nothing can be answered");
   }

@@ -85,10 +85,9 @@ public final class CertificateRetrieval {
               + ClientNames.pinHex(pin)
               + "] "
               + cut(
-                  request
-                      .hostName()
-                      .map(ClientNames::sanitise)
-                      .orElseGet(ClientNames::localWorkstation));
+                  request.hostName() != null
+                      ? ClientNames.sanitise(request.hostName())
+                      : ClientNames.localWorkstation());
       var keys = RsaKeys.generate(RsaKeys.DEVICE_KEY_BITS);
       var certificateRequest =
           CertificateRequest.withSubject(
@@ -183,7 +182,9 @@ public final class CertificateRetrieval {
       listener.onLog(
           LogLevel.WARN,
           "The device did not take the new certificate: "
-              + verification.error().map(ServiceError::message).orElse("no reason given"));
+              + (verification.error() != null
+                  ? verification.error().message()
+                  : "no reason given"));
     }
     return verification;
   }

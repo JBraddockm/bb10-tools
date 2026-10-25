@@ -81,12 +81,12 @@ final class InstallConversation implements Conversation<InstallResult> {
   }
 
   @Override
-  public Step<InstallResult> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope) {
+  public Step<InstallResult> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
     lastAnswer = response.body();
-    if (envelope.isEmpty()) {
+    if (envelope == null) {
       return fail(ResponseFailures.notXml(response));
     }
-    var answer = envelope.get();
+    var answer = envelope;
     return switch (stage) {
       case CHECKING_SPACE -> checkSpace(answer);
       case STARTING -> started(answer);

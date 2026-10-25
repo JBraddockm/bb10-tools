@@ -7,7 +7,6 @@ import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.Step;
 import com.jbraddockm.link.testing.Resources;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Drives a conversation with answers read from resource templates, exposing the step that each
@@ -31,7 +30,7 @@ final class Dialogue<R extends CommandResult> {
   Step<R> answer(String resource, Map<String, String> values) {
     var body = Resources.text(Dialogue.class, resource, values);
     return conversation.onAnswer(
-        new CgiResponse(200, "text/xml", body, null), Optional.of(ResponseEnvelope.parse(body)));
+        new CgiResponse(200, "text/xml", body, null), ResponseEnvelope.parse(body));
   }
 
   /** The device answers with an element that has this status. */
@@ -67,6 +66,6 @@ final class Dialogue<R extends CommandResult> {
    */
   Step<R> answerWithText(String resource) {
     var body = Resources.text(Dialogue.class, resource);
-    return conversation.onAnswer(new CgiResponse(200, "text/html", body, null), Optional.empty());
+    return conversation.onAnswer(new CgiResponse(200, "text/html", body, null), null);
   }
 }

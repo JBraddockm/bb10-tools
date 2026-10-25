@@ -71,7 +71,7 @@ final class PimSyncConversation implements Conversation<PimAnswer> {
   }
 
   @Override
-  public Step<PimAnswer> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope) {
+  public Step<PimAnswer> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
     var status = PimStatus.read(response.body());
     var answer =
         new PimAnswer(

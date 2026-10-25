@@ -2,7 +2,6 @@ package com.jbraddockm.link.pimsync;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
@@ -16,7 +15,7 @@ import java.util.OptionalInt;
  * @param offset where to start when paging
  */
 public record PimFilters(
-    Optional<String> updatedTime,
+    String updatedTime,
     OptionalInt limit,
     boolean dirtyOnly,
     boolean localOnly,
@@ -29,10 +28,9 @@ public record PimFilters(
    *     negative, or an offset is given without {@code localOnly}
    */
   public PimFilters {
-    Objects.requireNonNull(updatedTime, "updatedTime");
     Objects.requireNonNull(limit, "limit");
     Objects.requireNonNull(offset, "offset");
-    if (updatedTime.isPresent() && updatedTime.get().isBlank()) {
+    if (updatedTime != null && updatedTime.isBlank()) {
       throw new InvalidArgumentException("updatedTime", "must not be blank");
     }
     if (limit.isPresent() && limit.getAsInt() < 1) {
@@ -52,6 +50,6 @@ public record PimFilters(
    * @return no time, no limit, no flags, no offset
    */
   public static PimFilters none() {
-    return new PimFilters(Optional.empty(), OptionalInt.empty(), false, false, OptionalInt.empty());
+    return new PimFilters(null, OptionalInt.empty(), false, false, OptionalInt.empty());
   }
 }

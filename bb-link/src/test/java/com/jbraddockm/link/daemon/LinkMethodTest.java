@@ -37,11 +37,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 class LinkMethodTest {
 
   private static Optional<DeviceCommand<?>> replay(LinkMethod method) {
-    return method.replayCommand(Optional.empty());
+    return method.replayCommand(null);
   }
 
   private static Optional<DeviceCommand<?>> replay(LinkMethod method, String argument) {
-    return method.replayCommand(Optional.of(argument));
+    return method.replayCommand(argument);
   }
 
   @Nested

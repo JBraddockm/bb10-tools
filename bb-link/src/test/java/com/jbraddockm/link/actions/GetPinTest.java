@@ -10,7 +10,6 @@ import com.jbraddockm.link.cgi.Endpoint;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.ResponseFailures;
 import com.jbraddockm.link.testing.Resources;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -43,10 +42,7 @@ class GetPinTest {
   void finishesWithThePin() {
     var answer = response("pin--success.xml");
 
-    var step =
-        new GetPin()
-            .conversation()
-            .onAnswer(answer, Optional.of(ResponseEnvelope.parse(answer.body())));
+    var step = new GetPin().conversation().onAnswer(answer, ResponseEnvelope.parse(answer.body()));
 
     assertThat(finished(step)).isEqualTo(new DevicePin("2A3B4C5D"));
   }
@@ -56,7 +52,7 @@ class GetPinTest {
   void failsForAnAnswerThatIsNotXml() {
     var answer = response("pin--not-xml.txt");
 
-    var step = new GetPin().conversation().onAnswer(answer, Optional.empty());
+    var step = new GetPin().conversation().onAnswer(answer, null);
 
     assertThat(failed(step)).isEqualTo(ResponseFailures.notXml(answer));
   }

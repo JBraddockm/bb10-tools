@@ -13,7 +13,6 @@ import com.jbraddockm.link.cgi.ResponseElement;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
 import com.jbraddockm.link.cgi.ResponseFailures;
 import com.jbraddockm.link.testing.Resources;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -106,7 +105,7 @@ class GetDevicePropertiesTest {
             Resources.text(GetDevicePropertiesTest.class, "properties--not-xml.txt"),
             null);
 
-    var step = new GetDeviceProperties().conversation().onAnswer(answer, Optional.empty());
+    var step = new GetDeviceProperties().conversation().onAnswer(answer, null);
 
     assertThat(failed(step)).isEqualTo(ResponseFailures.notXml(answer));
   }

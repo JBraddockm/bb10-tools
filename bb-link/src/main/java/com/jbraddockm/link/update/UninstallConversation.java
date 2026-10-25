@@ -72,15 +72,15 @@ final class UninstallConversation implements Conversation<UninstallResult> {
   }
 
   @Override
-  public Step<UninstallResult> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope) {
+  public Step<UninstallResult> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
     lastAnswer = response.body();
-    if (envelope.isEmpty()) {
+    if (envelope == null) {
       // The end of a removal is not known to answer anything, so nothing is a fine answer to it.
       return stage == Stage.FINISHING && response.body().isBlank()
           ? finish()
           : fail(ResponseFailures.notXml(response));
     }
-    var answer = envelope.get();
+    var answer = envelope;
     return switch (stage) {
       case CHECKING -> checked(answer);
       case STARTING -> started(answer);

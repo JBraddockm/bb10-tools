@@ -25,7 +25,6 @@ import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.testing.TestAuthority;
 import com.jbraddockm.link.testing.TestResult;
 import java.io.IOException;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -59,8 +58,7 @@ class DeviceSessionRenewalTest {
         }
 
         @Override
-        public Step<TestResult> onAnswer(
-            CgiResponse response, Optional<ResponseEnvelope> envelope) {
+        public Step<TestResult> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
           return ++answers == 1
               ? new Step.Send<>(ask())
               : new Step.Finish<>(new TestResult("done"));

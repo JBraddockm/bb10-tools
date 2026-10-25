@@ -17,7 +17,6 @@ import com.jbraddockm.link.xml.MalformedXmlException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
-import java.util.Optional;
 
 /** Runs a conversation: sends what it asks for and hands every answer back to it. */
 final class ConversationRunner {
@@ -99,11 +98,11 @@ final class ConversationRunner {
     return UploadObserver.NONE;
   }
 
-  private static Optional<ResponseEnvelope> parse(CgiResponse response) {
+  private static ResponseEnvelope parse(CgiResponse response) {
     try {
-      return Optional.of(ResponseEnvelope.parse(response.body()));
+      return ResponseEnvelope.parse(response.body());
     } catch (MalformedXmlException _) {
-      return Optional.empty();
+      return null;
     }
   }
 }

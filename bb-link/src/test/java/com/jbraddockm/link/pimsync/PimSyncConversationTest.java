@@ -14,7 +14,6 @@ import com.jbraddockm.link.cgi.QueryParameter;
 import com.jbraddockm.link.cgi.Step;
 import com.jbraddockm.link.testing.Resources;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -34,8 +33,7 @@ class PimSyncConversationTest {
     var conversation =
         new PimSyncConversation(
             PimCommand.LIST_ACCOUNTS, null, "Listing the PIM accounts", UnaryOperator.identity());
-    return conversation.onAnswer(
-        new CgiResponse(httpStatus, "application/json", body, null), Optional.empty());
+    return conversation.onAnswer(new CgiResponse(httpStatus, "application/json", body, null), null);
   }
 
   private static Step<PimAnswer> answer(String resource) {
@@ -114,8 +112,7 @@ class PimSyncConversationTest {
 
       var result =
           finished(
-              conversation.onAnswer(
-                  new CgiResponse(200, "application/json", body, null), Optional.empty()));
+              conversation.onAnswer(new CgiResponse(200, "application/json", body, null), null));
 
       assertThat(result.service()).isEqualTo(PimService.CONTACTS);
     }

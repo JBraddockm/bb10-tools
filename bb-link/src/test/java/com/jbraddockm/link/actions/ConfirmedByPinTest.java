@@ -21,7 +21,6 @@ import com.jbraddockm.link.cgi.Step;
 import com.jbraddockm.link.session.DeviceCommand;
 import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.testing.TestResult;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -50,8 +49,7 @@ class ConfirmedByPinTest {
         }
 
         @Override
-        public Step<TestResult> onAnswer(
-            CgiResponse response, Optional<ResponseEnvelope> envelope) {
+        public Step<TestResult> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
           return new Step.Finish<>(new TestResult("guarded"));
         }
       };
@@ -70,7 +68,7 @@ class ConfirmedByPinTest {
 
   private static Step<TestResult> answer(Conversation<TestResult> conversation, String resource) {
     var answer = response(resource);
-    return conversation.onAnswer(answer, Optional.of(ResponseEnvelope.parse(answer.body())));
+    return conversation.onAnswer(answer, ResponseEnvelope.parse(answer.body()));
   }
 
   @Nested
@@ -198,7 +196,7 @@ class ConfirmedByPinTest {
       conversation.start();
       var text = response("pin--not-xml.txt");
 
-      assertThat(failed(conversation.onAnswer(text, Optional.empty())))
+      assertThat(failed(conversation.onAnswer(text, null)))
           .isEqualTo(ResponseFailures.notXml(text));
     }
 

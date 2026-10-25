@@ -31,12 +31,12 @@ final class PairingExchange implements Conversation<PairingReply> {
   }
 
   @Override
-  public Step<PairingReply> onAnswer(CgiResponse response, Optional<ResponseEnvelope> envelope) {
-    if (envelope.isEmpty()) {
+  public Step<PairingReply> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
+    if (envelope == null) {
       return new Step.Fail<>(
           ResponseFailures.notXml(response), Optional.of(PairingReply.unreadable(response)));
     }
-    var reply = PairingReply.read(response, envelope.get());
+    var reply = PairingReply.read(response, envelope);
     return switch (reply.status()) {
       case SUCCESS -> new Step.Finish<>(reply);
       case ERROR ->

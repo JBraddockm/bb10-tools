@@ -3,7 +3,6 @@ package com.jbraddockm.link.pairing;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Whether a new identity was tried, and whether the device took it.
@@ -11,7 +10,7 @@ import java.util.Optional;
  * @param state what happened
  * @param error why it failed, for {@link State#FAILED}
  */
-public record Verification(State state, Optional<ServiceError> error) {
+public record Verification(State state, ServiceError error) {
 
   /** The outcome of the trial. */
   public enum State {
@@ -39,7 +38,7 @@ public record Verification(State state, Optional<ServiceError> error) {
    * @return the verification
    */
   public static Verification verified() {
-    return new Verification(State.VERIFIED, Optional.empty());
+    return new Verification(State.VERIFIED, null);
   }
 
   /**
@@ -48,7 +47,7 @@ public record Verification(State state, Optional<ServiceError> error) {
    * @return the verification
    */
   public static Verification skipped() {
-    return new Verification(State.SKIPPED, Optional.empty());
+    return new Verification(State.SKIPPED, null);
   }
 
   /**
@@ -58,7 +57,7 @@ public record Verification(State state, Optional<ServiceError> error) {
    * @return the verification
    */
   public static Verification failed(ServiceError error) {
-    return new Verification(State.FAILED, Optional.of(error));
+    return new Verification(State.FAILED, error);
   }
 
   /**
@@ -69,7 +68,7 @@ public record Verification(State state, Optional<ServiceError> error) {
   public Map<String, Object> toJson() {
     return Json.object(
         "state", state.wireName(),
-        "errorCode", error.map(failure -> failure.code().wireName()).orElse(null),
-        "errorMessage", error.map(ServiceError::message).orElse(null));
+        "errorCode", error != null ? error.code().wireName() : null,
+        "errorMessage", error != null ? error.message() : null);
   }
 }

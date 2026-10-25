@@ -3,7 +3,6 @@ package com.jbraddockm.link.pairing;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * What an issuance is asked to do.
@@ -20,7 +19,7 @@ import java.util.Optional;
 public record CertificateRetrievalRequest(
     String confirmPin,
     Path devicesDirectory,
-    Optional<String> hostName,
+    String hostName,
     boolean replace,
     boolean verify,
     int verifyPort) {
@@ -41,10 +40,10 @@ public record CertificateRetrievalRequest(
     }
   }
 
-  private static Optional<String> notBlank(String parameter, Optional<String> value) {
-    if (value.isPresent() && value.get().isBlank()) {
+  private static String notBlank(String parameter, String value) {
+    if (value != null && value.isBlank()) {
       throw new InvalidArgumentException(parameter, "must not be blank");
     }
-    return value.map(String::strip);
+    return value != null ? value.strip() : null;
   }
 }
