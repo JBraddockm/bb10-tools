@@ -117,8 +117,8 @@ services at  https://[<device ULA>]:<port>/  (e.g. :8443 CGIs, :8080 WebDAV, :27
 - **Panama FFM (the `utun`).** GraalVM 25 supports the Foreign Function & Memory API, but native image
   does **not** auto-discover downcalls — each must be registered, or the binary throws
   `MissingForeignRegistrationError` on the first `utun` call (after a successful handshake).
-  `ForeignRegistrationFeature` (wired via `--features=…`) registers `TunDevice`'s libc downcalls
-  (`TunDevice.DOWNCALLS`, its single source of truth) at build time — no reachability-metadata JSON to
+  `ForeignRegistrationFeature` (wired via `--features=…`) registers `TunDevice`'s libc downcalls (`TunDevice.DOWNCALLS`,
+  its single source of truth) at build time — no reachability-metadata JSON to
   hand-write. The build also passes `--enable-native-access=ALL-UNNAMED` so the binary doesn't print the
   FFM "restricted method" warnings (and keeps working once native access is *enforced* in a future JDK).
   `sudo` (not a build flag) is what the `utun` needs at run time.
