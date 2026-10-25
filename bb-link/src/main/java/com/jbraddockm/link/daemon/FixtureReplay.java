@@ -8,6 +8,7 @@ import com.jbraddockm.link.session.DeviceSession;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -27,14 +28,33 @@ public final class FixtureReplay {
   private FixtureReplay() {}
 
   /**
-   * Reads recorded answers from standard input and prints the resulting events to standard output.
+   * Replays recorded device answers from standard input through the named command, writing the
+   * result to standard output.
    *
-   * @param methodName the wire name of the method that produced the answers, for example {@code
-   *     getDeviceProperties}; a method that takes an argument is written with a dot, for example
-   *     {@code getPimItems.contacts}
-   * @return the process exit status: 0, or 2 if the method is unknown or cannot be replayed
+   * @param methodName the wire name of the command, with an optional dot-separated argument
+   * @return an exit code: 0 for success, 2 for a usage error
    */
   public static int run(String methodName) {
+    return run(
+        methodName,
+        System.in,
+        new PrintStream(new FileOutputStream(FileDescriptor.out), false, StandardCharsets.UTF_8),
+        System.err);
+  }
+
+  /**
+   * Replays recorded device answers from {@code input} through the named command, writing the
+   * result to {@code output}. Unlike {@link #run(String)}, this overload does not read {@link
+   * System#in} or write to {@link FileDescriptor#out}, so it can be called in a test.
+   *
+   * @param methodName the wire name of the command, with an optional dot-separated argument
+   * @param input where the recording is read from
+   * @param output where the result is written
+   * @param error where usage errors are written
+   * @return an exit code: 0 for success, 2 for a usage error
+   */
+  public static int run(
+      String methodName, InputStream input, PrintStream output, PrintStream error) {
     var parts = methodName.split("\\.", 2);
     var method = LinkMethod.byWireName(parts[0]);
     Optional<DeviceCommand<?>> command;
@@ -42,23 +62,24 @@ public final class FixtureReplay {
       var argument = parts.length == 2 ? Optional.of(parts[1]) : Optional.<String>empty();
       command = method.flatMap(found -> found.replayCommand(argument.orElse(null)));
     } catch (InvalidArgumentException failure) {
-      System.err.println(failure.getMessage());
+      error.println(failure.getMessage());
       return 2;
     }
     if (command.isEmpty()) {
-      System.err.println("unknown or not replayable command: " + methodName);
+      error.println("unknown or not replayable command: " + methodName);
       return 2;
     }
-    String input;
+    String recording;
     try {
-      input = new String(System.in.readAllBytes(), StandardCharsets.UTF_8);
+      recording = new String(input.readAllBytes(), StandardCharsets.UTF_8);
     } catch (IOException failure) {
       throw new UncheckedIOException(failure);
     }
-    var stdout =
-        new PrintStream(new FileOutputStream(FileDescriptor.out), false, StandardCharsets.UTF_8);
     replay(
-        command.get(), method.orElseThrow().wireName(), split(input), Reply.standalone(stdout, 0));
+        command.get(),
+        method.orElseThrow().wireName(),
+        split(recording),
+        Reply.standalone(output, 0));
     return 0;
   }
 
