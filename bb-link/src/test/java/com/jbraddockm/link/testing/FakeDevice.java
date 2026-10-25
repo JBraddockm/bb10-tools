@@ -307,13 +307,13 @@ public final class FakeDevice implements AutoCloseable {
     this.password = password;
     server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
     server.setExecutor(Executors.newCachedThreadPool());
-    server.createContext("/cgi-bin/login.cgi", this::login);
-    server.createContext("/cgi-bin/pairing.cgi", this::pairing);
+    server.createContext("/cgi-bin/login.cgi", new LoginEndpoint()::handle);
+    server.createContext("/cgi-bin/pairing.cgi", new PairingEndpoint()::handle);
     server.createContext(
         "/cgi-bin/dynamicProperties.cgi", exchange -> cgi(exchange, PROPERTIES_BODY));
     server.createContext("/cgi-bin/wipe.cgi", exchange -> cgi(exchange, PIN_BODY));
-    server.createContext("/cgi-bin/pimsync.cgi", this::pimSync);
-    server.createContext("/cgi-bin/update.cgi", this::update);
+    server.createContext("/cgi-bin/pimsync.cgi", new PimSyncEndpoint()::handle);
+    server.createContext("/cgi-bin/update.cgi", new UpdateEndpoint()::handle);
     server.start();
   }
 
@@ -364,85 +364,6 @@ public final class FakeDevice implements AutoCloseable {
     }
   }
 
-  private void login(HttpExchange exchange) throws IOException {
-    if ("POST".equals(exchange.getRequestMethod())) {
-      authenticationRequest(exchange);
-      return;
-    }
-    loginRequests.incrementAndGet();
-    var query = exchange.getRequestURI().getRawQuery();
-    switch (loginMode) {
-      case GARBAGE ->
-          respond(
-              exchange,
-              200,
-              Resources.text(FakeDevice.class, "fake-device--login-maintenance.txt").strip(),
-              null);
-      case LEGACY -> respond(exchange, 200, auth("Error", ""), null);
-      case NO_PASSWORD -> respond(exchange, 200, success(), cookieHeader());
-      case CHALLENGE -> {
-        if (query != null && query.contains("challenge_data=")) {
-          answer(exchange, query);
-        } else {
-          respond(
-              exchange,
-              200,
-              Resources.text(
-                  FakeDevice.class,
-                  "fake-device--login-challenge.xml",
-                  Map.of(
-                      "challenge", CHALLENGE,
-                      "salt", SALT,
-                      "iterations", String.valueOf(ITERATIONS),
-                      "failedAttempts", String.valueOf(failedAttempts),
-                      "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts))),
-              "loginsession=PRELOGIN-TOKEN; expires=Fri, 01-Jan-2100 00:00:00 GMT; path=/");
-        }
-      }
-    }
-  }
-
-  private void answer(HttpExchange exchange, String query) throws IOException {
-    String expected;
-    try {
-      expected = PwCrypto.hashAndEncode(password, 2, SALT, ITERATIONS, CHALLENGE);
-    } catch (NoSuchAlgorithmException failure) {
-      throw new IOException(failure);
-    }
-    if (query.contains("challenge_data=" + expected)) {
-      respond(exchange, 200, success(), cookieHeader());
-    } else {
-      failedAttempts++;
-      respond(
-          exchange,
-          200,
-          auth(
-              "Denied",
-              Resources.text(
-                      FakeDevice.class,
-                      "fake-device--login-counts.xml",
-                      Map.of(
-                          "failedAttempts", String.valueOf(failedAttempts),
-                          "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts)))
-                  .strip()),
-          null);
-    }
-  }
-
-  private String cookieHeader() {
-    return switch (cookieStyle) {
-      case NORMAL -> "dtmauth=" + token + "; " + FUTURE;
-      case EXPIRED -> "dtmauth=" + token + "; " + PAST;
-      case MISSING -> null;
-    };
-  }
-
-  private static String auth(String status, String more) {
-    return Resources.text(
-            FakeDevice.class, "fake-device--login-auth.xml", Map.of("status", status, "more", more))
-        .strip();
-  }
-
   /**
    * Returns the password the device hands out with the latest successful login.
    *
@@ -450,20 +371,6 @@ public final class FakeDevice implements AutoCloseable {
    */
   public String currentSharePassword() {
     return SHARE_PASSWORD_PREFIX + successfulLogins.get();
-  }
-
-  /** A real device hands the password of its file share to every client that logs in. */
-  private String success() {
-    var sharePassword = SHARE_PASSWORD_PREFIX + successfulLogins.incrementAndGet();
-    return auth(
-        "Success",
-        offersShare
-            ? Resources.text(
-                    FakeDevice.class,
-                    "fake-device--login-share.xml",
-                    Map.of("password", sharePassword))
-                .strip()
-            : "");
   }
 
   private void cgi(HttpExchange exchange, String expectedBody) throws IOException {
@@ -515,347 +422,6 @@ public final class FakeDevice implements AutoCloseable {
     }
   }
 
-  /** pimsync: a GET with a command; a real device's answer when there is no valid session. */
-  private void pimSync(HttpExchange exchange) throws IOException {
-    cgiRequests.incrementAndGet();
-    var query = exchange.getRequestURI().getRawQuery();
-    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
-    pimRequests.add(
-        exchange.getRequestMethod()
-            + " "
-            + exchange.getRequestURI().getPath()
-            + (query == null ? "" : "?" + query));
-    cookiesSeen.add(cookie == null ? "" : cookie);
-    if (dropNext > 0) {
-      dropNext--;
-      exchange.close();
-      return;
-    }
-    if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
-      respond(exchange, 200, UNAUTHENTICATED_PIM_SYNC, null, "application/json");
-      return;
-    }
-    var command = commandOf(query);
-    if (command == null) {
-      respond(
-          exchange, 200, "", null,
-          null); // a real device answers a request without a command with nothing
-    } else {
-      respond(
-          exchange,
-          200,
-          pimResponses.getOrDefault(command, DEFAULT_PIM_ANSWER),
-          null,
-          "application/json");
-    }
-  }
-
-  private static String updateAnswerOf(String element, String status, String extra) {
-    return Resources.text(
-            FakeDevice.class,
-            "fake-device--update-answer.xml",
-            Map.of("element", element, "status", status, "extra", extra))
-        .strip();
-  }
-
-  private static String updateError(String element, int identifier, String description) {
-    var details =
-        Resources.text(
-                FakeDevice.class,
-                "fake-device--update-error-details.xml",
-                Map.of("identifier", String.valueOf(identifier), "description", description))
-            .strip();
-    return updateAnswerOf(element, "Error", details);
-  }
-
-  /**
-   * Handles update.cgi: a conversation tracked by a cookie issued by the start, with a start (a
-   * form with a mode and a size), uploads (octet-stream bodies, with a type in the query), polls
-   * (an empty form) and a finish (status=success).
-   */
-  private void update(HttpExchange exchange) throws IOException {
-    cgiRequests.incrementAndGet();
-    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
-    var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-    updateAgents.add(String.valueOf(exchange.getRequestHeaders().getFirst("User-Agent")));
-    cookiesSeen.add(cookie == null ? "" : cookie);
-    var query = exchange.getRequestURI().getRawQuery();
-    var upload = contentType != null && contentType.startsWith("application/octet-stream");
-    if (upload && updateDropUploadAfter >= 0) {
-      var read = exchange.getRequestBody().readNBytes(updateDropUploadAfter);
-      updateRequests.add("upload dropped after " + read.length + " bytes");
-      exchange.close();
-      return;
-    }
-    var body = exchange.getRequestBody().readAllBytes();
-    if (upload && updateDropAfterUpload) {
-      updateRequests.add("upload received, not answered: bytes=" + body.length);
-      exchange.close();
-      return;
-    }
-    if (dropNext > 0) {
-      dropNext--;
-      updateRequests.add("dropped, not answered");
-      exchange.close();
-      return;
-    }
-    var form = new String(body, StandardCharsets.US_ASCII);
-    if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
-      updateRequests.add("no session");
-      fireHook();
-      respond(exchange, 200, "", null);
-      return;
-    }
-    String answer;
-    String setCookie = null;
-    var failure = updateFailsAt;
-    if (updateAnswer != null) {
-      updateRequests.add("answered with the given text");
-      answer = updateAnswer;
-    } else if (upload) {
-      updateRequests.add("upload " + query + " bytes=" + body.length + " type=" + contentType);
-      if (!"application/octet-stream".equals(contentType)) {
-        answer = updateError("UpdateSend", 9, "Expecting application/octet-stream");
-      } else if (failure.equals("send")) {
-        answer = updateError("UpdateSend", 12, "Cannot install bar file");
-      } else {
-        pollIndex = 0;
-        answer = updateAnswerOf("UpdateSend", "Success", "");
-      }
-    } else if (form.contains("mode=")) {
-      updateRequests.add("start " + form);
-      if (!(form.contains("mode=bar") || form.contains("mode=os") || form.contains("mode=app"))) {
-        answer =
-            updateError(
-                "UpdateStart", 3, "Expecting 'mode' attribute set to one of: 'app','os','bar'");
-      } else if (failure.equals("start")) {
-        answer =
-            updateError(
-                form.contains("mode=app") ? "DeleteRequest" : "UpdateStart",
-                4,
-                "unable to verify app manifest");
-      } else {
-        // The cookie arrives already expired, as on a real device, so a client never keeps it.
-        setCookie = "update=" + System.nanoTime() + "; expires=" + EXPIRED + "; path=/";
-        removalsSinceStart = 0;
-        answer =
-            updateAnswerOf(
-                form.contains("mode=app") ? deleteStartElement : "UpdateStart", "Ready", "");
-      }
-    } else if (form.contains("packageid=")) {
-      var packageId = form.replaceAll(".*packageid=([^&]*).*", "$1");
-      updateRequests.add("remove " + packageId);
-      var element =
-          deleteAnswerElement != null
-              ? deleteAnswerElement
-              : removalsSinceStart++ == 0 ? "DeleteRequest" : "DeleteProgress";
-      answer =
-          updateUnremovable.contains(packageId) || failure.equals("delete")
-              ? updateError(element, 8, "Cannot uninstall packageid")
-              : updateAnswerOf(element, deleteAnswerStatus, "");
-    } else if (form.contains("status=success") && form.contains("type=bar")) {
-      updateRequests.add("finish removal");
-      if (failure.equals("finish")) {
-        answer = updateError("UpdateEnd", 6, "Cannot finish");
-      } else {
-        answer =
-            switch (deleteEnd) {
-              case "empty" -> "";
-              case "DeleteProgress" -> updateAnswerOf("DeleteProgress", "Success", "");
-              case "Weird" -> updateAnswerOf("UpdateEnd", "Weird", "");
-              case "Surprise" ->
-                  Resources.text(FakeDevice.class, "fake-device--surprise.xml").strip();
-              default -> updateAnswerOf("UpdateEnd", "Success", "");
-            };
-      }
-    } else if (form.contains("status=success")) {
-      updateRequests.add("finish");
-      var end = updateEndStatus;
-      answer =
-          failure.equals("finish")
-              ? updateError("UpdateEnd", 6, "Cannot finish")
-              : end.isEmpty()
-                  ? Resources.text(FakeDevice.class, "fake-device--update-end-empty.xml").strip()
-                  : updateAnswerOf(
-                      "UpdateEnd",
-                      end,
-                      Resources.text(FakeDevice.class, "fake-device--update-end-comments.txt")
-                          .strip());
-    } else {
-      updateRequests.add("poll");
-      if (updatePollAnswer != null) {
-        answer = updatePollAnswer;
-      } else {
-        var steps = updateProgress;
-        var working = pollIndex < steps.size();
-        var percent = working ? steps.get(pollIndex) : 100;
-        pollIndex++;
-        if (failure.equals("progress") && pollIndex >= 2) {
-          answer = updateError("UpdateProgress", 7, "Installer result code: 2");
-        } else {
-          answer =
-              updateAnswerOf(
-                  "UpdateProgress",
-                  working ? "InProgress" : "Success",
-                  Resources.text(
-                          FakeDevice.class,
-                          "fake-device--update-progress-details.xml",
-                          Map.of("percent", String.valueOf(percent)))
-                      .strip());
-        }
-      }
-    }
-    fireHook();
-    respond(exchange, 200, answer, setCookie);
-  }
-
-  private static String commandOf(String query) {
-    if (query == null) {
-      return null;
-    }
-    for (var pair : query.split("&")) {
-      if (pair.startsWith("command=")) {
-        return pair.substring("command=".length());
-      }
-    }
-    return null;
-  }
-
-  private static String pairingNotAuthorized() {
-    return Resources.text(FakeDevice.class, "fake-device--pairing-not-authorized.xml").strip();
-  }
-
-  /**
-   * Handles a POST to pairing.cgi. An insert is answered with the authority of the device as the
-   * text of {@code Pairing}, without {@code Status}; any other request with error 7; a request
-   * without a session with error 6.
-   */
-  private void pairing(HttpExchange exchange) throws IOException {
-    cgiRequests.incrementAndGet();
-    var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
-    pairingBodies.add(body);
-    cookiesSeen.add(cookie == null ? "" : cookie);
-    if (dropNext > 0) {
-      dropNext--;
-      exchange.close();
-      return;
-    }
-    var authorised = !alwaysRejectCookie && cookie != null && cookie.contains("dtmauth=" + token);
-    String answer;
-    if (!authorised) {
-      answer = pairingNotAuthorized();
-    } else {
-      answer = pairingAnswer != null ? pairingAnswer : pairingAnswerFor(body);
-    }
-    fireHook();
-    respond(exchange, 200, answer, null);
-  }
-
-  private String pairingAnswerFor(String body) {
-    var form = new LinkedHashMap<String, String>();
-    for (var pair : body.split("&")) {
-      var parts = pair.split("=", 2);
-      form.put(
-          URLDecoder.decode(parts[0], StandardCharsets.UTF_8),
-          parts.length == 2 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "");
-    }
-    var certdata = form.get("certdata");
-    var deviceId = form.get("deviceid");
-    if (authority == null || certdata == null || deviceId == null) {
-      return pairingError(7, "Error - insert certificate failed.");
-    }
-    try {
-      CertificateDetails.firstCertificate(certdata);
-      pairings.put(deviceId, certdata);
-      return Resources.text(
-              FakeDevice.class,
-              "fake-device--pairing-accepted.xml",
-              Map.of("authority", authority.rootPem()))
-          .strip();
-    } catch (CertificateException _) {
-      return pairingError(7, "Error - insert certificate failed.");
-    } catch (GeneralSecurityException failure) {
-      throw new IllegalStateException(failure);
-    }
-  }
-
-  private static String pairingError(int number, String description) {
-    return Resources.text(
-            FakeDevice.class,
-            "fake-device--pairing-error.xml",
-            Map.of("number", String.valueOf(number), "description", description))
-        .strip();
-  }
-
-  /**
-   * Handles a certificate request posted to login.cgi: the certificate as PEM in {@code
-   * application/octet-stream}, or error 260 in {@code CgiAuth} for a body of another content type.
-   * The other errors are simulated.
-   */
-  private void authenticationRequest(HttpExchange exchange) throws IOException {
-    cgiRequests.incrementAndGet();
-    var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
-    var query = exchange.getRequestURI().getRawQuery();
-    var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-    authenticationRequests.add(new AuthenticationRequest(query, contentType, body));
-    cookiesSeen.add(cookie == null ? "" : cookie);
-    if (dropNext > 0) {
-      dropNext--;
-      exchange.close();
-      return;
-    }
-    var authorised = !alwaysRejectCookie && cookie != null && cookie.contains("dtmauth=" + token);
-    var answer = authorised ? authenticationAnswerFor(query, contentType, body) : "";
-    fireHook();
-    respond(
-        exchange,
-        200,
-        answer,
-        null,
-        answer.startsWith("-----BEGIN CERTIFICATE-----") ? "application/octet-stream" : "text/xml");
-  }
-
-  private String authenticationAnswerFor(String query, String contentType, String body) {
-    if (authenticationAnswer != null) {
-      return authenticationAnswer;
-    }
-    if (!"request_version=3&cgiauth=1".equals(query)) {
-      return authenticationError(2, "Error - invalid request, unknown parameter.");
-    }
-    if (!"application/octet-stream".equals(contentType)) {
-      return authenticationError(260, "Expected ContentType of application/octet-stream");
-    }
-    if (authority == null || !body.startsWith("-----BEGIN")) {
-      return authenticationError(1, "Error - invalid request, no parameter.");
-    }
-    try {
-      var toSign =
-          authenticationForAnotherKey
-              ? CertificateRequest.withSubject(
-                      RsaKeys.generate(1024),
-                      List.of(CertificateRequest.Rdn.commonName("BBCGIAUTH other")),
-                      SignatureScheme.SHA1_WITH_RSA)
-                  .pem()
-              : body;
-      var issued = authority.sign(toSign);
-      return issued.isEmpty()
-          ? authenticationError(4, "Error - get certificate failed.")
-          : issued.get().pem();
-    } catch (GeneralSecurityException failure) {
-      throw new IllegalStateException(failure);
-    }
-  }
-
-  private static String authenticationError(int number, String description) {
-    return Resources.text(
-            FakeDevice.class,
-            "fake-device--authentication-error.xml",
-            Map.of("number", String.valueOf(number), "description", description))
-        .strip();
-  }
-
   private static void respond(HttpExchange exchange, int status, String body, String setCookie)
       throws IOException {
     respond(exchange, status, body, setCookie, "text/xml");
@@ -885,5 +451,458 @@ public final class FakeDevice implements AutoCloseable {
   @Override
   public void close() {
     server.stop(0);
+  }
+
+  /** Handles login requests. */
+  final class LoginEndpoint {
+    void handle(HttpExchange exchange) throws IOException {
+      if ("POST".equals(exchange.getRequestMethod())) {
+        new AuthenticationEndpoint().handle(exchange);
+        return;
+      }
+      loginRequests.incrementAndGet();
+      var query = exchange.getRequestURI().getRawQuery();
+      switch (loginMode) {
+        case GARBAGE ->
+            respond(
+                exchange,
+                200,
+                Resources.text(FakeDevice.class, "fake-device--login-maintenance.txt").strip(),
+                null);
+        case LEGACY -> respond(exchange, 200, auth("Error", ""), null);
+        case NO_PASSWORD -> respond(exchange, 200, success(), cookieHeader());
+        case CHALLENGE -> {
+          if (query != null && query.contains("challenge_data=")) {
+            answer(exchange, query);
+          } else {
+            respond(
+                exchange,
+                200,
+                Resources.text(
+                    FakeDevice.class,
+                    "fake-device--login-challenge.xml",
+                    Map.of(
+                        "challenge", CHALLENGE,
+                        "salt", SALT,
+                        "iterations", String.valueOf(ITERATIONS),
+                        "failedAttempts", String.valueOf(failedAttempts),
+                        "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts))),
+                "loginsession=PRELOGIN-TOKEN; expires=Fri, 01-Jan-2100 00:00:00 GMT; path=/");
+          }
+        }
+      }
+    }
+
+    private void answer(HttpExchange exchange, String query) throws IOException {
+      String expected;
+      try {
+        expected = PwCrypto.hashAndEncode(password, 2, SALT, ITERATIONS, CHALLENGE);
+      } catch (NoSuchAlgorithmException failure) {
+        throw new IOException(failure);
+      }
+      if (query.contains("challenge_data=" + expected)) {
+        respond(exchange, 200, success(), cookieHeader());
+      } else {
+        failedAttempts++;
+        respond(
+            exchange,
+            200,
+            auth(
+                "Denied",
+                Resources.text(
+                        FakeDevice.class,
+                        "fake-device--login-counts.xml",
+                        Map.of(
+                            "failedAttempts", String.valueOf(failedAttempts),
+                            "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts)))
+                    .strip()),
+            null);
+      }
+    }
+
+    private String cookieHeader() {
+      return switch (cookieStyle) {
+        case NORMAL -> "dtmauth=" + token + "; " + FUTURE;
+        case EXPIRED -> "dtmauth=" + token + "; " + PAST;
+        case MISSING -> null;
+      };
+    }
+
+    private static String auth(String status, String more) {
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--login-auth.xml",
+              Map.of("status", status, "more", more))
+          .strip();
+    }
+
+    /** A real device hands the password of its file share to every client that logs in. */
+    private String success() {
+      var sharePassword = SHARE_PASSWORD_PREFIX + successfulLogins.incrementAndGet();
+      return auth(
+          "Success",
+          offersShare
+              ? Resources.text(
+                      FakeDevice.class,
+                      "fake-device--login-share.xml",
+                      Map.of("password", sharePassword))
+                  .strip()
+              : "");
+    }
+  }
+
+  /** Handles pimsync requests. */
+  final class PimSyncEndpoint {
+    /** pimsync: a GET with a command; a real device's answer when there is no valid session. */
+    void handle(HttpExchange exchange) throws IOException {
+      cgiRequests.incrementAndGet();
+      var query = exchange.getRequestURI().getRawQuery();
+      var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+      pimRequests.add(
+          exchange.getRequestMethod()
+              + " "
+              + exchange.getRequestURI().getPath()
+              + (query == null ? "" : "?" + query));
+      cookiesSeen.add(cookie == null ? "" : cookie);
+      if (dropNext > 0) {
+        dropNext--;
+        exchange.close();
+        return;
+      }
+      if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
+        respond(exchange, 200, UNAUTHENTICATED_PIM_SYNC, null, "application/json");
+        return;
+      }
+      var command = commandOf(query);
+      if (command == null) {
+        respond(
+            exchange, 200, "", null,
+            null); // a real device answers a request without a command with nothing
+      } else {
+        respond(
+            exchange,
+            200,
+            pimResponses.getOrDefault(command, DEFAULT_PIM_ANSWER),
+            null,
+            "application/json");
+      }
+    }
+
+    private static String commandOf(String query) {
+      if (query == null) {
+        return null;
+      }
+      for (var pair : query.split("&")) {
+        if (pair.startsWith("command=")) {
+          return pair.substring("command=".length());
+        }
+      }
+      return null;
+    }
+  }
+
+  /** Handles update requests. */
+  final class UpdateEndpoint {
+    /**
+     * Handles update.cgi: a conversation tracked by a cookie issued by the start, with a start (a
+     * form with a mode and a size), uploads (octet-stream bodies, with a type in the query), polls
+     * (an empty form) and a finish (status=success).
+     */
+    void handle(HttpExchange exchange) throws IOException {
+      cgiRequests.incrementAndGet();
+      var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+      var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+      updateAgents.add(String.valueOf(exchange.getRequestHeaders().getFirst("User-Agent")));
+      cookiesSeen.add(cookie == null ? "" : cookie);
+      var query = exchange.getRequestURI().getRawQuery();
+      var upload = contentType != null && contentType.startsWith("application/octet-stream");
+      if (upload && updateDropUploadAfter >= 0) {
+        var read = exchange.getRequestBody().readNBytes(updateDropUploadAfter);
+        updateRequests.add("upload dropped after " + read.length + " bytes");
+        exchange.close();
+        return;
+      }
+      var body = exchange.getRequestBody().readAllBytes();
+      if (upload && updateDropAfterUpload) {
+        updateRequests.add("upload received, not answered: bytes=" + body.length);
+        exchange.close();
+        return;
+      }
+      if (dropNext > 0) {
+        dropNext--;
+        updateRequests.add("dropped, not answered");
+        exchange.close();
+        return;
+      }
+      var form = new String(body, StandardCharsets.US_ASCII);
+      if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
+        updateRequests.add("no session");
+        fireHook();
+        respond(exchange, 200, "", null);
+        return;
+      }
+      String answer;
+      String setCookie = null;
+      var failure = updateFailsAt;
+      if (updateAnswer != null) {
+        updateRequests.add("answered with the given text");
+        answer = updateAnswer;
+      } else if (upload) {
+        updateRequests.add("upload " + query + " bytes=" + body.length + " type=" + contentType);
+        if (!"application/octet-stream".equals(contentType)) {
+          answer = updateError("UpdateSend", 9, "Expecting application/octet-stream");
+        } else if (failure.equals("send")) {
+          answer = updateError("UpdateSend", 12, "Cannot install bar file");
+        } else {
+          pollIndex = 0;
+          answer = updateAnswerOf("UpdateSend", "Success", "");
+        }
+      } else if (form.contains("mode=")) {
+        updateRequests.add("start " + form);
+        if (!(form.contains("mode=bar") || form.contains("mode=os") || form.contains("mode=app"))) {
+          answer =
+              updateError(
+                  "UpdateStart", 3, "Expecting 'mode' attribute set to one of: 'app','os','bar'");
+        } else if (failure.equals("start")) {
+          answer =
+              updateError(
+                  form.contains("mode=app") ? "DeleteRequest" : "UpdateStart",
+                  4,
+                  "unable to verify app manifest");
+        } else {
+          // The cookie arrives already expired, as on a real device, so a client never keeps it.
+          setCookie = "update=" + System.nanoTime() + "; expires=" + EXPIRED + "; path=/";
+          removalsSinceStart = 0;
+          answer =
+              updateAnswerOf(
+                  form.contains("mode=app") ? deleteStartElement : "UpdateStart", "Ready", "");
+        }
+      } else if (form.contains("packageid=")) {
+        var packageId = form.replaceAll(".*packageid=([^&]*).*", "$1");
+        updateRequests.add("remove " + packageId);
+        var element =
+            deleteAnswerElement != null
+                ? deleteAnswerElement
+                : removalsSinceStart++ == 0 ? "DeleteRequest" : "DeleteProgress";
+        answer =
+            updateUnremovable.contains(packageId) || failure.equals("delete")
+                ? updateError(element, 8, "Cannot uninstall packageid")
+                : updateAnswerOf(element, deleteAnswerStatus, "");
+      } else if (form.contains("status=success") && form.contains("type=bar")) {
+        updateRequests.add("finish removal");
+        if (failure.equals("finish")) {
+          answer = updateError("UpdateEnd", 6, "Cannot finish");
+        } else {
+          answer =
+              switch (deleteEnd) {
+                case "empty" -> "";
+                case "DeleteProgress" -> updateAnswerOf("DeleteProgress", "Success", "");
+                case "Weird" -> updateAnswerOf("UpdateEnd", "Weird", "");
+                case "Surprise" ->
+                    Resources.text(FakeDevice.class, "fake-device--surprise.xml").strip();
+                default -> updateAnswerOf("UpdateEnd", "Success", "");
+              };
+        }
+      } else if (form.contains("status=success")) {
+        updateRequests.add("finish");
+        var end = updateEndStatus;
+        answer =
+            failure.equals("finish")
+                ? updateError("UpdateEnd", 6, "Cannot finish")
+                : end.isEmpty()
+                    ? Resources.text(FakeDevice.class, "fake-device--update-end-empty.xml").strip()
+                    : updateAnswerOf(
+                        "UpdateEnd",
+                        end,
+                        Resources.text(FakeDevice.class, "fake-device--update-end-comments.txt")
+                            .strip());
+      } else {
+        updateRequests.add("poll");
+        if (updatePollAnswer != null) {
+          answer = updatePollAnswer;
+        } else {
+          var steps = updateProgress;
+          var working = pollIndex < steps.size();
+          var percent = working ? steps.get(pollIndex) : 100;
+          pollIndex++;
+          if (failure.equals("progress") && pollIndex >= 2) {
+            answer = updateError("UpdateProgress", 7, "Installer result code: 2");
+          } else {
+            answer =
+                updateAnswerOf(
+                    "UpdateProgress",
+                    working ? "InProgress" : "Success",
+                    Resources.text(
+                            FakeDevice.class,
+                            "fake-device--update-progress-details.xml",
+                            Map.of("percent", String.valueOf(percent)))
+                        .strip());
+          }
+        }
+      }
+      fireHook();
+      respond(exchange, 200, answer, setCookie);
+    }
+
+    private static String updateAnswerOf(String element, String status, String extra) {
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--update-answer.xml",
+              Map.of("element", element, "status", status, "extra", extra))
+          .strip();
+    }
+
+    private static String updateError(String element, int identifier, String description) {
+      var details =
+          Resources.text(
+                  FakeDevice.class,
+                  "fake-device--update-error-details.xml",
+                  Map.of("identifier", String.valueOf(identifier), "description", description))
+              .strip();
+      return updateAnswerOf(element, "Error", details);
+    }
+  }
+
+  /** Handles pairing requests. */
+  final class PairingEndpoint {
+    /**
+     * Handles a POST to pairing.cgi. An insert is answered with the authority of the device as the
+     * text of {@code Pairing}, without {@code Status}; any other request with error 7; a request
+     * without a session with error 6.
+     */
+    void handle(HttpExchange exchange) throws IOException {
+      cgiRequests.incrementAndGet();
+      var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+      var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+      pairingBodies.add(body);
+      cookiesSeen.add(cookie == null ? "" : cookie);
+      if (dropNext > 0) {
+        dropNext--;
+        exchange.close();
+        return;
+      }
+      var authorised = !alwaysRejectCookie && cookie != null && cookie.contains("dtmauth=" + token);
+      String answer;
+      if (!authorised) {
+        answer = pairingNotAuthorized();
+      } else {
+        answer = pairingAnswer != null ? pairingAnswer : pairingAnswerFor(body);
+      }
+      fireHook();
+      respond(exchange, 200, answer, null);
+    }
+
+    private static String pairingNotAuthorized() {
+      return Resources.text(FakeDevice.class, "fake-device--pairing-not-authorized.xml").strip();
+    }
+
+    private String pairingAnswerFor(String body) {
+      var form = new LinkedHashMap<String, String>();
+      for (var pair : body.split("&")) {
+        var parts = pair.split("=", 2);
+        form.put(
+            URLDecoder.decode(parts[0], StandardCharsets.UTF_8),
+            parts.length == 2 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "");
+      }
+      var certdata = form.get("certdata");
+      var deviceId = form.get("deviceid");
+      if (authority == null || certdata == null || deviceId == null) {
+        return pairingError(7, "Error - insert certificate failed.");
+      }
+      try {
+        CertificateDetails.firstCertificate(certdata);
+        pairings.put(deviceId, certdata);
+        return Resources.text(
+                FakeDevice.class,
+                "fake-device--pairing-accepted.xml",
+                Map.of("authority", authority.rootPem()))
+            .strip();
+      } catch (CertificateException _) {
+        return pairingError(7, "Error - insert certificate failed.");
+      } catch (GeneralSecurityException failure) {
+        throw new IllegalStateException(failure);
+      }
+    }
+
+    private static String pairingError(int number, String description) {
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--pairing-error.xml",
+              Map.of("number", String.valueOf(number), "description", description))
+          .strip();
+    }
+  }
+
+  /** Handles authentication requests. */
+  final class AuthenticationEndpoint {
+    /**
+     * Handles a certificate request posted to login.cgi: the certificate as PEM in {@code
+     * application/octet-stream}, or error 260 in {@code CgiAuth} for a body of another content
+     * type. The other errors are simulated.
+     */
+    void handle(HttpExchange exchange) throws IOException {
+      cgiRequests.incrementAndGet();
+      var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+      var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+      var query = exchange.getRequestURI().getRawQuery();
+      var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+      authenticationRequests.add(new AuthenticationRequest(query, contentType, body));
+      cookiesSeen.add(cookie == null ? "" : cookie);
+      if (dropNext > 0) {
+        dropNext--;
+        exchange.close();
+        return;
+      }
+      var authorised = !alwaysRejectCookie && cookie != null && cookie.contains("dtmauth=" + token);
+      var answer = authorised ? authenticationAnswerFor(query, contentType, body) : "";
+      fireHook();
+      respond(
+          exchange,
+          200,
+          answer,
+          null,
+          answer.startsWith("-----BEGIN CERTIFICATE-----")
+              ? "application/octet-stream"
+              : "text/xml");
+    }
+
+    private String authenticationAnswerFor(String query, String contentType, String body) {
+      if (authenticationAnswer != null) {
+        return authenticationAnswer;
+      }
+      if (!"request_version=3&cgiauth=1".equals(query)) {
+        return authenticationError(2, "Error - invalid request, unknown parameter.");
+      }
+      if (!"application/octet-stream".equals(contentType)) {
+        return authenticationError(260, "Expected ContentType of application/octet-stream");
+      }
+      if (authority == null || !body.startsWith("-----BEGIN")) {
+        return authenticationError(1, "Error - invalid request, no parameter.");
+      }
+      try {
+        var toSign =
+            authenticationForAnotherKey
+                ? CertificateRequest.withSubject(
+                        RsaKeys.generate(1024),
+                        List.of(CertificateRequest.Rdn.commonName("BBCGIAUTH other")),
+                        SignatureScheme.SHA1_WITH_RSA)
+                    .pem()
+                : body;
+        var issued = authority.sign(toSign);
+        return issued.isEmpty()
+            ? authenticationError(4, "Error - get certificate failed.")
+            : issued.get().pem();
+      } catch (GeneralSecurityException failure) {
+        throw new IllegalStateException(failure);
+      }
+    }
+
+    private static String authenticationError(int number, String description) {
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--authentication-error.xml",
+              Map.of("number", String.valueOf(number), "description", description))
+          .strip();
+    }
   }
 }
