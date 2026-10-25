@@ -1,13 +1,15 @@
 /**
  * A pure-Java client for the BlackBerry 10 <b>bp2p Wi-Fi tunnel</b>, plus just enough of the data
- * plane to reach a device's <b>Blend</b> services (HTTPS/WebDAV on port 2708) over Wi-Fi — with no
- * BlackBerry Link/Blend desktop software, no PeerManager daemon, and no BlackBerry ID.
+ * plane to reach a paired device's services over Wi-Fi — with no BlackBerry Link/Blend desktop
+ * software, no PeerManager daemon, and no BlackBerry ID. The tunnel is a transport: once it is up,
+ * the device's whole Wi-Fi surface is reachable at its tunnel ULA — the device-manager CGIs (HTTPS,
+ * mTLS), WebDAV, Blend, discovery — each on its own port. Nothing here is specific to Blend.
  *
  * <h2>Why a tunnel is needed</h2>
  *
- * The device does not serve Blend on its LAN IP. Blend's nginx binds the device's {@code bptp0}
+ * The device serves almost nothing on its raw LAN IP: its services bind the {@code bptp0}
  * peer-tunnel interface (IPv6 ULA, {@code ipv6only}), and the device authenticates/routes by
- * <b>paired-peer identity</b>. So reaching Blend over Wi-Fi means becoming a registered bp2p peer and
+ * <b>paired-peer identity</b>. So reaching them over Wi-Fi means becoming a registered bp2p peer and
  * talking to the device's tunnel ULA from inside an established tunnel — exactly what this package does.
  *
  * <h2>Transport stack (bottom to top)</h2>
@@ -23,7 +25,7 @@
  *       Afterwards it carries IP packets, each prefixed by a 2-byte channel tag (0x0001 IPv6, 0x0002
  *       control/ping, 0x0003 IPv4).</li>
  *   <li><b>utun</b> on macOS bridges the OS's IP stack to the DTLS channel, so ordinary sockets can
- *       talk to {@code [deviceULA]:2708}.</li>
+ *       talk to the device's services at {@code [deviceULA]:<port>}.</li>
  * </ol>
  *
  * <h2>Identity &amp; certificates (the crux)</h2>
@@ -36,14 +38,14 @@
  * and the device verifies it against the same cert before routing return traffic. The 5 prefix bytes
  * are free (we use zero). The <b>device's ULA</b> is not computed — it is handed back in
  * {@code CONNECT_RESP}. So a caller supplies only the device IP and the cert, via
- * {@link com.jbraddockm.tunnel.TunnelConfig}, and {@link com.jbraddockm.tunnel.BlendTunnel#open}
- * resolves both ULAs. (A full certificate guide — Link vs Blend, creation recipes — is in the
+ * {@link com.jbraddockm.tunnel.TunnelConfig}, and {@link com.jbraddockm.tunnel.Tunnel#open}
+ * resolves both ULAs. (A full certificate guide — the Link/Blend identities and creation recipes — is in the
  * companion analysis document.)
  *
  * <h2>Class roster (port these in order)</h2>
  *
  * <ul>
- *   <li>{@link com.jbraddockm.tunnel.BlendTunnel} — the {@code open()} API handle and end-to-end
+ *   <li>{@link com.jbraddockm.tunnel.Tunnel} — the {@code open()} API handle and end-to-end
  *       sequence (start here).</li>
  *   <li>{@link com.jbraddockm.tunnel.TunnelConfig} — the inputs (device IP + client certs); the rest
  *       is resolved at bring-up.</li>

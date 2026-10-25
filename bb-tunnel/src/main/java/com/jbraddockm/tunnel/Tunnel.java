@@ -15,8 +15,10 @@ import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
 /**
  * A live BlackBerry <b>bp2p Wi-Fi tunnel</b> to a paired BB10 device, as a small API other modules
  * can drive: give {@link #open} a {@link TunnelConfig} (device IP + client certs) and it returns a
- * handle whose {@link #blendBaseUri()} ({@code https://[deviceUla]:2708/}) is reachable over the
- * tunnel for the handle's lifetime.
+ * handle that exposes the device's inner tunnel address ({@link #deviceUla()}). For the handle's
+ * lifetime the device's whole Wi-Fi service surface is reachable at that ULA — the device-manager
+ * CGIs (HTTPS, mTLS), WebDAV, Blend, discovery — each on its own port. The tunnel is a transport;
+ * it is not specific to Blend.
  *
  * <h2>Lifecycle</h2>
  *
@@ -40,8 +42,8 @@ import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
  *       leaf certificate by {@link TunnelIdentity}. The device recomputes it from our trusted peer
  *       cert and routes return traffic to it, so it must match the cert we present.</li>
  *   <li><b>Device ULA</b> — the device's inner tunnel address, read straight out of
- *       {@code CONNECT_RESP} (its first 16 bytes); stable across sessions. Blend's whole surface is
- *       bound to the device's {@code bptp0} interface, so it is reached at {@code [deviceUla]:2708}.</li>
+ *       {@code CONNECT_RESP} (its first 16 bytes); stable across sessions. The device binds its
+ *       services to its {@code bptp0} tunnel interface, so each is reached at {@code [deviceUla]:<port>}.</li>
  * </ul>
  *
  * <h2>Bring-up sequence (what a port must reproduce)</h2>
@@ -68,13 +70,13 @@ import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
  * {@link ControlChannel}. <b>Runtime:</b> requires {@code sudo} (creating a utun is privileged) and,
  * on JDK&nbsp;25, {@code --enable-native-access=ALL-UNNAMED} (the utun uses the Panama FFM API).
  */
-public final class BlendTunnel implements AutoCloseable {
+public final class Tunnel implements AutoCloseable {
 
   /** Where a handle is in its lifecycle. */
   public enum State {
     /** Bring-up in progress (or not yet started). */
     CONNECTING,
-    /** The data plane is live; {@link #blendBaseUri()} is reachable. */
+    /** The data plane is live; the device ULA ({@link #deviceUla()}) is reachable. */
     UP,
     /** Torn down by {@link #close} (or an interim {@link #restart} stop). */
     CLOSED,
@@ -111,7 +113,7 @@ public final class BlendTunnel implements AutoCloseable {
    * {@link #open} uses it and then calls {@link #bringUp}; tests use it to exercise lifecycle
    * transitions without a device. The {@code ourUla} is derived here from the config's leaf cert.
    */
-  BlendTunnel(TunnelConfig cfg) {
+  Tunnel(TunnelConfig cfg) {
     this.cfg = cfg;
     this.ourUlaBytes = TunnelIdentity.ourUlaBytes(cfg.leafCertDer());
     this.ourUla = Hex.ipv6ToString(ourUlaBytes, 0);
@@ -122,13 +124,13 @@ public final class BlendTunnel implements AutoCloseable {
    * threads) and returns once the interface is live. The returned handle keeps the tunnel open on
    * daemon threads until {@link #close} (or an unexpected drop).
    */
-  public static BlendTunnel open(TunnelConfig cfg) throws Throwable {
+  public static Tunnel open(TunnelConfig cfg) throws Throwable {
     return open(cfg, (Consumer<Throwable>) null);
   }
 
   /** As {@link #open(TunnelConfig)}, registering {@code onClosed} <i>before</i> bring-up so even an early drop is reported. */
-  public static BlendTunnel open(TunnelConfig cfg, Consumer<Throwable> onClosed) throws Throwable {
-    BlendTunnel t = new BlendTunnel(cfg);
+  public static Tunnel open(TunnelConfig cfg, Consumer<Throwable> onClosed) throws Throwable {
+    Tunnel t = new Tunnel(cfg);
     t.onClosed = onClosed;
     try {
       t.bringUp();
@@ -146,8 +148,8 @@ public final class BlendTunnel implements AutoCloseable {
    * within {@code timeout}, the partial transports are closed and a {@link TimeoutException} is
    * thrown. (The DTLS handshake alone can take minutes on 2013 hardware, so pick generously.)
    */
-  public static BlendTunnel open(TunnelConfig cfg, Duration timeout) throws Throwable {
-    BlendTunnel t = new BlendTunnel(cfg);
+  public static Tunnel open(TunnelConfig cfg, Duration timeout) throws Throwable {
+    Tunnel t = new Tunnel(cfg);
     CountDownLatch done = new CountDownLatch(1);
     AtomicReference<Throwable> err = new AtomicReference<>();
     Thread worker =
@@ -199,11 +201,6 @@ public final class BlendTunnel implements AutoCloseable {
     return tun == null ? null : tun.name();
   }
 
-  /** The Blend base URI reachable over the tunnel: {@code https://[deviceUla]:blendPort/}. */
-  public URI blendBaseUri() {
-    return URI.create("https://[" + deviceUla + "]:" + cfg.blendPort() + "/");
-  }
-
   /** The current lifecycle state. */
   public State state() {
     return state;
@@ -225,7 +222,7 @@ public final class BlendTunnel implements AutoCloseable {
    * {@link #open(TunnelConfig, Consumer)} to avoid missing a drop between {@code open} returning and
    * registration.
    */
-  public BlendTunnel onClosed(Consumer<Throwable> listener) {
+  public Tunnel onClosed(Consumer<Throwable> listener) {
     this.onClosed = listener;
     return this;
   }
@@ -330,7 +327,7 @@ public final class BlendTunnel implements AutoCloseable {
    * Stands up a macOS utun, routes the device's ULA into it, gives the interface our own ULA, starts
    * the three data-plane daemon threads, and marks the handle {@link State#UP}.
    *
-   * <p><b>IPv6 only.</b> Blend binds its nginx to the device's {@code bptp0} (IPv6 ULA) interface, so
+   * <p><b>IPv6 only.</b> The device binds its services to the {@code bptp0} (IPv6 ULA) interface, so
    * only the IPv6 ULA plane is configured; the inner-IPv4 plane is set up on the device side but not
    * bridged here.
    */
@@ -384,7 +381,7 @@ public final class BlendTunnel implements AutoCloseable {
                       }
                     }
                   }
-                  case 0x0001, 0x0003 -> { // an IP packet (v6 = Blend; v4 unused but harmless) -> tun
+                  case 0x0001, 0x0003 -> { // an IP packet (v6 = device traffic; v4 unused but harmless) -> tun
                     try {
                       tun.write(rx, 2, r - 2);
                     } catch (Throwable ignore) {
@@ -418,7 +415,7 @@ public final class BlendTunnel implements AutoCloseable {
                     continue; // IPv4 multicast
                   int chan = ((ip[0] & 0xf0) == 0x60) ? 0x0001 : 0x0003;
                   byte[] f = new byte[2 + ip.length];
-                  f[0] = (byte) (chan >> 8);
+                  f[0] = 0; // high byte of the 2-byte channel tag (chan is 0x0001 or 0x0003)
                   f[1] = (byte) chan;
                   System.arraycopy(ip, 0, f, 2, ip.length);
                   dtls.send(f, 0, f.length);
@@ -437,6 +434,7 @@ public final class BlendTunnel implements AutoCloseable {
    * ULA (channel {@code 0x0001}) so the device keeps a neighbour entry for us and routes return
    * traffic back through the tunnel. See {@link #buildNeighbourAdvertisement}.
    */
+  @SuppressWarnings("BusyWait") // intentional ~2 s keepalive cadence, not a busy-wait
   private void startNeighbourAdvertiser() {
     Thread t =
         new Thread(
@@ -546,25 +544,26 @@ public final class BlendTunnel implements AutoCloseable {
 
   /**
    * Demo entry point: open a tunnel to the device at {@code args[0]} (default {@code 192.168.1.118})
-   * with the bundled Blend identity, print the resolved addresses, and park until interrupted or the
-   * link drops.
+   * with the bundled client identity, print the resolved ULAs and how to use them, and park until
+   * interrupted or the link drops.
    */
-  public static void main(String[] args) throws Throwable {
+  static void main(String[] args) throws Throwable {
     String host = args.length > 0 ? args[0] : "192.168.1.118";
     CountDownLatch stopped = new CountDownLatch(1);
-    try (BlendTunnel t =
-        BlendTunnel.open(
+    try (Tunnel t =
+        Tunnel.open(
             TunnelConfig.fromClasspath(host),
             cause -> {
               System.out.println(cause == null ? "tunnel closed" : "tunnel dropped: " + cause);
               stopped.countDown();
             })) {
       System.out.println();
-      System.out.println("tunnel up:");
-      System.out.println("  our ULA    : " + t.ourUla());
+      System.out.println("tunnel up on " + t.tunInterface());
       System.out.println("  device ULA : " + t.deviceUla());
-      System.out.println("  tun iface  : " + t.tunInterface());
-      System.out.println("  blend URI  : " + t.blendBaseUri());
+      System.out.println("  our ULA    : " + t.ourUla());
+      System.out.println();
+      System.out.println("The device ULA is the device's address on this tunnel; reach its Wi-Fi");
+      System.out.println("services at  https://[<device ULA>]:<port>/  (e.g. :8443 CGIs, :8080 WebDAV, :2708 Blend).");
       System.out.println("Ctrl-C to stop.");
       stopped.await(); // park until the link drops; the daemon threads carry the tunnel
     }

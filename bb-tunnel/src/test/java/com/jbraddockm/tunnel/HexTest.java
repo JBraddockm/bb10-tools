@@ -63,8 +63,8 @@ class HexTest {
     }
 
     @Test
-    @DisplayName("round-trip the Blend ULA unchanged")
-    void roundTripsForTheBlendUla() {
+    @DisplayName("round-trip the enrolled ULA unchanged")
+    void roundTripsForTheEnrolledUla() {
       String ula = "fd00:0000:0000:2fc2:4132:a6e5:2b64:8fdb";
       assertThat(Hex.ipv6ToString(Hex.ipv6ToBytes(ula), 0)).isEqualTo(ula);
     }

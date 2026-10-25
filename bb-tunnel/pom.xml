@@ -14,7 +14,7 @@
     <name>bb-tunnel</name>
     <description>
         Pure-Java client that brings up the BlackBerry bp2p Wi-Fi tunnel to a paired BB10 device and
-        reaches its Blend surface (HTTPS/WebDAV on 2708) over Wi-Fi.
+        reaches the device's services (device-manager CGIs, WebDAV, Blend, discovery) over Wi-Fi.
     </description>
 
     <dependencies>
@@ -86,7 +86,7 @@
                             <transformers>
                                 <transformer
                                     implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.jbraddockm.tunnel.BlendTunnel</mainClass>
+                                    <mainClass>com.jbraddockm.tunnel.Tunnel</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

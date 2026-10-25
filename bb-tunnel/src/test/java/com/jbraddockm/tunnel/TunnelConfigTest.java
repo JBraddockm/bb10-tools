@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -17,22 +18,21 @@ class TunnelConfigTest {
 
   private static Path copyResource(String resource, Path to) throws Exception {
     try (InputStream is = TunnelConfigTest.class.getResourceAsStream(resource)) {
-      Files.copy(is, to);
+      Files.copy(Objects.requireNonNull(is, resource), to);
     }
     return to;
   }
 
   @Nested
-  @DisplayName("fromClasspath, using the bundled Blend identity")
+  @DisplayName("fromClasspath, using the bundled client identity")
   class FromClasspath {
 
     @Test
-    @DisplayName("applies the host and the Blend defaults (control 1111, Blend 2708, loopback IPv4)")
+    @DisplayName("applies the host and the defaults (control 1111, loopback IPv4)")
     void appliesTheHostAndDefaults() {
       TunnelConfig cfg = TunnelConfig.fromClasspath("192.168.1.118");
       assertThat(cfg.host()).isEqualTo("192.168.1.118");
       assertThat(cfg.controlPort()).isEqualTo(1111);
-      assertThat(cfg.blendPort()).isEqualTo(2708);
       assertThat(cfg.pcIpv4()).isEqualTo("127.0.0.2");
       assertThat(cfg.deviceIpv4()).isEqualTo("127.0.0.1");
       assertThat(cfg.certChainDer()).isNotEmpty();
@@ -43,7 +43,7 @@ class TunnelConfigTest {
     @DisplayName("treats the leaf as the first element of the chain")
     void leafIsTheFirstChainElement() {
       TunnelConfig cfg = TunnelConfig.fromClasspath("10.0.0.1");
-      assertThat(cfg.leafCertDer()).containsExactly(cfg.certChainDer().get(0));
+      assertThat(cfg.leafCertDer()).containsExactly(cfg.certChainDer().getFirst());
     }
   }
 

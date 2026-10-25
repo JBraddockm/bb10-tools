@@ -9,15 +9,16 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link BlendTunnel}'s lifecycle that don't need a device, exercised through the
+ * Tests for {@link Tunnel}'s lifecycle that don't need a device, exercised through the
  * package-private constructor (a handle that never brought the tunnel up). Bring-up, drop detection,
  * and restart are device-coupled and verified live instead.
  */
-@DisplayName("BlendTunnel: the lifecycle of a handle")
-class BlendTunnelLifecycleTest {
+@DisplayName("Tunnel: the lifecycle of a handle")
+@SuppressWarnings("resource") // handles come from the package-private ctor: no device, nothing to close
+class TunnelLifecycleTest {
 
-  private static BlendTunnel handle() {
-    return new BlendTunnel(TunnelConfig.fromClasspath("192.168.1.118"));
+  private static Tunnel handle() {
+    return new Tunnel(TunnelConfig.fromClasspath("192.168.1.118"));
   }
 
   @Nested
@@ -27,8 +28,8 @@ class BlendTunnelLifecycleTest {
     @Test
     @DisplayName("is CONNECTING, not open, with no device ULA and no failure yet")
     void isConnectingAndNotOpen() {
-      BlendTunnel t = handle();
-      assertThat(t.state()).isEqualTo(BlendTunnel.State.CONNECTING);
+      Tunnel t = handle();
+      assertThat(t.state()).isEqualTo(Tunnel.State.CONNECTING);
       assertThat(t.isOpen()).isFalse();
       assertThat(t.failure()).isNull();
       assertThat(t.deviceUla()).isNull();
@@ -48,9 +49,9 @@ class BlendTunnelLifecycleTest {
     @Test
     @DisplayName("moves it to CLOSED and no longer open")
     void transitionsToClosed() {
-      BlendTunnel t = handle();
+      Tunnel t = handle();
       t.close();
-      assertThat(t.state()).isEqualTo(BlendTunnel.State.CLOSED);
+      assertThat(t.state()).isEqualTo(Tunnel.State.CLOSED);
       assertThat(t.isOpen()).isFalse();
       assertThat(t.failure()).isNull();
     }
@@ -61,7 +62,7 @@ class BlendTunnelLifecycleTest {
       AtomicInteger calls = new AtomicInteger();
       AtomicReference<Throwable> seen = new AtomicReference<>(new RuntimeException("sentinel"));
 
-      BlendTunnel t = handle();
+      Tunnel t = handle();
       t.onClosed(
           cause -> {
             calls.incrementAndGet();
@@ -78,9 +79,9 @@ class BlendTunnelLifecycleTest {
     @Test
     @DisplayName("is safe when no listener was registered")
     void isSafeWithoutAListener() {
-      BlendTunnel t = handle();
+      Tunnel t = handle();
       t.close();
-      assertThat(t.state()).isEqualTo(BlendTunnel.State.CLOSED);
+      assertThat(t.state()).isEqualTo(Tunnel.State.CLOSED);
     }
   }
 
@@ -91,8 +92,8 @@ class BlendTunnelLifecycleTest {
     @Test
     @DisplayName("returns the same handle so calls can be chained")
     void returnsTheSameHandleForChaining() {
-      BlendTunnel t = handle();
-      assertThat(t.onClosed(cause -> {})).isSameAs(t);
+      Tunnel t = handle();
+      assertThat(t.onClosed(_ -> {})).isSameAs(t);
     }
   }
 }

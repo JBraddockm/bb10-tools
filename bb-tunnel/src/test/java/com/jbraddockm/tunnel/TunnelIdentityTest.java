@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 class TunnelIdentityTest {
 
   private static byte[] bundledLeafDer() throws Exception {
-    return PemUtil.readBlocks("/certs/blend_chain.pem", "CERTIFICATE").get(0);
+    return PemUtil.readBlocks("/certs/blend_chain.pem", "CERTIFICATE").getFirst();
   }
 
   @Nested
@@ -24,8 +24,8 @@ class TunnelIdentityTest {
   class OurUla {
 
     @Test
-    @DisplayName("is the identity the device accepts for the bundled Blend leaf")
-    void matchesTheEnrolledBlendIdentity() throws Exception {
+    @DisplayName("is the identity the device accepts for the bundled leaf")
+    void matchesTheEnrolledIdentity() throws Exception {
       assertThat(TunnelIdentity.ourUla(bundledLeafDer()))
           .isEqualTo("fd00:0000:0000:2fc2:4132:a6e5:2b64:8fdb");
     }

@@ -14,7 +14,7 @@ import java.security.NoSuchAlgorithmException;
  * identity the device accepts ({@code fd00:0000:0000:2fc2:4132:a6e5:2b64:8fdb}).
  *
  * <p>The <i>device's</i> own ULA is deliberately not computed here: its prefix is device-assigned and
- * not cert-derivable, and it is handed to us directly in {@code CONNECT_RESP} — see {@link BlendTunnel}.
+ * not cert-derivable, and it is handed to us directly in {@code CONNECT_RESP} — see {@link Tunnel}.
  */
 final class TunnelIdentity {
   private TunnelIdentity() {}
