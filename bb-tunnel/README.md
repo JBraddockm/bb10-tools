@@ -46,9 +46,6 @@ dependency:build-classpath -Dmdep.outputFile=/dev/stdout)" com.jbraddockm.tunnel
 is required for Panama FFM on JDK 25. The program prints `tun up: utunN` once the interface is up, after
 which `https://[DEV_ULA]:2708/...` is reachable.
 
-> **Note:** the DTLS handshake can take **~2–3 minutes** against the Leap (slow P-521 math on 2013 hardware).
-> That is expected, not a hang.
-
 The demo `main` opens a tunnel to `192.168.1.118` (override with `java -jar … <device-ip>`) using the
 bundled identity, prints the resolved addresses, and parks.
 
@@ -59,11 +56,11 @@ certs; the device ULA is read from `CONNECT_RESP` and our ULA is derived from th
 neither is hardcoded:
 
 ```java
-try (BlendTunnel t = BlendTunnel.open(TunnelConfig.fromClasspath("192.168.1.118"))) {
-    URI blend = t.blendBaseUri();   // https://[fd32:…:bd94]:2708/
-    String dev = t.deviceUla();     // resolved from CONNECT_RESP
-    String us  = t.ourUla();        // derived from the client cert
-    // ... reach Blend at `blend` over the tunnel ...
+try(BlendTunnel t = BlendTunnel.open(TunnelConfig.fromClasspath("192.168.1.118"))){
+URI blend = t.blendBaseUri();   // https://[fd32:…:bd94]:2708/
+String dev = t.deviceUla();     // resolved from CONNECT_RESP
+String us = t.ourUla();        // derived from the client cert
+// ... reach Blend at `blend` over the tunnel ...
 }
 ```
 
@@ -77,37 +74,47 @@ identity. The handle keeps the tunnel up on daemon threads until `close()` (try-
 
 ```java
 BlendTunnel t = BlendTunnel.open(
-    TunnelConfig.fromClasspath("192.168.1.118"),
-    cause -> log.warn("tunnel down: {}", cause));   // onClosed: null = clean close, else the drop cause
+        TunnelConfig.fromClasspath("192.168.1.118"),
+        cause -> log.warn("tunnel down: {}", cause));   // onClosed: null = clean close, else the drop cause
 
-t.state();        // CONNECTING | UP | CLOSED | FAILED
-t.isOpen();       // true while UP
-t.failure();      // the cause of a FAILED drop (else null)
-t.restart();      // tear down and bring the same handle back up (e.g. after a drop)
-t.close();        // idempotent; AutoCloseable
+t.
+
+state();        // CONNECTING | UP | CLOSED | FAILED
+t.
+
+isOpen();       // true while UP
+t.
+
+failure();      // the cause of a FAILED drop (else null)
+t.
+
+restart();      // tear down and bring the same handle back up (e.g. after a drop)
+t.
+
+close();        // idempotent; AutoCloseable
 ```
 
-- **`open(cfg, onClosed)`** registers the listener *before* bring-up, so even an early drop is reported;
-  **`open(cfg, Duration)`** bounds the (slow, P-521) handshake and throws `TimeoutException` if it overruns.
+- **`open(cfg, onClosed)`** registers the listener *before* bring-up, so even an early drop is reported; **
+  `open(cfg, Duration)`** bounds the (slow, P-521) handshake and throws `TimeoutException` if it overruns.
 - The inbound thread flips the handle to **`FAILED`** and fires `onClosed(cause)` if the link dies on its
   own; a user `close()` wins the race (→ `CLOSED`, `onClosed(null)`). The transition is one-shot, so
   `close()` / drop / `restart()` are all safe to interleave.
 
 ## Source layout
 
-| File                     | Role                                                                                                     |
-|--------------------------|----------------------------------------------------------------------------------------------------------|
-| `BlendTunnel`            | **The `open()` API handle + Main.** End-to-end bring-up, then the data plane (utun ↔ DTLS, keepalive, NDP). |
-| `TunnelConfig`           | The inputs: device IP + client cert chain/key (`fromClasspath` / `fromFiles`). Everything else is resolved. |
-| `TunnelIdentity`         | Derives our tunnel ULA from the leaf certificate (`0xfd ‖ prefix ‖ SHA1(prefix ‖ SHA1(certDER))[10:20]`). |
-| `TunnelTlsClient`        | The BouncyCastle TLS/DTLS 1.0 mutual-auth client: cipher `0xC005`, curve P-521, static-ECDH credential.   |
-| `LenientCrypto`          | Re-encodes the device's malformed v1-with-extensions certificate as v3 so strict parsers accept it.       |
-| `ControlChannel`         | The `[00 cmd len len payload]` command framing; skips async NOTIFY (0x05), throws on ERROR (0x04).        |
-| `RimPacket`              | Builds the 24-byte RimPacket keepalive (PING) reply that holds the data gate open.                        |
-| `TunDevice`              | macOS `utun` via Panama FFM (no JNI). Strips/adds the 4-byte AF header.                                    |
-| `UdpDatagramTransport`   | BouncyCastle `DatagramTransport` over a connected UDP socket (long timeout; ignores stale ICMP).          |
-| `Hex`                    | Byte/hex and IPv4/IPv6 string↔bytes helpers, plus the internet checksum.                                  |
-| `PemUtil`                | Loads DER blocks (cert chain, PKCS#8 key) of a given PEM type from the classpath.                         |
+| File                   | Role                                                                                                        |
+|------------------------|-------------------------------------------------------------------------------------------------------------|
+| `BlendTunnel`          | **The `open()` API handle + Main.** End-to-end bring-up, then the data plane (utun ↔ DTLS, keepalive, NDP). |
+| `TunnelConfig`         | The inputs: device IP + client cert chain/key (`fromClasspath` / `fromFiles`). Everything else is resolved. |
+| `TunnelIdentity`       | Derives our tunnel ULA from the leaf certificate (`0xfd ‖ prefix ‖ SHA1(prefix ‖ SHA1(certDER))[10:20]`).   |
+| `TunnelTlsClient`      | The BouncyCastle TLS/DTLS 1.0 mutual-auth client: cipher `0xC005`, curve P-521, static-ECDH credential.     |
+| `LenientCrypto`        | Re-encodes the device's malformed v1-with-extensions certificate as v3 so strict parsers accept it.         |
+| `ControlChannel`       | The `[00 cmd len len payload]` command framing; skips async NOTIFY (0x05), throws on ERROR (0x04).          |
+| `RimPacket`            | Builds the 24-byte RimPacket keepalive (PING) reply that holds the data gate open.                          |
+| `TunDevice`            | macOS `utun` via Panama FFM (no JNI). Strips/adds the 4-byte AF header.                                     |
+| `UdpDatagramTransport` | BouncyCastle `DatagramTransport` over a connected UDP socket (long timeout; ignores stale ICMP).            |
+| `Hex`                  | Byte/hex and IPv4/IPv6 string↔bytes helpers, plus the internet checksum.                                    |
+| `PemUtil`              | Loads DER blocks (cert chain, PKCS#8 key) of a given PEM type from the classpath.                           |
 
 See `package-info.java` for the full protocol/stack overview, the identity/certificate model, and
 porting notes (what is macOS- and crypto-library-specific).
