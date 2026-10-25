@@ -155,10 +155,10 @@ can observe and steer it:
 Tunnel t = Tunnel.open(
         TunnelConfig.fromClasspath("192.168.1.118"),
         cause -> log.warn("tunnel down: {}", cause));   // onClosed: null = clean close, else drop cause
+```
 
-t.
-
-state();     // CONNECTING | UP | CLOSED | FAILED
+```java
+t.state();     // CONNECTING | UP | CLOSED | FAILED
 t.
 
 isOpen();    // true while UP
