@@ -244,4 +244,19 @@ bb-connect/
 
 The exact executable filename depends on the module configuration.
 
+### Collected binaries: `build/`
+
+For convenience, each executable module's native binary is also **copied to a single root `build/`
+folder** during `package`:
+
+```text
+build/
+├── bb-connect, bb-deploy, bb-packager, bb-link, bb-tunnel   (native executables)
+└── devices/
+    └── <PIN>/     ← per-device certs / identities (created at run time)
+```
+
+`build/` is a copy, not a module target, so **`mvn clean` leaves it intact** — the collected binaries
+survive a clean (only each module's `target/` is wiped). `build/` is git-ignored (the binaries can
+embed certificate material, and `devices/` holds key material), so nothing there is committed.
 
