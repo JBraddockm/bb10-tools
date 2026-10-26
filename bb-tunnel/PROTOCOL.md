@@ -62,11 +62,16 @@ arrive at any time and are skipped; an **ERROR** (`0x04`) frame aborts.
    callers as part of the SMB credential after login, so a client has what it needs to mount
    `smb://[deviceIpv4]/<share>`.
 
-   > **Current limitation.** The inner-IPv4 pair is **fixed** (`169.254.1.1` device, `169.254.1.2`
-   > host). bb-link supports multiple sessions, but only one can use the IPv4/SMB plane at a time: two
-   > devices connected at once would collide on these addresses. Dynamic allocation from
-   > `169.254.0.0/16` (honouring the device's `IPV4_INQUIRE` restriction list, as the stock client
-   > does) would lift this — not done yet.
+   > **Per-device inner IPv4 (multi-device).** The pair is **allocated per device** by `TunnelManager`
+   > from an `InnerAddressPool`: each device gets a distinct `169.254.k.1/.2` (`k = 2,3,…`), so several
+   > devices can use the IPv4/SMB plane at once without colliding. A single-device or external-app mount
+   > takes the pinned stable pair `169.254.1.1/.2` (`acquire(host, true)`), so that SMB address stays
+   > constant. The pool reserves `169.254.0.0/30` (USB NCM) and the RFC-3927 first/last `/24`; the
+   > device accepts any `169.254.0.0/16` address (verified — it bound `169.254.9.1`). The device also
+   > reports its occupied subnets in the `IPV4_INQUIRE` (`0x0b`) response — a `u16` count then
+   > `(u32 address, u32 mask)` pairs (e.g. `127.0.0.1/8`, the Wi-Fi LAN, `169.254.0.1/30`) — which the
+   > pool can consult for dynamic avoidance (today the static reservations already cover the only
+   > link-local overlap).
 4. **Data channel**: dial UDP to `device:<DTLS port>` and run the DTLS 1.0 mutual-auth handshake with
    the same certificate/cipher. The tunnel is then live (§3).
 
@@ -124,3 +129,42 @@ keepalive — is plain bytes and portable.
 The device presents a malformed **v1-with-extensions** certificate that strict X.509 parsers reject;
 bb-tunnel re-encodes it as v3 (`LenientCrypto`) so the handshake proceeds. This is about *accepting the
 device's* cert, independent of *our* identity cert above.
+
+## 7. Tunnel broker daemon (local Unix-domain socket)
+
+Everything above is the *device-facing* tunnel. The **broker daemon** (`bb-tunnel serve`) is the *consumer-facing* side:
+a local control protocol that lets bb-link and Blend share one tunnel per
+device without owning its lifecycle. It runs over a **Unix-domain socket** (default
+`/tmp/bb-tunneld.sock`), **not** the network. The design and rationale are in
+[`../analysis/TUNNEL-BROKER-DAEMON-PLAN.md`](../analysis/TUNNEL-BROKER-DAEMON-PLAN.md); the client is
+`com.jbraddockm.core.tunnel.TunnelBrokerClient` in bb-core.
+
+**Framing.** One JSON object per line (`\n`-terminated), UTF-8, like the bb-link daemon. A request is
+`{"id":N,"op":"…","params":{…}}`; its reply echoes the `id` and is either `{"id":N,"ok":true,…}` or
+`{"id":N,"ok":false,"error":{"code":"…","message":"…"}}`. On connect the daemon sends an unsolicited
+`{"event":"hello","protocol":1,"tool":"bb-tunneld","version":"…","ops":[…]}`.
+
+**Requests.**
+
+| op         | params                                                                  | reply (on `ok`)                                                     |
+|------------|-------------------------------------------------------------------------|---------------------------------------------------------------------|
+| `acquire`  | `host` **or** `guid`; optional `stable` (pin `169.254.1.1`), `consumer` | `token`, `host`, `ula`, `innerIpv4`, `guid?`, `pin?`, `refs`        |
+| `release`  | `token`                                                                 | `refs` (remaining for the device)                                   |
+| `status`   | optional `host`                                                         | `tunnels`: `[{host,state,ula,innerIpv4,guid?,pin?,refs,consumers}]` |
+| `identify` | `host`, `guid`, optional `pin`                                          | `ok`                                                                |
+
+`acquire` opens the tunnel if it is not up (blocking on the slow P-521 bring-up) or joins and
+ref-counts the existing one; the `guid` form rejoins a device the daemon has already recorded. The
+daemon **cannot read `discovery.cgi` itself** (that is reachable only over the tunnel, by a consumer),
+so a consumer that has learned a device's GUID/PIN reports them with `identify`; that populates the
+`guid → host` map behind the `acquire {guid}` form and fires an `identity` event to the device's other
+consumers.
+
+**Events (server-initiated, unsolicited).**
+
+- `{"event":"dropped","host":"…","cause":"…"}` — the tunnel failed on its own; sent to every
+  connection holding the device. A consumer surfaces this as "tunnel down".
+- `{"event":"identity","host":"…","guid":"…","pin":"…"}` — another consumer identified the device.
+
+**Lifecycle.** A hold is scoped to the connection that made it: when a client's socket closes — clean
+or crashed — the daemon releases that connection's leases, so a dead client cannot pin a tunnel up.

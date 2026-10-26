@@ -8,12 +8,60 @@ WebDAV (`:8080`), Blend (`:2708`), discovery (`:80`) — each on its own port. I
 Blend.
 
 The tunnel also brings up a link-local inner IPv4, so the device's **SMB share** (the Link network
-drive) is reachable at `smb://169.254.1.1/` — that address is returned alongside the login's SMB
-credentials. The inner IPv4 is currently fixed, so only one device can use the SMB plane at a time (see [
-`PROTOCOL.md`](PROTOCOL.md) §2.2).
+drive) is reachable at `smb://<inner-IPv4>/` — that address is returned alongside the login's SMB
+credentials. The inner IPv4 is **allocated per device** by `TunnelManager` from an `InnerAddressPool`
+(a distinct `169.254.k.1/.2` each), so several devices can use the SMB plane at once; a single-device
+or external-app mount pins the stable `169.254.1.1` (see [`PROTOCOL.md`](PROTOCOL.md) §2.2).
+
+## Opening a tunnel: `TunnelManager`
+
+`TunnelManager` opens and **shares one tunnel per device**, each with its own pool-allocated inner
+IPv4, and hands a consumer the coordinates to connect with:
+
+```java
+TunnelManager manager = new TunnelManager();
+try(
+TunnelManager.Lease lease = manager.acquire(deviceHost, /* stable */ true)){
+        lease.
+
+deviceUla();   // the device's tunnel ULA — the host bb-link / Blend connect to
+  lease.
+
+deviceIpv4();  // the device's inner IPv4 — the SMB host (bb-link's `smbHost` connect param)
+}
+```
+
+`acquire(host, stable)` is keyed by the transport address the tunnel is opened with (the device's USB
+host−1 or its Wi-Fi LAN address — the only identity known before the tunnel exists; the ULA is learned
+from `CONNECT_RESP`). It is ref-counted: the first consumer opens the tunnel, the last to close its
+`Lease` brings it down and returns the inner IPv4 to the pool. `stable` pins `169.254.1.1/.2`;
+otherwise the next free pair is allocated (`169.254.2.1`, `169.254.3.1`, …).
+
+The tunnel is a shared transport, so it is **not owned by bb-link**: bb-link and Blend are peers that
+each acquire a device's tunnel and connect over its ULA. A composition root (the application, not a
+`bb-core`-style module, since modules do not depend on each other) wires the manager's coordinates
+into each consumer — for bb-link, `connect` with `host = <device ULA>` and `smbHost = <inner IPv4>`.
 
 The wire protocol is documented in [`PROTOCOL.md`](PROTOCOL.md). This README is enough to
 build and run the tunnel.
+
+## Tunnel broker daemon: `bb-tunnel serve`
+
+`TunnelManager` is in-process. To share one device's tunnel across *separate* consumer processes —
+bb-link **and** Blend — run the **broker daemon** and have each consumer connect to it over a
+Unix-domain socket:
+
+```sh
+sudo ./build/bb-tunnel serve [socket-path]     # default: /tmp/bb-tunneld.sock
+```
+
+The daemon owns every tunnel's lifecycle — so `sudo`/`utun` privilege lives only here, not in the
+consumers — and ref-counts each device across its consumers: the first `acquire` opens the tunnel,
+the last `release` (or a dropped connection) brings it down. Consumers use the client in bb-core
+(`com.jbraddockm.core.tunnel.TunnelBrokerClient`): `acquire(host | guid)`, `release(token)`,
+`status()`, `identify(host, guid, pin)`, and a `dropped` / `identity` event stream. The wire protocol
+is in [`PROTOCOL.md`](PROTOCOL.md) §7; the design, decisions and roadmap are in
+[`../analysis/TUNNEL-BROKER-DAEMON-PLAN.md`](../analysis/TUNNEL-BROKER-DAEMON-PLAN.md).
 
 ## Device pairing is required
 
@@ -91,6 +139,7 @@ mvn -q package      # → target/bb-tunnel (native) + target/bb-tunnel-1.0-SNAPS
 
 sudo ./target/bb-tunnel [device-ip]                              # native — the intended way
 sudo java -jar target/bb-tunnel-1.0-SNAPSHOT.jar [device-ip]     # or the fat jar (any JDK 25)
+sudo ./target/bb-tunnel serve [socket-path]                      # or run the broker daemon
 ```
 
 Building the native image needs a **GraalVM** JDK with `native-image` (this project uses GraalVM CE 25);
@@ -191,19 +240,23 @@ close();     // idempotent; AutoCloseable
 
 ## Source layout
 
-| File                   | Role                                                                                                                                  |
-|------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| `Tunnel`               | The `open()` API handle + `main`. End-to-end bring-up, then the data plane (utun ↔ DTLS, keepalive, NDP); exposes the device/our ULA. |
-| `TunnelConfig`         | The inputs: device IP + client cert chain/key (`fromClasspath` / `fromFiles`). Everything else is resolved.                           |
-| `TunnelIdentity`       | Derives our tunnel ULA from the leaf certificate (`0xfd ‖ prefix ‖ SHA1(prefix ‖ SHA1(certDER))[10:20]`).                             |
-| `TunnelTlsClient`      | The BouncyCastle TLS/DTLS 1.0 mutual-auth client: cipher `0xC005`, curve P-521, static-ECDH credential.                               |
-| `LenientCrypto`        | Re-encodes the device's malformed v1-with-extensions certificate as v3 so strict parsers accept it.                                   |
-| `ControlChannel`       | The `[00 cmd len len payload]` command framing; skips async NOTIFY (0x05), throws on ERROR (0x04).                                    |
-| `RimPacket`            | Builds the 24-byte RimPacket keepalive (PING) reply that holds the data gate open.                                                    |
-| `TunDevice`            | macOS `utun` via Panama FFM (no JNI). Strips/adds the 4-byte AF header.                                                               |
-| `UdpDatagramTransport` | BouncyCastle `DatagramTransport` over a connected UDP socket (long timeout; ignores stale ICMP).                                      |
-| `Hex`                  | Byte/hex and IPv4/IPv6 string↔bytes helpers, plus the internet checksum.                                                              |
-| `PemUtil`              | Loads DER blocks (cert chain, PKCS#8 key) of a given PEM type from the classpath.                                                     |
+| File                   | Role                                                                                                                                                                 |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Tunnel`               | The `open()` API handle + `main` (incl. the `serve` subcommand). End-to-end bring-up, then the data plane (utun ↔ DTLS, keepalive, NDP); exposes the device/our ULA. |
+| `TunnelManager`        | Opens and **shares one tunnel per device**, ref-counted, each with a pool-allocated inner IPv4; notifies a listener when a tunnel drops on its own.                  |
+| `broker.Tunneld`       | Broker daemon entry (the `serve` subcommand): wires a real `TunnelManager` into the broker and serves it on a socket.                                                |
+| `broker.TunnelBroker`  | The shared broker core: tokens, connection-scoped leases, identity (`GUID↔host`), and drop/identity events over `TunnelManager`.                                     |
+| `broker.BrokerServer`  | Serves the broker to many clients over a Unix-domain socket, one connection per client (the client is `TunnelBrokerClient` in bb-core).                              |
+| `TunnelConfig`         | The inputs: device IP + client cert chain/key (`fromClasspath` / `fromFiles`). Everything else is resolved.                                                          |
+| `TunnelIdentity`       | Derives our tunnel ULA from the leaf certificate (`0xfd ‖ prefix ‖ SHA1(prefix ‖ SHA1(certDER))[10:20]`).                                                            |
+| `TunnelTlsClient`      | The BouncyCastle TLS/DTLS 1.0 mutual-auth client: cipher `0xC005`, curve P-521, static-ECDH credential.                                                              |
+| `LenientCrypto`        | Re-encodes the device's malformed v1-with-extensions certificate as v3 so strict parsers accept it.                                                                  |
+| `ControlChannel`       | The `[00 cmd len len payload]` command framing; skips async NOTIFY (0x05), throws on ERROR (0x04).                                                                   |
+| `RimPacket`            | Builds the 24-byte RimPacket keepalive (PING) reply that holds the data gate open.                                                                                   |
+| `TunDevice`            | macOS `utun` via Panama FFM (no JNI). Strips/adds the 4-byte AF header.                                                                                              |
+| `UdpDatagramTransport` | BouncyCastle `DatagramTransport` over a connected UDP socket (long timeout; ignores stale ICMP).                                                                     |
+| `Hex`                  | Byte/hex and IPv4/IPv6 string↔bytes helpers, plus the internet checksum.                                                                                             |
+| `PemUtil`              | Loads DER blocks (cert chain, PKCS#8 key) of a given PEM type from the classpath.                                                                                    |
 
 See [`PROTOCOL.md`](PROTOCOL.md) for the full wire protocol — framing, bring-up sequence, ULA
 derivation, and porting notes; `package-info.java` carries a short package overview and the class roster.

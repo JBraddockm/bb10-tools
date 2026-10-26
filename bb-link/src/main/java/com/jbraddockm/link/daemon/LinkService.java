@@ -9,7 +9,10 @@ import com.jbraddockm.core.daemon.Reply;
 import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.daemon.Service;
 import com.jbraddockm.core.daemon.ServiceInfo;
+import com.jbraddockm.core.error.CoreErrorCode;
+import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
+import com.jbraddockm.core.tunnel.TunnelBrokerClient;
 import com.jbraddockm.link.characteristics.DeviceCharacteristics;
 import com.jbraddockm.link.characteristics.GetDeviceCharacteristics;
 import com.jbraddockm.link.discovery.DeviceScanner;
@@ -17,12 +20,16 @@ import com.jbraddockm.link.pairing.CertificateRetrieval;
 import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.GetDeviceProperties;
+import com.jbraddockm.link.session.BrokerTunnelConnector;
+import com.jbraddockm.link.session.ConnectionPath;
 import com.jbraddockm.link.session.DeviceSession;
 import com.jbraddockm.link.session.DeviceTarget;
 import com.jbraddockm.link.session.ExchangeObserver;
 import com.jbraddockm.link.session.LoginOnly;
 import com.jbraddockm.link.session.SmbCredentials;
 import com.jbraddockm.link.session.TransportScheme;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -93,6 +100,13 @@ public final class LinkService implements Service<DeviceSession> {
     };
   }
 
+  /**
+   * A Wi-Fi LAN (or otherwise routable) address is reached through a tunnel; USB and a ULA are not.
+   */
+  private static boolean needsTunnel(ConnectionPath path) {
+    return path == ConnectionPath.LAN || path == ConnectionPath.OTHER;
+  }
+
   @Override
   public ServiceInfo info() {
     return new ServiceInfo("bb-link", VERSION);
@@ -114,7 +128,23 @@ public final class LinkService implements Service<DeviceSession> {
             scheme,
             AuthenticationReader.read(params));
     describesDevice(params); // refuses a malformed option while no session exists yet
-    return DeviceSession.forTarget(target, observer, params.optionalString("smbHost").orElse(null));
+    var session =
+        DeviceSession.forTarget(target, observer, params.optionalString("smbHost").orElse(null));
+    // `tunnel` opts a Wi-Fi LAN connect into a broker-managed tunnel: bb-link brings the tunnel up
+    // (through the daemon) and reaches the device over its ULA, so the user connects with the LAN
+    // address and never handles the ULA. USB and a direct ULA connect need no tunnel; login/pairing
+    // over a plain LAN address stays tunnel-free, since bringing a tunnel up needs an enrolled
+    // cert.
+    if (params.flag("tunnel") && needsTunnel(target.path())) {
+      var socket =
+          params
+              .optionalString("brokerSocket")
+              .map(Path::of)
+              .orElse(TunnelBrokerClient.DEFAULT_SOCKET);
+      session.useTunnel(
+          new BrokerTunnelConnector(socket, target.host(), params.flag("stableSmb"), "bb-link"));
+    }
+    return session;
   }
 
   /**
@@ -124,6 +154,15 @@ public final class LinkService implements Service<DeviceSession> {
    */
   @Override
   public Establishment establish(DeviceSession session, RequestParams params, Reply reply) {
+    try {
+      session.establishTunnel(reply); // no-op unless this connect asked for a broker tunnel
+    } catch (IOException tunnelFailure) {
+      return new Establishment.Rejected(
+          new ServiceError(
+              CoreErrorCode.COMMAND_FAILED,
+              "The Wi-Fi tunnel to the device could not be brought up: "
+                  + tunnelFailure.getMessage()));
+    }
     if (!describesDevice(params)) {
       return switch (session.execute(new LoginOnly(), reply)) {
         case CommandOutcome.Succeeded<NoData> _ ->
@@ -132,7 +171,7 @@ public final class LinkService implements Service<DeviceSession> {
       };
     }
     var refusal =
-        EndpointReachability.refusalFor(LinkMethod.GET_DEVICE_PROPERTIES, session.target().path());
+        EndpointReachability.refusalFor(LinkMethod.GET_DEVICE_PROPERTIES, session.connectionPath());
     if (refusal.isPresent()) {
       return new Establishment.Rejected(refusal.orElseThrow());
     }

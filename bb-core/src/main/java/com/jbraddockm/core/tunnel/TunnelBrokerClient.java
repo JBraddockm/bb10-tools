@@ -36,6 +36,9 @@ import java.util.function.Consumer;
  */
 public final class TunnelBrokerClient implements AutoCloseable {
 
+  /** The broker's default Unix-domain socket path when none is configured. */
+  public static final Path DEFAULT_SOCKET = Path.of("/tmp/bb-tunneld.sock");
+
   /** Generous because an {@code acquire} that opens a tunnel waits on the P-521 handshake. */
   private static final Duration DEFAULT_TIMEOUT = Duration.ofMinutes(5);
 

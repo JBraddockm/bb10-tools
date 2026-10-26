@@ -33,8 +33,14 @@ public final class DeviceSession implements ServiceSession {
 
   private final DeviceTarget target;
   private final ExchangeObserver observer;
-  private final String tunnelSmbHost;
   private final ReentrantLock lock = new ReentrantLock();
+
+  // The address the user gave is `target` (shown back, never the ULA); `transportTarget` is where
+  // commands actually connect — the same until a Wi-Fi tunnel redirects it to the device's ULA.
+  private String tunnelSmbHost;
+  private DeviceTarget transportTarget;
+  private TunnelConnector tunnelConnector;
+  private TunnelBinding tunnelBinding;
   private CgiTransport transport;
   private SmbCredentials smbCredentials;
   private boolean closed;
@@ -43,6 +49,7 @@ public final class DeviceSession implements ServiceSession {
     this.target = Objects.requireNonNull(target, "target");
     this.observer = Objects.requireNonNull(observer, "observer");
     this.tunnelSmbHost = tunnelSmbHost;
+    this.transportTarget = target;
   }
 
   /**
@@ -138,8 +145,71 @@ public final class DeviceSession implements ServiceSession {
    * @return the session; nothing has been sent yet
    */
   public DeviceSession sibling(TransportScheme scheme, int port, Authentication authentication) {
+    // Reuse the transport host (the tunnel's ULA when this session is tunnelled) and the tunnel's
+    // share host; the sibling connects over the same tunnel and holds no lease of its own.
     return new DeviceSession(
-        new DeviceTarget(target.host(), port, scheme, authentication), observer, tunnelSmbHost);
+        new DeviceTarget(transportTarget.host(), port, scheme, authentication),
+        observer,
+        tunnelSmbHost);
+  }
+
+  /**
+   * Configures this session to reach the device over a Wi-Fi tunnel brought up by the broker
+   * instead of connecting to the address directly. Resolved by {@link #establishTunnel}; set before
+   * the first command.
+   *
+   * @param connector brings up or joins the tunnel
+   */
+  public void useTunnel(TunnelConnector connector) {
+    lock.lock();
+    try {
+      this.tunnelConnector = Objects.requireNonNull(connector, "connector");
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Brings up the Wi-Fi tunnel configured with {@link #useTunnel} and redirects this session to
+   * connect over the tunnel's ULA, with the tunnel's inner IPv4 as the share host. A no-op when no
+   * tunnel was configured or it is already up. The ULA stays internal — {@link #target()} still
+   * reports the address the user gave.
+   *
+   * @param listener receives progress and log events
+   * @throws IOException if the tunnel cannot be brought up (e.g. the broker is unreachable)
+   */
+  public void establishTunnel(CommandListener listener) throws IOException {
+    lock.lock();
+    try {
+      if (tunnelConnector == null || tunnelBinding != null) {
+        return;
+      }
+      listener.onLog(LogLevel.INFO, "Bringing up the Wi-Fi tunnel to the device");
+      var binding = tunnelConnector.connect();
+      tunnelBinding = binding;
+      transportTarget =
+          new DeviceTarget(binding.ula(), target.port(), target.scheme(), target.authentication());
+      tunnelSmbHost = binding.smbHost();
+      listener.onLog(LogLevel.INFO, "The Wi-Fi tunnel is up");
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * The network path commands actually run over: the tunnel's path once {@link #establishTunnel}
+   * has redirected this session, otherwise the configured target's path. This — not {@link
+   * #target()}, which keeps the address the user gave — is what decides endpoint reachability.
+   *
+   * @return the effective connection path
+   */
+  public ConnectionPath connectionPath() {
+    lock.lock();
+    try {
+      return transportTarget.path();
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**
@@ -188,6 +258,11 @@ public final class DeviceSession implements ServiceSession {
 
   private <R extends CommandResult> CommandOutcome<R> executeLocked(
       DeviceCommand<R> command, CommandListener listener) {
+    if (tunnelBinding != null && tunnelBinding.isDown()) {
+      return CommandOutcome.failed(
+          new ServiceError(
+              CoreErrorCode.COMMAND_FAILED, "The Wi-Fi tunnel to the device has dropped"));
+    }
     var loginRenewed = false;
     var connectionRenewed = false;
     while (true) {
@@ -219,7 +294,9 @@ public final class DeviceSession implements ServiceSession {
         }
         return CommandOutcome.failed(
             FailureClassifier.classify(
-                failure, target.authentication().certificateToOffer().isPresent(), target.path()));
+                failure,
+                transportTarget.authentication().certificateToOffer().isPresent(),
+                transportTarget.path()));
       }
     }
   }
@@ -229,7 +306,7 @@ public final class DeviceSession implements ServiceSession {
       throw new IllegalStateException("the session is closed");
     }
     if (transport == null) {
-      var fresh = new CgiTransport(target, observer);
+      var fresh = new CgiTransport(transportTarget, observer);
       try {
         smbCredentials = login(fresh, listener);
       } catch (LoginException | IOException | RuntimeException failure) {
@@ -246,10 +323,10 @@ public final class DeviceSession implements ServiceSession {
    * bound for this device ({@code tunnelSmbHost}) or {@code 169.254.1.1} when none was given.
    */
   String smbHost() {
-    if (target.path() == ConnectionPath.TUNNEL) {
+    if (transportTarget.path() == ConnectionPath.TUNNEL) {
       return tunnelSmbHost != null ? tunnelSmbHost : "169.254.1.1";
     }
-    return target.host();
+    return transportTarget.host();
   }
 
   private SmbCredentials login(CgiTransport fresh, CommandListener listener)
@@ -289,6 +366,11 @@ public final class DeviceSession implements ServiceSession {
     try {
       closed = true;
       discardTransport();
+      if (tunnelBinding != null) {
+        tunnelBinding
+            .close(); // release the broker lease; the tunnel drops when the last consumer does
+        tunnelBinding = null;
+      }
     } finally {
       lock.unlock();
     }
