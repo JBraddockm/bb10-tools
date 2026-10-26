@@ -22,7 +22,7 @@ import org.apache.http.conn.ssl.SSLSocketFactory;
     "deprecation") // deprecated only in newer HttpClient versions; the build pins 4.0.3
 final class TrustAllTls {
 
-  private static final int HTTPS_PORT = 443;
+  private static final int HTTPS_PORT = 8443;
 
   private TrustAllTls() {}
 

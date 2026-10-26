@@ -61,6 +61,20 @@ class DaemonConnectTest {
     return daemon.done(id);
   }
 
+  @Test
+  @DisplayName("a session that was closed is unknown to the commands that come after")
+  void aClosedSession() throws Exception {
+    connect(6, "request--connect.json", "secret");
+    var session = daemon.session(6);
+    daemon.send(16, "request--disconnect.json", Map.of("session", session));
+    daemon.done(16);
+
+    daemon.send(
+        17, "request--session-command.json", Map.of("method", "getPin", "session", session));
+
+    assertThat(errorCode(daemon.done(17))).isEqualTo("UNKNOWN_SESSION");
+  }
+
   @Nested
   @DisplayName("what is refused")
   class Refused {
@@ -134,6 +148,27 @@ class DaemonConnectTest {
 
       assertThat(errorCode(done)).isEqualTo("INVALID_ARGUMENT");
       assertThat(errorDetails(done)).containsEntry("param", "deviceInfo");
+    }
+  }
+
+  @Nested
+  @DisplayName("over a Wi-Fi LAN address")
+  class OverLan {
+
+    @Test
+    @DisplayName(
+        "a full connect is refused before it dials, naming the method and the paths that reach it")
+    void refusesAFullConnect() throws Exception {
+      daemon.send(10, "request--connect-lan.json", Map.of("host", "192.168.1.118", "port", "8443"));
+
+      var rejected = daemon.done(10);
+      assertThat(errorCode(rejected)).isEqualTo("COMMAND_FAILED");
+      assertThat(errorMessage(rejected))
+          .contains("getDeviceProperties")
+          .contains("Wi-Fi LAN")
+          .contains("USB")
+          .contains("tunnel");
+      assertThat(daemon.events(10, "result")).isEmpty();
     }
   }
 
@@ -335,19 +370,5 @@ class DaemonConnectTest {
       daemon.send(15, "request--disconnect.json", Map.of("session", session));
       assertThat(daemon.done(15).get("ok")).isEqualTo(true);
     }
-  }
-
-  @Test
-  @DisplayName("a session that was closed is unknown to the commands that come after")
-  void aClosedSession() throws Exception {
-    connect(6, "request--connect.json", "secret");
-    var session = daemon.session(6);
-    daemon.send(16, "request--disconnect.json", Map.of("session", session));
-    daemon.done(16);
-
-    daemon.send(
-        17, "request--session-command.json", Map.of("method", "getPin", "session", session));
-
-    assertThat(errorCode(daemon.done(17))).isEqualTo("UNKNOWN_SESSION");
   }
 }

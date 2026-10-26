@@ -44,12 +44,21 @@ import org.junit.jupiter.params.provider.CsvSource;
 class LinkServiceTest {
 
   private static final long REQUEST_ID = 7;
-
+  private final ByteArrayOutputStream written = new ByteArrayOutputStream();
   private FakeDevice device;
   private LinkService service;
   private DeviceSession session;
-  private final ByteArrayOutputStream written = new ByteArrayOutputStream();
   private Reply reply;
+
+  private static RequestParams request(String resource) {
+    return new RequestParams(
+        (Map<?, ?>) Json.parse(Resources.text(LinkServiceTest.class, resource)));
+  }
+
+  private static Map<String, Object> data(Establishment establishment) {
+    assertThat(establishment).isInstanceOf(Establishment.Established.class);
+    return JsonObjects.object(((Establishment.Established) establishment).data());
+  }
 
   @BeforeEach
   void startTheDevice() throws IOException {
@@ -72,11 +81,6 @@ class LinkServiceTest {
     device.close();
   }
 
-  private static RequestParams request(String resource) {
-    return new RequestParams(
-        (Map<?, ?>) Json.parse(Resources.text(LinkServiceTest.class, resource)));
-  }
-
   private RequestParams connect(String resource) {
     var text =
         Resources.text(
@@ -96,11 +100,6 @@ class LinkServiceTest {
         .lines()
         .map(line -> JsonObjects.object(Json.parse(line)))
         .toList();
-  }
-
-  private static Map<String, Object> data(Establishment establishment) {
-    assertThat(establishment).isInstanceOf(Establishment.Established.class);
-    return JsonObjects.object(((Establishment.Established) establishment).data());
   }
 
   @Nested
@@ -146,11 +145,11 @@ class LinkServiceTest {
     }
 
     @Test
-    @DisplayName("takes the usual port, 443, when none is given")
+    @DisplayName("takes the usual port, 8443, when none is given")
     void takesTheUsualPort() {
       session = service.open(request("link-service--connect-without-port.json"));
 
-      assertThat(session.target().port()).isEqualTo(443);
+      assertThat(session.target().port()).isEqualTo(8443);
       assertThat(session.target().authentication()).isEqualTo(new Authentication.NoPassword());
     }
 

@@ -78,6 +78,17 @@ class FailureClassifierTest {
             CoreErrorCode.INVALID_ARGUMENT));
   }
 
+  @Test
+  @DisplayName(
+      "leavesSessionUsable is true for an argument that was not right, which nothing was sent for,"
+          + " and false otherwise")
+  void leavesSessionUsable() {
+    assertThat(FailureClassifier.leavesSessionUsable(new IllegalArgumentException("x"))).isTrue();
+    assertThat(FailureClassifier.leavesSessionUsable(new InvalidArgumentException("x", "y")))
+        .isTrue();
+    assertThat(FailureClassifier.leavesSessionUsable(new IOException("x"))).isFalse();
+  }
+
   @Nested
   @DisplayName("the connection")
   class Connection {
@@ -105,6 +116,20 @@ class FailureClassifierTest {
           .startsWith("The TLS handshake failed while a client certificate was offered")
           .endsWith("(original message: bad_certificate)");
       assertThat(error.details()).containsEntry("cause", "tls").containsEntry("certificate", true);
+    }
+
+    @Test
+    @DisplayName(
+        "that fails its handshake over the tunnel without a certificate says the tunnel needs one")
+    void aHandshakeOverTheTunnelWithoutACertificate() {
+      var error =
+          FailureClassifier.classify(new SSLException("no_cert"), false, ConnectionPath.TUNNEL);
+
+      assertThat(error.code()).isEqualTo(CoreErrorCode.CONNECTION_FAILED);
+      assertThat(error.message())
+          .contains("tunnel connection needs the paired client certificate")
+          .endsWith("(original message: no_cert)");
+      assertThat(error.details()).containsEntry("cause", "tls");
     }
 
     @Test
@@ -233,16 +258,5 @@ class FailureClassifierTest {
       assertThat(FailureClassifier.isStaleConnection(new UnknownHostException("x"))).isFalse();
       assertThat(FailureClassifier.isStaleConnection(new IOException("x"))).isFalse();
     }
-  }
-
-  @Test
-  @DisplayName(
-      "leavesSessionUsable is true for an argument that was not right, which nothing was sent for,"
-          + " and false otherwise")
-  void leavesSessionUsable() {
-    assertThat(FailureClassifier.leavesSessionUsable(new IllegalArgumentException("x"))).isTrue();
-    assertThat(FailureClassifier.leavesSessionUsable(new InvalidArgumentException("x", "y")))
-        .isTrue();
-    assertThat(FailureClassifier.leavesSessionUsable(new IOException("x"))).isFalse();
   }
 }

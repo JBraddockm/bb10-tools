@@ -13,12 +13,12 @@ import org.junit.jupiter.api.Test;
 class TrustAllTlsTest {
 
   @Test
-  @DisplayName("is the https scheme, with 443 as its usual port")
-  void isHttpsOn443() {
+  @DisplayName("is the https scheme, with 8443 as its usual port")
+  void isHttpsOn8443() {
     var scheme = TrustAllTls.scheme(null);
 
     assertThat(scheme.getName()).isEqualTo("https");
-    assertThat(scheme.getDefaultPort()).isEqualTo(443);
+    assertThat(scheme.getDefaultPort()).isEqualTo(8443);
   }
 
   @Test

@@ -33,6 +33,18 @@ final class FailureClassifier {
    *     handshake is then explained with that in mind
    */
   static ServiceError classify(Throwable failure, boolean certificateOffered) {
+    return classify(failure, certificateOffered, ConnectionPath.OTHER);
+  }
+
+  /**
+   * Classifies a failure, naming the connection path where it helps.
+   *
+   * @param failure what went wrong
+   * @param certificateOffered whether a client certificate was offered
+   * @param path the path the session was reached over
+   * @return the error
+   */
+  static ServiceError classify(Throwable failure, boolean certificateOffered, ConnectionPath path) {
     return switch (failure) {
       case InvalidArgumentException invalid -> invalid.toServiceError();
       case PasswordRejectedException rejected when rejected.isLocked() ->
@@ -72,6 +84,14 @@ final class FailureClassifier {
                   + describe(failure)
                   + ")",
               Json.object("cause", "tls", "certificate", true));
+      case SSLException _ when path == ConnectionPath.TUNNEL ->
+          new ServiceError(
+              CoreErrorCode.CONNECTION_FAILED,
+              "The TLS handshake failed; a tunnel connection needs the paired client certificate"
+                  + " (original message: "
+                  + describe(failure)
+                  + ")",
+              Json.object("cause", "tls"));
       case SSLException _ -> connection(CoreErrorCode.CONNECTION_FAILED, "tls", failure);
       case SocketTimeoutException _ ->
           connection(CoreErrorCode.CONNECTION_LOST, "timeout", failure);

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.daemon.CommandSpec;
+import com.jbraddockm.core.daemon.Reply;
+import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.actions.GetPin;
 import com.jbraddockm.link.pairing.CertificateRetrieval;
@@ -16,9 +18,16 @@ import com.jbraddockm.link.pimsync.ListPimAccounts;
 import com.jbraddockm.link.pimsync.PimFilters;
 import com.jbraddockm.link.pimsync.PimService;
 import com.jbraddockm.link.properties.GetDeviceProperties;
+import com.jbraddockm.link.session.Authentication;
 import com.jbraddockm.link.session.DeviceCommand;
+import com.jbraddockm.link.session.DeviceSession;
+import com.jbraddockm.link.session.DeviceTarget;
+import com.jbraddockm.link.session.TransportScheme;
 import com.jbraddockm.link.update.InstallPackages;
 import com.jbraddockm.link.update.UninstallPackages;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +53,30 @@ class LinkMethodTest {
 
   private static Optional<DeviceCommand<?>> replay(LinkMethod method, String argument) {
     return method.replayCommand(argument);
+  }
+
+  @Nested
+  @DisplayName("the reachability guard")
+  class ReachabilityGuard {
+
+    @Test
+    @DisplayName("refuses a session command over a Wi-Fi LAN address before it reaches the device")
+    void refusesOverLan() {
+      var scoped =
+          (CommandSpec.SessionScoped<DeviceSession>)
+              LinkMethod.GET_PIN.spec(_ -> {}, new Pairing(), new CertificateRetrieval());
+      var session =
+          DeviceSession.forTarget(
+              new DeviceTarget(
+                  "192.168.1.118", 8443, TransportScheme.HTTPS, new Authentication.NoPassword()));
+      var output = new ByteArrayOutputStream();
+      var reply = Reply.standalone(new PrintStream(output, true, StandardCharsets.UTF_8), 1L);
+
+      scoped.factory().apply(new RequestParams(java.util.Map.of())).run(session, reply);
+
+      var written = output.toString(StandardCharsets.UTF_8);
+      assertThat(written).contains("COMMAND_FAILED").contains("getPin");
+    }
   }
 
   @Nested

@@ -23,9 +23,31 @@ class DeviceTargetTest {
   }
 
   @Test
-  @DisplayName("the usual port is 443")
-  void theUsualPortIs443() {
-    assertThat(DeviceTarget.DEFAULT_PORT).isEqualTo(443);
+  @DisplayName("the usual port is 8443")
+  void theUsualPortIs8443() {
+    assertThat(DeviceTarget.DEFAULT_PORT).isEqualTo(8443);
+  }
+
+  @Test
+  @DisplayName(
+      "keeps the zone of an IPv6 address as written, which is how the URI of the JDK reads it")
+  void keepsTheZoneAsWritten() {
+    var url = target("fe80::1%en0", 443, TransportScheme.HTTPS).url("/x");
+
+    assertThat(URI.create(url).getHost()).isEqualTo("[fe80::1%en0]");
+  }
+
+  @Test
+  @DisplayName(
+      "toString says the host, the port, the scheme and the kind of authentication, and never the"
+          + " password")
+  void toStringHidesThePassword() {
+    var text = target("169.254.0.1", 443, TransportScheme.HTTPS).toString();
+
+    assertThat(text)
+        .isEqualTo(
+            "DeviceTarget[host=169.254.0.1, port=443, scheme=HTTPS, authentication=password]");
+    assertThat(text).doesNotContain("secret");
   }
 
   @Nested
@@ -48,15 +70,6 @@ class DeviceTargetTest {
     void isTheAddress(String host, int port, TransportScheme scheme, String path, String expected) {
       assertThat(target(host, port, scheme).url(path)).isEqualTo(expected);
     }
-  }
-
-  @Test
-  @DisplayName(
-      "keeps the zone of an IPv6 address as written, which is how the URI of the JDK reads it")
-  void keepsTheZoneAsWritten() {
-    var url = target("fe80::1%en0", 443, TransportScheme.HTTPS).url("/x");
-
-    assertThat(URI.create(url).getHost()).isEqualTo("[fe80::1%en0]");
   }
 
   @Nested
@@ -101,18 +114,5 @@ class DeviceTargetTest {
           .isThrownBy(() -> new DeviceTarget("h", 443, TransportScheme.HTTPS, null))
           .withMessage("authentication");
     }
-  }
-
-  @Test
-  @DisplayName(
-      "toString says the host, the port, the scheme and the kind of authentication, and never the"
-          + " password")
-  void toStringHidesThePassword() {
-    var text = target("169.254.0.1", 443, TransportScheme.HTTPS).toString();
-
-    assertThat(text)
-        .isEqualTo(
-            "DeviceTarget[host=169.254.0.1, port=443, scheme=HTTPS, authentication=password]");
-    assertThat(text).doesNotContain("secret");
   }
 }

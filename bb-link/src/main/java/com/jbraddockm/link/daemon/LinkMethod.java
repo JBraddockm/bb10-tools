@@ -132,12 +132,52 @@ enum LinkMethod {
     this.wireName = wireName;
   }
 
-  String wireName() {
-    return wireName;
-  }
-
   static Optional<LinkMethod> byWireName(String name) {
     return Arrays.stream(values()).filter(method -> method.wireName.equals(name)).findFirst();
+  }
+
+  /**
+   * A removal to replay a recording with: one package, or as many as the argument says (1 to 9), as
+   * in {@code uninstallPackages.2}. The package ids are made up; what the recording says is kept.
+   */
+  private static Optional<DeviceCommand<?>> replayedRemoval(String argument) {
+    var text = argument != null ? argument : "1";
+    if (!text.matches("[1-9]")) {
+      return Optional.empty();
+    }
+    var count = Integer.parseInt(text);
+    var packageIds =
+        count == 1
+            ? List.of("replay.package")
+            : IntStream.rangeClosed(1, count)
+                .mapToObj(number -> "replay.package." + number)
+                .toList();
+    return Optional.of(new UninstallPackages(packageIds, false));
+  }
+
+  /**
+   * Reads the parameters of {@code uninstallPackages}; a bad one is reported before anything is
+   * sent.
+   */
+  private static UninstallPackages uninstallPackages(RequestParams params) {
+    return new UninstallPackages(params.requireStrings("packageIds"), params.flag("check", true));
+  }
+
+  /** Reads the parameters of {@code getPimItems}; a bad one is reported before anything is sent. */
+  private static GetPimItems getPimItems(RequestParams params) {
+    return new GetPimItems(
+        params.requireString("workstationId"),
+        PimService.of(params.requireString("service")),
+        new PimFilters(
+            params.optionalString("updatedTime").orElse(null),
+            params.optionalInteger("limit", 1, Integer.MAX_VALUE),
+            params.flag("dirtyOnly"),
+            params.flag("localOnly"),
+            params.optionalInteger("offset", 0, Integer.MAX_VALUE)));
+  }
+
+  String wireName() {
+    return wireName;
   }
 
   /**
@@ -179,6 +219,30 @@ enum LinkMethod {
   }
 
   CommandSpec<DeviceSession> spec(
+      DeviceScanner scanner, Pairing pairing, CertificateRetrieval retrieval) {
+    return guarded(specFor(scanner, pairing, retrieval));
+  }
+
+  /**
+   * Wraps a session-scoped specification so the command is refused before it runs when the
+   * session's path cannot reach the program the method needs. A standalone method has no session
+   * and is returned unchanged.
+   */
+  private CommandSpec<DeviceSession> guarded(CommandSpec<DeviceSession> spec) {
+    if (spec instanceof CommandSpec.SessionScoped<DeviceSession>(var name, var factory)) {
+      return new CommandSpec.SessionScoped<>(
+          name,
+          params -> {
+            var command = factory.apply(params);
+            return (session, reply) ->
+                EndpointReachability.refusalFor(this, session.target().path())
+                    .ifPresentOrElse(reply::fail, () -> command.run(session, reply));
+          });
+    }
+    return spec;
+  }
+
+  private CommandSpec<DeviceSession> specFor(
       DeviceScanner scanner, Pairing pairing, CertificateRetrieval retrieval) {
     return switch (this) {
       case GET_DEVICE_PROPERTIES -> onSession(_ -> new GetDeviceProperties());
@@ -263,46 +327,6 @@ enum LinkMethod {
                     reply.complete(wireName, InspectPackage.inspect(file, validate), false);
               });
     };
-  }
-
-  /**
-   * A removal to replay a recording with: one package, or as many as the argument says (1 to 9), as
-   * in {@code uninstallPackages.2}. The package ids are made up; what the recording says is kept.
-   */
-  private static Optional<DeviceCommand<?>> replayedRemoval(String argument) {
-    var text = argument != null ? argument : "1";
-    if (!text.matches("[1-9]")) {
-      return Optional.empty();
-    }
-    var count = Integer.parseInt(text);
-    var packageIds =
-        count == 1
-            ? List.of("replay.package")
-            : IntStream.rangeClosed(1, count)
-                .mapToObj(number -> "replay.package." + number)
-                .toList();
-    return Optional.of(new UninstallPackages(packageIds, false));
-  }
-
-  /**
-   * Reads the parameters of {@code uninstallPackages}; a bad one is reported before anything is
-   * sent.
-   */
-  private static UninstallPackages uninstallPackages(RequestParams params) {
-    return new UninstallPackages(params.requireStrings("packageIds"), params.flag("check", true));
-  }
-
-  /** Reads the parameters of {@code getPimItems}; a bad one is reported before anything is sent. */
-  private static GetPimItems getPimItems(RequestParams params) {
-    return new GetPimItems(
-        params.requireString("workstationId"),
-        PimService.of(params.requireString("service")),
-        new PimFilters(
-            params.optionalString("updatedTime").orElse(null),
-            params.optionalInteger("limit", 1, Integer.MAX_VALUE),
-            params.flag("dirtyOnly"),
-            params.flag("localOnly"),
-            params.optionalInteger("offset", 0, Integer.MAX_VALUE)));
   }
 
   /**

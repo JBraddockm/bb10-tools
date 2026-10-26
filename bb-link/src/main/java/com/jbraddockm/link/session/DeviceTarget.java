@@ -14,8 +14,8 @@ import java.util.Objects;
 public record DeviceTarget(
     String host, int port, TransportScheme scheme, Authentication authentication) {
 
-  /** The port devices serve their web interface on. */
-  public static final int DEFAULT_PORT = 443;
+  /** The port the device serves its management interface on, over USB and over the tunnel. */
+  public static final int DEFAULT_PORT = 8443;
 
   /**
    * Validates the target.
@@ -44,6 +44,15 @@ public record DeviceTarget(
   String url(String pathAndQuery) {
     var hostPart = host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
     return scheme.urlScheme() + "://" + hostPart + ":" + port + pathAndQuery;
+  }
+
+  /**
+   * The network path this target is reached over, worked out from the host.
+   *
+   * @return the connection path
+   */
+  public ConnectionPath path() {
+    return ConnectionPath.of(host);
   }
 
   /** Never reveals the password; the location of the key is not shown either. */

@@ -68,6 +68,32 @@ public final class LinkService implements Service<DeviceSession> {
     this.retrieval = retrieval;
   }
 
+  /** Whether a connect asks for the device to be read; it does unless it says {@code false}. */
+  private static boolean describesDevice(RequestParams params) {
+    return params.flag("deviceInfo", true);
+  }
+
+  /** The result of a connection; the device is {@code null} when nothing of it was read. */
+  private static Map<String, Object> described(
+      DeviceSession session, Optional<DeviceSummary> summary) {
+    return Json.object(
+        "host", session.target().host(),
+        "port", session.target().port(),
+        "authentication", session.target().authentication().type().wireName(),
+        "device", summary.map(DeviceSummary::toJson).orElse(null),
+        "smb", session.smbCredentials().map(SmbCredentials::toJson).orElse(null));
+  }
+
+  private static Optional<DevicePin> readPin(DeviceSession session, Reply reply) {
+    return switch (session.execute(new GetPin(), reply)) {
+      case CommandOutcome.Succeeded<DevicePin>(var pin, _) -> Optional.of(pin);
+      case CommandOutcome.Failed<DevicePin>(var error, _, _) -> {
+        reply.onLog(LogLevel.WARN, "Could not read the device PIN: " + error.message());
+        yield Optional.empty();
+      }
+    };
+  }
+
   @Override
   public ServiceInfo info() {
     return new ServiceInfo("bb-link", VERSION);
@@ -106,6 +132,11 @@ public final class LinkService implements Service<DeviceSession> {
         case CommandOutcome.Failed<NoData>(var error, _, _) -> new Establishment.Rejected(error);
       };
     }
+    var refusal =
+        EndpointReachability.refusalFor(LinkMethod.GET_DEVICE_PROPERTIES, session.target().path());
+    if (refusal.isPresent()) {
+      return new Establishment.Rejected(refusal.orElseThrow());
+    }
     return switch (session.execute(new GetDeviceProperties(), reply)) {
       case CommandOutcome.Succeeded<DeviceProperties>(var properties, _) -> {
         var summary = DeviceSummary.of(properties, readPin(session, reply));
@@ -113,32 +144,6 @@ public final class LinkService implements Service<DeviceSession> {
       }
       case CommandOutcome.Failed<DeviceProperties>(var error, _, _) ->
           new Establishment.Rejected(error);
-    };
-  }
-
-  /** Whether a connect asks for the device to be read; it does unless it says {@code false}. */
-  private static boolean describesDevice(RequestParams params) {
-    return params.flag("deviceInfo", true);
-  }
-
-  /** The result of a connection; the device is {@code null} when nothing of it was read. */
-  private static Map<String, Object> described(
-      DeviceSession session, Optional<DeviceSummary> summary) {
-    return Json.object(
-        "host", session.target().host(),
-        "port", session.target().port(),
-        "authentication", session.target().authentication().type().wireName(),
-        "device", summary.map(DeviceSummary::toJson).orElse(null),
-        "smb", session.smbCredentials().map(SmbCredentials::toJson).orElse(null));
-  }
-
-  private static Optional<DevicePin> readPin(DeviceSession session, Reply reply) {
-    return switch (session.execute(new GetPin(), reply)) {
-      case CommandOutcome.Succeeded<DevicePin>(var pin, _) -> Optional.of(pin);
-      case CommandOutcome.Failed<DevicePin>(var error, _, _) -> {
-        reply.onLog(LogLevel.WARN, "Could not read the device PIN: " + error.message());
-        yield Optional.empty();
-      }
     };
   }
 }
