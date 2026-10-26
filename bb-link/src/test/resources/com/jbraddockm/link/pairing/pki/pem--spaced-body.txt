@@ -1,0 +1,4 @@
+-----BEGIN CERTIFICATE-----
+  ZHVtbXkg  
+	Y29udGVudA==
+-----END CERTIFICATE-----

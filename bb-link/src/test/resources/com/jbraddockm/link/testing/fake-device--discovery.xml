@@ -1,0 +1,21 @@
+<RimTabletResponse>
+    <DeviceCharacteristics>
+        <Guid>RkFLRUdVSUQwMDAx</Guid>
+        <BbPin>740193667</BbPin>
+        <IMEI>000000000000000</IMEI>
+        <FlashSize>14157856768</FlashSize>
+        <OsType>BlackBerry 10</OsType>
+        <ScreenWidth>720</ScreenWidth>
+        <ScreenHeight>1280</ScreenHeight>
+        <PlatformVersion>10.3.3.2205</PlatformVersion>
+        <Power>100</Power>
+        <DeveloperModeEnabled>1</DeveloperModeEnabled>
+        <Bp2pTunnelStatus>1</Bp2pTunnelStatus>
+        <SDCard>0</SDCard>
+        <BlendPolicy>1</BlendPolicy>
+        <FuseInstalled>1</FuseInstalled>
+        <FuseEnabled>1</FuseEnabled>
+        <ModelName>STR100-1</ModelName>
+        <Status>Success</Status>
+    </DeviceCharacteristics>
+</RimTabletResponse>

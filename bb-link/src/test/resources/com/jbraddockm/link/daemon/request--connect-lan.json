@@ -1,0 +1,20 @@
+{
+  "id": {
+    {
+      id
+    }
+  },
+  "method": "connect",
+  "params": {
+    "host": "{{host}}",
+    "port": {
+      {
+        port
+      }
+    },
+    "authentication": {
+      "type": "password",
+      "password": "secret"
+    }
+  }
+}

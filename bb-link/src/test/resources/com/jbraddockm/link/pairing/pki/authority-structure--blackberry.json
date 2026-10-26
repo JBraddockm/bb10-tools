@@ -1,0 +1,30 @@
+{
+  "version": 3,
+  "signatureAlgorithmOid": "1.2.840.10045.4.1",
+  "curve": "secp521r1",
+  "basicConstraintsCa": true,
+  "keyUsage": [
+    "digitalSignature",
+    "nonRepudiation",
+    "keyCertSign",
+    "cRLSign"
+  ],
+  "extensions": [
+    {
+      "oid": "2.5.29.19",
+      "critical": true
+    },
+    {
+      "oid": "2.5.29.14",
+      "critical": false
+    },
+    {
+      "oid": "2.5.29.35",
+      "critical": false
+    },
+    {
+      "oid": "2.5.29.15",
+      "critical": true
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "subject": "CN=BlackBerry [00000000]",
+  "issuer": "CN=BlackBerry [00000000]",
+  "serialNumber": "503176101111744520830279718146590792139334865801",
+  "notBefore": "2026-10-18T22:33:25Z",
+  "notAfter": "2062-05-22T22:33:25Z",
+  "sha256Fingerprint": "F3:07:C6:18:12:19:AD:C3:A2:61:59:A5:59:FC:8C:7A:A9:12:BB:44:20:B3:AF:AC:CC:C7:7E:AE:D8:A7:2D:8B",
+  "publicKeyAlgorithm": "EC",
+  "publicKeyBits": 521,
+  "signatureAlgorithm": "SHA1withECDSA",
+  "certificateAuthority": true
+}

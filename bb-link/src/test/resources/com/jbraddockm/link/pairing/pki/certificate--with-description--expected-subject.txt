@@ -1,0 +1,1 @@
+CN=has a description, DESCRIPTION=Client authentication certificate for wireless access. Support for device with PIN [2A3B4C5D]

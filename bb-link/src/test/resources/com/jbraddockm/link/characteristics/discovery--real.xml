@@ -1,0 +1,44 @@
+<RimTabletResponse>
+    <DeviceCharacteristics>
+        <Guid>EDunxOMuoNpdOlvSIBPJD1dfcMs=</Guid>
+        <BbPin>740193667</BbPin>
+        <SecureBootrom>1</SecureBootrom>
+        <IMEI>354359061740215</IMEI>
+        <ECID>0</ECID>
+        <BoardConfig>factory_sfi</BoardConfig>
+        <FlashSize>14157856768</FlashSize>
+        <VendorId>?</VendorId>
+        <OsType>BlackBerry 10</OsType>
+        <ScreenWidth>720</ScreenWidth>
+        <ScreenHeight>1280</ScreenHeight>
+        <ColorDepth>24</ColorDepth>
+        <ResolutionHorizontal></ResolutionHorizontal>
+        <ResolutionVertical></ResolutionVertical>
+        <SystemMachine>MSM8960_V3.2.1.1_N_RIOG_Rev:04</SystemMachine>
+        <SystemVersion>2018/02/21-10:54:19EST</SystemVersion>
+        <SystemRelease>8.0.0</SystemRelease>
+        <OobeCompleted>1</OobeCompleted>
+        <PlatformVersion>10.3.3.3216</PlatformVersion>
+        <Power>100</Power>
+        <Perimeter>0</Perimeter>
+        <SDCard>0</SDCard>
+        <DeveloperModeEnabled>1</DeveloperModeEnabled>
+        <SIMCard>-1</SIMCard>
+        <FuseInstalled>1</FuseInstalled>
+        <Bp2pAllowCellular>0</Bp2pAllowCellular>
+        <Bp2pTunnelStatus>1</Bp2pTunnelStatus>
+        <BlendPolicy>1</BlendPolicy>
+        <BbidConfigured>0</BbidConfigured>
+        <FuseEnabled>1</FuseEnabled>
+        <ModelName>STR100-1</ModelName>
+        <Status>Success</Status>
+        <MinSupportedProtocolVersion>1</MinSupportedProtocolVersion>
+        <MaxSupportedProtocolVersion>3</MaxSupportedProtocolVersion>
+        <MuxVersion>544</MuxVersion>
+        <HubAddress></HubAddress>
+        <NetworkType>6</NetworkType>
+        <NetworksSupported></NetworksSupported>
+        <BootromVersion></BootromVersion>
+        <OsMetrics></OsMetrics>
+    </DeviceCharacteristics>
+</RimTabletResponse>

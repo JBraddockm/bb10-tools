@@ -1,0 +1,3 @@
+-----BEGIN certificate-----
+ZHVtbXk=
+-----END certificate-----

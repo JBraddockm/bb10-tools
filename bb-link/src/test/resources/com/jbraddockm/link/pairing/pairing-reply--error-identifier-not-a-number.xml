@@ -1,0 +1,7 @@
+<RimTabletResponse>
+    <Pairing>
+        <Status>Error</Status>
+        <ErrorIdentifier>seven</ErrorIdentifier>
+        <ErrorDescription>Odd</ErrorDescription>
+    </Pairing>
+</RimTabletResponse>

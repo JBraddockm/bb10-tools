@@ -1,0 +1,8 @@
+Bag Attributes
+    friendlyName: dummy
+
+-----BEGIN CERTIFICATE-----
+ZHVtbXkgY29udGVudA==
+-----END CERTIFICATE-----
+
+trailing text

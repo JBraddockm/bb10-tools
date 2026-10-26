@@ -1,0 +1,9 @@
+<RimTabletResponse>
+    <CgiAuth>
+        <Status>Error</Status>
+        <Error>
+            <ErrorIdentifier>x</ErrorIdentifier>
+            <ErrorDescription>Odd</ErrorDescription>
+        </Error>
+    </CgiAuth>
+</RimTabletResponse>

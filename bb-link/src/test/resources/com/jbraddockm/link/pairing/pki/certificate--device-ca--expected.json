@@ -1,0 +1,12 @@
+{
+  "subject": "O=Research In Motion, OU=BlackBerry, CN=BB10/0000000000000000000000000000000000000000",
+  "issuer": "O=Research In Motion, OU=BlackBerry, CN=BB10/0000000000000000000000000000000000000000",
+  "serialNumber": "653598726408822547857853369836801536864354123784",
+  "notBefore": "2026-10-18T22:33:25Z",
+  "notAfter": "2036-10-15T22:33:25Z",
+  "sha256Fingerprint": "F9:F5:0D:F6:1F:78:26:88:BD:F9:E0:24:30:8D:9B:C3:BF:B1:ED:79:09:3B:F8:BB:CD:53:53:2B:ED:FA:E9:E1",
+  "publicKeyAlgorithm": "RSA",
+  "publicKeyBits": 2048,
+  "signatureAlgorithm": "SHA256withRSA",
+  "certificateAuthority": true
+}

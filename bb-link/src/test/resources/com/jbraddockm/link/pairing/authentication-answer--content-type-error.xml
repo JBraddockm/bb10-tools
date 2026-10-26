@@ -1,0 +1,9 @@
+<RimTabletResponse>
+    <CgiAuth>
+        <Status>Error</Status>
+        <Error>
+            <ErrorIdentifier>260</ErrorIdentifier>
+            <ErrorDescription>Expected ContentType of application/octet-stream</ErrorDescription>
+        </Error>
+    </CgiAuth>
+</RimTabletResponse>

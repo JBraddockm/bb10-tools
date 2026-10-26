@@ -1,0 +1,12 @@
+{
+  "subject": "CN=BBCGIAUTH [2A3B4C5D] workstation, SERIALNUMBER=10001",
+  "issuer": "O=Research In Motion, OU=BlackBerry, CN=BB10/0000000000000000000000000000000000000000",
+  "serialNumber": "4097",
+  "notBefore": "2026-10-18T22:33:25Z",
+  "notAfter": "2026-11-24T22:33:25Z",
+  "sha256Fingerprint": "2C:FD:40:0F:E9:9D:75:4C:9E:3F:31:03:CB:1C:80:BB:D6:89:93:20:65:4F:68:36:B9:A6:6C:96:99:CE:11:75",
+  "publicKeyAlgorithm": "RSA",
+  "publicKeyBits": 2048,
+  "signatureAlgorithm": "SHA1withRSA",
+  "certificateAuthority": false
+}

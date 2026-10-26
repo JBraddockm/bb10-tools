@@ -1,0 +1,6 @@
+<RimTabletResponse>
+    <DeviceCharacteristics>
+        <Status>Error</Status>
+        <ErrorDescription>something failed</ErrorDescription>
+    </DeviceCharacteristics>
+</RimTabletResponse>
