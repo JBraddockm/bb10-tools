@@ -1,0 +1,34 @@
+{
+  "name": "bb-link",
+  "version": "0.1.0",
+  "methods": [
+    "connect",
+    "getPin"
+  ],
+  "counts": {
+    "ok": 12,
+    "failed": 0,
+    "ratio": 0.25
+  },
+  "flags": [
+    true,
+    false
+  ],
+  "text": "tab\tquote\" é",
+  "nested": [
+    [
+      1,
+      2
+    ],
+    [
+      3,
+      [
+        4,
+        {
+          "deep": "x"
+        }
+      ]
+    ]
+  ],
+  "big": 4294967296
+}

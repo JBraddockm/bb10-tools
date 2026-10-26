@@ -1,0 +1,8 @@
+{
+  "code": "INVALID_ARGUMENT",
+  "message": "'port' must be between 1 and 65535",
+  "details": {
+    "param": "port",
+    "limit": 65535
+  }
+}
