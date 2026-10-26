@@ -5,7 +5,6 @@ import com.jbraddockm.link.actions.DevicePin;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.InstalledPackage;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * The few fields of a device that identify it to a user, returned by {@code connect}.
@@ -25,11 +24,11 @@ record DeviceSummary(
     String osVersion,
     String radioVersion) {
 
-  static DeviceSummary of(DeviceProperties properties, Optional<DevicePin> pin) {
+  static DeviceSummary of(DeviceProperties properties, DevicePin pin) {
     return new DeviceSummary(
         properties.deviceName(),
         properties.hardwareId(),
-        pin.map(DevicePin::pin).orElse(null),
+        pin != null ? pin.pin() : null,
         properties.boardSerialNumber(),
         properties.operatingSystem().map(InstalledPackage::version).orElse(null),
         properties.radio().map(InstalledPackage::version).orElse(null));

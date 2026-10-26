@@ -27,7 +27,6 @@ import com.jbraddockm.link.session.TransportScheme;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /** The bb-link service: what the shared daemon server runs. */
 public final class LinkService implements Service<DeviceSession> {
@@ -75,22 +74,21 @@ public final class LinkService implements Service<DeviceSession> {
   }
 
   /** The result of a connection; the device is {@code null} when nothing of it was read. */
-  private static Map<String, Object> described(
-      DeviceSession session, Optional<DeviceSummary> summary) {
+  private static Map<String, Object> described(DeviceSession session, DeviceSummary summary) {
     return Json.object(
         "host", session.target().host(),
         "port", session.target().port(),
         "authentication", session.target().authentication().type().wireName(),
-        "device", summary.map(DeviceSummary::toJson).orElse(null),
+        "device", summary != null ? summary.toJson() : null,
         "smb", session.smbCredentials().map(SmbCredentials::toJson).orElse(null));
   }
 
-  private static Optional<DevicePin> readPin(DeviceSession session, Reply reply) {
+  private static DevicePin readPin(DeviceSession session, Reply reply) {
     return switch (session.execute(new GetPin(), reply)) {
-      case CommandOutcome.Succeeded<DevicePin>(var pin, _) -> Optional.of(pin);
+      case CommandOutcome.Succeeded<DevicePin>(var pin, _) -> pin;
       case CommandOutcome.Failed<DevicePin>(var error, _, _) -> {
         reply.onLog(LogLevel.WARN, "Could not read the device PIN: " + error.message());
-        yield Optional.empty();
+        yield null;
       }
     };
   }
@@ -129,7 +127,7 @@ public final class LinkService implements Service<DeviceSession> {
     if (!describesDevice(params)) {
       return switch (session.execute(new LoginOnly(), reply)) {
         case CommandOutcome.Succeeded<NoData> _ ->
-            new Establishment.Established(described(session, Optional.empty()));
+            new Establishment.Established(described(session, null));
         case CommandOutcome.Failed<NoData>(var error, _, _) -> new Establishment.Rejected(error);
       };
     }
@@ -142,12 +140,9 @@ public final class LinkService implements Service<DeviceSession> {
       case CommandOutcome.Succeeded<DeviceProperties>(var properties, _) -> {
         // wipe.cgi closes the connection without responding over the tunnel [verified 2026-10-26];
         // skip the PIN read on that path rather than wasting two attempts and logging a warn.
-        var pin =
-            session.target().path() != ConnectionPath.TUNNEL
-                ? readPin(session, reply)
-                : Optional.<DevicePin>empty();
+        var pin = session.target().path() != ConnectionPath.TUNNEL ? readPin(session, reply) : null;
         var summary = DeviceSummary.of(properties, pin);
-        yield new Establishment.Established(described(session, Optional.of(summary)));
+        yield new Establishment.Established(described(session, summary));
       }
       case CommandOutcome.Failed<DeviceProperties>(var error, _, _) ->
           new Establishment.Rejected(error);
