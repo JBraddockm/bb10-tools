@@ -25,14 +25,15 @@ import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
  * <p>A handle moves through {@link State}: {@code CONNECTING} → {@code UP} once bring-up finishes,
  * then either {@code CLOSED} (via {@link #close}) or {@code FAILED} (the link dropped on its own).
  * Callers can:
+ *
  * <ul>
- *   <li>{@link #open(TunnelConfig)} — bring up, blocking; or {@link #open(TunnelConfig, Duration)} to
- *       bound the (slow, P-521) handshake and abort if it overruns.</li>
- *   <li>{@link #state()} / {@link #isOpen()} / {@link #failure()} — observe liveness.</li>
- *   <li>{@link #onClosed(Consumer)} — be told once when the tunnel leaves {@code UP}: {@code null} for
- *       a clean close, or the cause for an unexpected drop (so a module can reconnect).</li>
- *   <li>{@link #restart()} — tear down and bring the same handle back up (e.g. after a drop).</li>
- *   <li>{@link #close()} — tear everything down (idempotent; {@code AutoCloseable}).</li>
+ *   <li>{@link #open(TunnelConfig)} — bring up, blocking; or {@link #open(TunnelConfig, Duration)}
+ *       to bound the (slow, P-521) handshake and abort if it overruns.
+ *   <li>{@link #state()} / {@link #isOpen()} / {@link #failure()} — observe liveness.
+ *   <li>{@link #onClosed(Consumer)} — be told once when the tunnel leaves {@code UP}: {@code null}
+ *       for a clean close, or the cause for an unexpected drop (so a module can reconnect).
+ *   <li>{@link #restart()} — tear down and bring the same handle back up (e.g. after a drop).
+ *   <li>{@link #close()} — tear everything down (idempotent; {@code AutoCloseable}).
  * </ul>
  *
  * <h2>What {@code open} resolves (so callers don't hardcode it)</h2>
@@ -40,56 +41,44 @@ import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
  * <ul>
  *   <li><b>Our ULA</b> — the 16-byte identity we send in {@code CONNECT}, derived from the config's
  *       leaf certificate by {@link TunnelIdentity}. The device recomputes it from our trusted peer
- *       cert and routes return traffic to it, so it must match the cert we present.</li>
- *   <li><b>Device ULA</b> — the device's inner tunnel address, read straight out of
- *       {@code CONNECT_RESP} (its first 16 bytes); stable across sessions. The device binds its
- *       services to its {@code bptp0} tunnel interface, so each is reached at {@code [deviceUla]:<port>}.</li>
+ *       cert and routes return traffic to it, so it must match the cert we present.
+ *   <li><b>Device ULA</b> — the device's inner tunnel address, read straight out of {@code
+ *       CONNECT_RESP} (its first 16 bytes); stable across sessions. The device binds its services
+ *       to its {@code bptp0} tunnel interface, so each is reached at {@code [deviceUla]:<port>}.
  * </ul>
  *
  * <h2>Bring-up sequence (what a port must reproduce)</h2>
  *
  * <ol>
  *   <li><b>Control channel</b> — TCP to {@code host:controlPort} + a <b>TLS 1.0 mutual-auth</b>
- *       handshake (cipher {@code 0xC005}, curve secp521r1) presenting the config's cert. See
- *       {@link TunnelTlsClient}.</li>
+ *       handshake (cipher {@code 0xC005}, curve secp521r1) presenting the config's cert. See {@link
+ *       TunnelTlsClient}.
  *   <li><b>INIT</b> — command {@code 0x00}, fixed 8-byte body {@code 24 05 20 03 00 01 00 00}; the
- *       device echoes it as {@code INIT_RESP} (0x01).</li>
+ *       device echoes it as {@code INIT_RESP} (0x01).
  *   <li><b>CONNECT</b> — command {@code 0x02}, 20-byte body {@code [16B our ULA][u16 our UDP port]
  *       [00 01]}. {@code CONNECT_RESP} (0x03) returns {@code [16B device ULA][u16 DTLS port][u16
- *       flags]}: the device ULA and the per-session DTLS data port are read here.</li>
- *   <li><b>IPv4 sub-protocol</b> — {@code IPV4_INQUIRE} (0x0a) → {@code 0x0b}, then
- *       {@code IPV4_DISABLE} (0x08) and {@code IPV4_ENABLE} (0x06) carrying our/device inner IPv4.</li>
- *   <li><b>Data channel</b> — dial UDP to {@code host:<DTLS port>} and run a <b>DTLS 1.0 mutual-auth</b>
- *       handshake. Afterwards it carries IP packets, each prefixed by a 2-byte channel tag (0x0001
- *       IPv6, 0x0002 control/ping, 0x0003 IPv4).</li>
- *   <li><b>Use</b> — a macOS utun ({@link TunDevice}) is created and the device's ULA routed into it;
- *       three daemon threads then run the data plane (see {@link #startDataPlane}).</li>
+ *       flags]}: the device ULA and the per-session DTLS data port are read here.
+ *   <li><b>IPv4 sub-protocol</b> — {@code IPV4_INQUIRE} (0x0a) → {@code 0x0b}, then {@code
+ *       IPV4_DISABLE} (0x08) and {@code IPV4_ENABLE} (0x06) carrying our/device inner IPv4.
+ *   <li><b>Data channel</b> — dial UDP to {@code host:<DTLS port>} and run a <b>DTLS 1.0
+ *       mutual-auth</b> handshake. Afterwards it carries IP packets, each prefixed by a 2-byte
+ *       channel tag (0x0001 IPv6, 0x0002 control/ping, 0x0003 IPv4).
+ *   <li><b>Use</b> — a macOS utun ({@link TunDevice}) is created and the device's ULA routed into
+ *       it; three daemon threads then run the data plane (see {@link #startDataPlane}).
  * </ol>
  *
- * <p>Command framing is {@code [0x00][cmd][u16 len][payload]} on the TLS stream — see
- * {@link ControlChannel}. <b>Runtime:</b> requires {@code sudo} (creating a utun is privileged) and,
- * on JDK&nbsp;25, {@code --enable-native-access=ALL-UNNAMED} (the utun uses the Panama FFM API).
+ * <p>Command framing is {@code [0x00][cmd][u16 len][payload]} on the TLS stream — see {@link
+ * ControlChannel}. <b>Runtime:</b> requires {@code sudo} (creating a utun is privileged) and, on
+ * JDK&nbsp;25, {@code --enable-native-access=ALL-UNNAMED} (the utun uses the Panama FFM API).
  */
 public final class Tunnel implements AutoCloseable {
 
-  /** Where a handle is in its lifecycle. */
-  public enum State {
-    /** Bring-up in progress (or not yet started). */
-    CONNECTING,
-    /** The data plane is live; the device ULA ({@link #deviceUla()}) is reachable. */
-    UP,
-    /** Torn down by {@link #close} (or an interim {@link #restart} stop). */
-    CLOSED,
-    /** The link dropped on its own; see {@link #failure()}. */
-    FAILED
-  }
-
   private final TunnelConfig cfg;
-
   // Our identity, derived from the config's leaf cert up front.
   private final byte[] ourUlaBytes;
   private final String ourUla;
-
+  // Lifecycle state. `lifecycle` guards the one-shot transition in stop().
+  private final Object lifecycle = new Object();
   // The device's identity, resolved from CONNECT_RESP during bring-up.
   private volatile String deviceUla;
   private byte[] deviceUlaBytes;
@@ -101,13 +90,9 @@ public final class Tunnel implements AutoCloseable {
   private DTLSTransport dtls;
   private TunDevice tun;
   private volatile boolean running;
-
-  // Lifecycle state. `lifecycle` guards the one-shot transition in stop().
-  private final Object lifecycle = new Object();
   private volatile State state = State.CONNECTING;
   private volatile Throwable failure;
   private volatile Consumer<Throwable> onClosed;
-
   /**
    * Package-private: builds a handle in {@link State#CONNECTING} without bringing the tunnel up.
    * {@link #open} uses it and then calls {@link #bringUp}; tests use it to exercise lifecycle
@@ -128,7 +113,10 @@ public final class Tunnel implements AutoCloseable {
     return open(cfg, (Consumer<Throwable>) null);
   }
 
-  /** As {@link #open(TunnelConfig)}, registering {@code onClosed} <i>before</i> bring-up so even an early drop is reported. */
+  /**
+   * As {@link #open(TunnelConfig)}, registering {@code onClosed} <i>before</i> bring-up so even an
+   * early drop is reported.
+   */
   public static Tunnel open(TunnelConfig cfg, Consumer<Throwable> onClosed) throws Throwable {
     Tunnel t = new Tunnel(cfg);
     t.onClosed = onClosed;
@@ -181,9 +169,74 @@ public final class Tunnel implements AutoCloseable {
     return t;
   }
 
-  /** The device's inner tunnel ULA, resolved from {@code CONNECT_RESP} (e.g. {@code fd32:…:bd94}). */
+  /**
+   * Runs a local command (ifconfig/route), inheriting stdio; logs a non-zero exit but never throws.
+   */
+  private static void runCmd(String... args) {
+    try {
+      int rc = new ProcessBuilder(args).inheritIO().start().waitFor();
+      if (rc != 0) System.out.println("cmd rc=" + rc + ": " + String.join(" ", args));
+    } catch (Throwable t) {
+      System.out.println("cmd failed: " + String.join(" ", args) + " : " + t);
+    }
+  }
+
+  /**
+   * Demo entry point: open a tunnel to the device at {@code args[0]} (default {@code
+   * 192.168.1.118}) with the bundled client identity, print the resolved ULAs and how to use them,
+   * and park until interrupted or the link drops.
+   */
+  static void main(String[] args) throws Throwable {
+    String host = args.length > 0 ? args[0] : "192.168.1.118";
+    CountDownLatch stopped = new CountDownLatch(1);
+    try (Tunnel t =
+        Tunnel.open(
+            TunnelConfig.fromClasspath(host),
+            cause -> {
+              System.out.println(cause == null ? "tunnel closed" : "tunnel dropped: " + cause);
+              stopped.countDown();
+            })) {
+      System.out.println();
+      System.out.println("tunnel up on " + t.tunInterface());
+      System.out.println("  device ULA : " + t.deviceUla());
+      System.out.println("  our ULA    : " + t.ourUla());
+      System.out.println();
+      System.out.println("The device ULA is the device's address on this tunnel; reach its Wi-Fi");
+      System.out.println(
+          "services at  https://[<device ULA>]:<port>/  (e.g. :8443 CGIs, :8080 WebDAV, :2708 Blend).");
+      System.out.println();
+      System.out.println("  device IPv4: " + t.deviceIpv4() + " (inner, for SMB)");
+      System.out.println(
+          "The device's SMB share is at  smb://" + t.deviceIpv4() + "/  (mount with the");
+      System.out.println("login.cgi 'dtm' credentials) — the Link network drive over Wi-Fi.");
+      System.out.println("Ctrl-C to stop.");
+      stopped.await(); // park until the link drops; the daemon threads carry the tunnel
+    }
+  }
+
+  /**
+   * The device's inner tunnel ULA, resolved from {@code CONNECT_RESP} (e.g. {@code fd32:…:bd94}).
+   */
   public String deviceUla() {
     return deviceUla;
+  }
+
+  /**
+   * The device's inner IPv4 on the tunnel (link-local {@code 169.254.x.y}), advertised in {@code
+   * IPV4_ENABLE} and bound by the device to its {@code bptp0} interface. Its SMB share is reachable
+   * at {@code [deviceIpv4]:445} once the tunnel is {@link State#UP}. Static (from the config), so
+   * it is also valid before bring-up.
+   */
+  public String deviceIpv4() {
+    return cfg.deviceIpv4();
+  }
+
+  /**
+   * Our inner IPv4 on the tunnel ({@code 169.254.x.y}), assigned to the utun as the SMB client
+   * address.
+   */
+  public String pcIpv4() {
+    return cfg.pcIpv4();
   }
 
   /** Our tunnel ULA, derived from the config's leaf certificate. */
@@ -217,10 +270,10 @@ public final class Tunnel implements AutoCloseable {
   }
 
   /**
-   * Registers a listener fired exactly once when the tunnel leaves {@link State#UP}: {@code null} on a
-   * clean {@link #close}, or the cause on an unexpected drop. Returns {@code this} for chaining. Prefer
-   * {@link #open(TunnelConfig, Consumer)} to avoid missing a drop between {@code open} returning and
-   * registration.
+   * Registers a listener fired exactly once when the tunnel leaves {@link State#UP}: {@code null}
+   * on a clean {@link #close}, or the cause on an unexpected drop. Returns {@code this} for
+   * chaining. Prefer {@link #open(TunnelConfig, Consumer)} to avoid missing a drop between {@code
+   * open} returning and registration.
    */
   public Tunnel onClosed(Consumer<Throwable> listener) {
     this.onClosed = listener;
@@ -239,13 +292,16 @@ public final class Tunnel implements AutoCloseable {
     bringUp();
   }
 
-  /** Tears the tunnel down: stops the data-plane threads, closes the transports, fires {@link #onClosed}(null). */
+  // ---------------------------------------------------------------------------------------------
+
+  /**
+   * Tears the tunnel down: stops the data-plane threads, closes the transports, fires {@link
+   * #onClosed}(null).
+   */
   @Override
   public void close() {
     stop(State.CLOSED, null, true);
   }
-
-  // ---------------------------------------------------------------------------------------------
 
   private void bringUp() throws Throwable {
     BcTlsCrypto crypto = new LenientCrypto(new SecureRandom());
@@ -254,9 +310,11 @@ public final class Tunnel implements AutoCloseable {
     controlSocket = new Socket(cfg.host(), cfg.controlPort());
     controlProto =
         new TlsClientProtocol(controlSocket.getInputStream(), controlSocket.getOutputStream());
-    controlProto.connect(new TunnelTlsClient(crypto, false, cfg.certChainDer(), cfg.privateKeyDer()));
+    controlProto.connect(
+        new TunnelTlsClient(crypto, false, cfg.certChainDer(), cfg.privateKeyDer()));
     System.out.println("HANDSHAKE OK");
-    ControlChannel ctl = new ControlChannel(controlProto.getOutputStream(), controlProto.getInputStream());
+    ControlChannel ctl =
+        new ControlChannel(controlProto.getOutputStream(), controlProto.getInputStream());
 
     ctl.send(0x00, Hex.fromHex("2405200300010000")); // INIT (fixed version/capability token)
     System.out.println("INIT_RESP  body=" + Hex.toHex(ctl.read(0x01).body));
@@ -275,7 +333,8 @@ public final class Tunnel implements AutoCloseable {
     ctl.send(0x02, connectBody);
     ControlChannel.Frame connResp = ctl.read(0x03);
     byte[] b = connResp.body;
-    deviceUlaBytes = Arrays.copyOfRange(b, 0, 16); // CONNECT_RESP body[0:16] = device inner tunnel ULA
+    deviceUlaBytes =
+        Arrays.copyOfRange(b, 0, 16); // CONNECT_RESP body[0:16] = device inner tunnel ULA
     deviceUla = Hex.ipv6ToString(deviceUlaBytes, 0);
     int dtlsPort = ((b[16] & 0xff) << 8) | (b[17] & 0xff); // per-session DTLS port = body[16:18]
     System.out.println(
@@ -317,19 +376,24 @@ public final class Tunnel implements AutoCloseable {
     long t0 = System.currentTimeMillis();
     dtls =
         new DTLSClientProtocol()
-            .connect(new TunnelTlsClient(crypto, true, cfg.certChainDer(), cfg.privateKeyDer()), transport);
+            .connect(
+                new TunnelTlsClient(crypto, true, cfg.certChainDer(), cfg.privateKeyDer()),
+                transport);
     System.out.println("DTLS HANDSHAKE OK (" + (System.currentTimeMillis() - t0) + "ms)");
 
     startDataPlane();
   }
 
   /**
-   * Stands up a macOS utun, routes the device's ULA into it, gives the interface our own ULA, starts
-   * the three data-plane daemon threads, and marks the handle {@link State#UP}.
+   * Stands up a macOS utun, gives the interface our ULA and inner IPv4, routes the device's ULA and
+   * inner IPv4 into it, starts the three data-plane daemon threads, and marks the handle {@link
+   * State#UP}.
    *
-   * <p><b>IPv6 only.</b> The device binds its services to the {@code bptp0} (IPv6 ULA) interface, so
-   * only the IPv6 ULA plane is configured; the inner-IPv4 plane is set up on the device side but not
-   * bridged here.
+   * <p><b>Both planes.</b> IPv6 (the device's main service surface on {@code bptp0}) and inner IPv4
+   * ({@code 169.254/16}, for the SMB network drive — the device binds {@code deviceIpv4} to {@code
+   * bptp0} in the {@code IPV4_ENABLE} step, so {@code [deviceIpv4]:445} is reachable through the
+   * tunnel). The data plane already carries both (channel tags {@code 0x0001}/{@code 0x0003}); only
+   * the interface addressing differs.
    */
   private void startDataPlane() throws Throwable {
     tun = new TunDevice();
@@ -340,6 +404,19 @@ public final class Tunnel implements AutoCloseable {
     runCmd("ifconfig", tun.name(), "inet6", ourUla, "prefixlen", "8");
     runCmd("route", "-n", "add", "-inet6", deviceUla, "-interface", tun.name());
 
+    // Inner IPv4 plane (SMB / Link network drive): give the utun our inner IPv4 as a point-to-point
+    // link to the device's inner IPv4 (which installs a host route to it), so macOS can reach
+    // [deviceIpv4]:445 — the device bound deviceIpv4 to bptp0 in the IPV4_ENABLE step above.
+    runCmd(
+        "ifconfig",
+        tun.name(),
+        "inet",
+        cfg.pcIpv4(),
+        cfg.deviceIpv4(),
+        "netmask",
+        "255.255.255.255");
+    runCmd("route", "-n", "add", "-inet", cfg.deviceIpv4(), "-interface", tun.name());
+
     running = true;
     startTunToDtls();
     startNeighbourAdvertiser();
@@ -349,9 +426,9 @@ public final class Tunnel implements AutoCloseable {
 
   /**
    * Inbound pump (daemon): reads DTLS datagrams, answers keepalive PINGs (channel {@code 0x0002},
-   * type {@code 0x0001}) to hold the data gate open, and writes inbound IP packets (channels
-   * {@code 0x0001}/{@code 0x0003}) to the tun. A read error while still {@code running} is treated as
-   * a dropped link and transitions the handle to {@link State#FAILED}.
+   * type {@code 0x0001}) to hold the data gate open, and writes inbound IP packets (channels {@code
+   * 0x0001}/{@code 0x0003}) to the tun. A read error while still {@code running} is treated as a
+   * dropped link and transitions the handle to {@link State#FAILED}.
    */
   private void startDtlsToTun() {
     Thread t =
@@ -381,7 +458,8 @@ public final class Tunnel implements AutoCloseable {
                       }
                     }
                   }
-                  case 0x0001, 0x0003 -> { // an IP packet (v6 = device traffic; v4 unused but harmless) -> tun
+                  case 0x0001,
+                      0x0003 -> { // an inbound IP packet (v6 service traffic / v4 SMB) -> tun
                     try {
                       tun.write(rx, 2, r - 2);
                     } catch (Throwable ignore) {
@@ -398,8 +476,8 @@ public final class Tunnel implements AutoCloseable {
 
   /**
    * Outbound pump (daemon): reads IP packets off the tun, tags them by IP version ({@code 0x0001}
-   * for IPv6, {@code 0x0003} for IPv4), and writes them to the DTLS channel. Link-local multicast is
-   * dropped (only noise on the point-to-point tunnel).
+   * for IPv6, {@code 0x0003} for IPv4), and writes them to the DTLS channel. Link-local multicast
+   * is dropped (only noise on the point-to-point tunnel).
    */
   private void startTunToDtls() {
     Thread t =
@@ -457,9 +535,9 @@ public final class Tunnel implements AutoCloseable {
   }
 
   /**
-   * Builds an unsolicited ICMPv6 Neighbour Advertisement (type 136) announcing {@link #ourUla} to the
-   * device, with a correct checksum over the IPv6 pseudo-header, so the device's neighbour cache stays
-   * populated and it routes return traffic to us over the tunnel.
+   * Builds an unsolicited ICMPv6 Neighbour Advertisement (type 136) announcing {@link #ourUla} to
+   * the device, with a correct checksum over the IPv6 pseudo-header, so the device's neighbour
+   * cache stays populated and it routes return traffic to us over the tunnel.
    *
    * @return the 64-byte IPv6 packet (40-byte header + 24-byte NA), ready to tag with channel 0x0001
    */
@@ -493,8 +571,8 @@ public final class Tunnel implements AutoCloseable {
   /**
    * The one-shot lifecycle transition out of a live/connecting state: records {@code target} and
    * {@code cause}, stops the data-plane threads, closes the transports, and (when {@code notify})
-   * fires {@link #onClosed} once with {@code cause}. A second call is a no-op, so a user {@link #close}
-   * racing a drop resolves to whichever happens first.
+   * fires {@link #onClosed} once with {@code cause}. A second call is a no-op, so a user {@link
+   * #close} racing a drop resolves to whichever happens first.
    */
   private void stop(State target, Throwable cause, boolean notify) {
     Consumer<Throwable> listener;
@@ -514,7 +592,9 @@ public final class Tunnel implements AutoCloseable {
     }
   }
 
-  /** Closes the utun, DTLS, UDP, and TLS transports. Best-effort and idempotent (all null-guarded). */
+  /**
+   * Closes the utun, DTLS, UDP, and TLS transports. Best-effort and idempotent (all null-guarded).
+   */
   private void teardown() {
     if (tun != null) tun.close();
     try {
@@ -532,40 +612,15 @@ public final class Tunnel implements AutoCloseable {
     }
   }
 
-  /** Runs a local command (ifconfig/route), inheriting stdio; logs a non-zero exit but never throws. */
-  private static void runCmd(String... args) {
-    try {
-      int rc = new ProcessBuilder(args).inheritIO().start().waitFor();
-      if (rc != 0) System.out.println("cmd rc=" + rc + ": " + String.join(" ", args));
-    } catch (Throwable t) {
-      System.out.println("cmd failed: " + String.join(" ", args) + " : " + t);
-    }
-  }
-
-  /**
-   * Demo entry point: open a tunnel to the device at {@code args[0]} (default {@code 192.168.1.118})
-   * with the bundled client identity, print the resolved ULAs and how to use them, and park until
-   * interrupted or the link drops.
-   */
-  static void main(String[] args) throws Throwable {
-    String host = args.length > 0 ? args[0] : "192.168.1.118";
-    CountDownLatch stopped = new CountDownLatch(1);
-    try (Tunnel t =
-        Tunnel.open(
-            TunnelConfig.fromClasspath(host),
-            cause -> {
-              System.out.println(cause == null ? "tunnel closed" : "tunnel dropped: " + cause);
-              stopped.countDown();
-            })) {
-      System.out.println();
-      System.out.println("tunnel up on " + t.tunInterface());
-      System.out.println("  device ULA : " + t.deviceUla());
-      System.out.println("  our ULA    : " + t.ourUla());
-      System.out.println();
-      System.out.println("The device ULA is the device's address on this tunnel; reach its Wi-Fi");
-      System.out.println("services at  https://[<device ULA>]:<port>/  (e.g. :8443 CGIs, :8080 WebDAV, :2708 Blend).");
-      System.out.println("Ctrl-C to stop.");
-      stopped.await(); // park until the link drops; the daemon threads carry the tunnel
-    }
+  /** Where a handle is in its lifecycle. */
+  public enum State {
+    /** Bring-up in progress (or not yet started). */
+    CONNECTING,
+    /** The data plane is live; the device ULA ({@link #deviceUla()}) is reachable. */
+    UP,
+    /** Torn down by {@link #close} (or an interim {@link #restart} stop). */
+    CLOSED,
+    /** The link dropped on its own; see {@link #failure()}. */
+    FAILED
   }
 }

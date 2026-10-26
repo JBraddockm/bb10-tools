@@ -28,13 +28,13 @@ class TunnelConfigTest {
   class FromClasspath {
 
     @Test
-    @DisplayName("applies the host and the defaults (control 1111, loopback IPv4)")
+    @DisplayName("applies the host and the defaults (control 1111, link-local 169.254/16 IPv4)")
     void appliesTheHostAndDefaults() {
       TunnelConfig cfg = TunnelConfig.fromClasspath("192.168.1.118");
       assertThat(cfg.host()).isEqualTo("192.168.1.118");
       assertThat(cfg.controlPort()).isEqualTo(1111);
-      assertThat(cfg.pcIpv4()).isEqualTo("127.0.0.2");
-      assertThat(cfg.deviceIpv4()).isEqualTo("127.0.0.1");
+      assertThat(cfg.pcIpv4()).isEqualTo("169.254.1.2");
+      assertThat(cfg.deviceIpv4()).isEqualTo("169.254.1.1");
       assertThat(cfg.certChainDer()).isNotEmpty();
       assertThat(cfg.privateKeyDer()).isNotEmpty();
     }
