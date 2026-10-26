@@ -223,15 +223,25 @@ public final class DeviceSession implements ServiceSession {
   }
 
   /**
-   * Logs in. A session that relies on the certificate alone never answers a password challenge: if
-   * the device asks for a password, that is reported as a warning and the session carries on with
-   * the certificate, without share credentials. For every other kind of session the question is an
-   * error.
+   * The address at which the device's Samba share is reachable, regardless of how this session
+   * connected: USB link-local over USB, fixed {@code 169.254.1.1} over the tunnel.
    */
+  private String smbHost() {
+    return target.path() == ConnectionPath.TUNNEL ? "169.254.1.1" : target.host();
+  }
+
   private SmbCredentials login(CgiTransport fresh, CommandListener listener)
       throws LoginException, IOException {
     try {
-      return Login.perform(fresh).orElse(null);
+      var credentials = Login.perform(fresh).orElse(null);
+      return credentials != null
+          ? new SmbCredentials(
+              credentials.user(),
+              credentials.password(),
+              credentials.workgroup(),
+              credentials.netBios(),
+              smbHost())
+          : null;
     } catch (PasswordRequiredException asked) {
       if (!target.authentication().certificateAlone()) {
         throw asked;

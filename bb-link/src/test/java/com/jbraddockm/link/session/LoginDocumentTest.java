@@ -212,14 +212,14 @@ class LoginDocumentTest {
     @DisplayName("are read from the elements, with the workgroup and the NetBIOS name")
     void areReadFromElements() throws Exception {
       assertThat(read("login-document--success-with-share.xml").smb())
-          .contains(new SmbCredentials("dtm", "abc123", "WORKGROUP", "BLACKBERRY"));
+          .contains(new SmbCredentials("dtm", "abc123", "WORKGROUP", "BLACKBERRY", ""));
     }
 
     @Test
     @DisplayName("are read from the attributes of Credentials when there are no elements")
     void areReadFromAttributes() throws Exception {
       assertThat(read("login-document--share-as-attributes.xml").smb())
-          .contains(new SmbCredentials("dtm", "abc123", null, null));
+          .contains(new SmbCredentials("dtm", "abc123", null, null, ""));
     }
 
     @Test

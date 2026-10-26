@@ -19,8 +19,11 @@ import java.util.Objects;
  * @param workgroup the workgroup; may be {@code null}
  * @param netBios the NetBIOS name exactly as the device writes it, which is the placeholder {@code
  *     %h} (the host name) on the captured device; may be {@code null}
+ * @param host the address at which the share is reachable: the connection address for USB, {@code
+ *     169.254.1.1} for the tunnel
  */
-public record SmbCredentials(String user, String password, String workgroup, String netBios) {
+public record SmbCredentials(
+    String user, String password, String workgroup, String netBios, String host) {
 
   /**
    * Validates the credentials.
@@ -30,6 +33,7 @@ public record SmbCredentials(String user, String password, String workgroup, Str
   public SmbCredentials {
     Objects.requireNonNull(user, "user");
     Objects.requireNonNull(password, "password");
+    Objects.requireNonNull(host, "host");
   }
 
   /**
@@ -39,7 +43,16 @@ public record SmbCredentials(String user, String password, String workgroup, Str
    */
   public Map<String, Object> toJson() {
     return Json.object(
-        "user", user, "password", password, "workgroup", workgroup, "netBios", netBios);
+        "user",
+        user,
+        "password",
+        password,
+        "workgroup",
+        workgroup,
+        "netBios",
+        netBios,
+        "host",
+        host);
   }
 
   /** Never reveals the password. */

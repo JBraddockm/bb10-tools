@@ -85,7 +85,8 @@ final class LoginDocument {
                       user.get(),
                       password.get(),
                       smb.childText("Workgroup").orElse(null),
-                      smb.childText("NetBios").orElse(null)));
+                      smb.childText("NetBios").orElse(null),
+                      ""));
             });
   }
 

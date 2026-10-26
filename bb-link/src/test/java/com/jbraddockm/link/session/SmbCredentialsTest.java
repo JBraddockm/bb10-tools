@@ -11,26 +11,25 @@ import org.junit.jupiter.api.Test;
 class SmbCredentialsTest {
 
   private static final SmbCredentials CREDENTIALS =
-      new SmbCredentials("dtm", "abc123", "WORKGROUP", "BLACKBERRY");
+      new SmbCredentials("dtm", "abc123", "WORKGROUP", "BLACKBERRY", "169.254.0.1");
 
   @Test
-  @DisplayName(
-      "toJson gives the user, the password, the workgroup and the NetBIOS name: the caller asked"
-          + " for them")
+  @DisplayName("toJson gives user, password, workgroup, NetBIOS name and host address")
   void toJsonGivesEverything() {
     assertThat(CREDENTIALS.toJson())
         .containsEntry("user", "dtm")
         .containsEntry("password", "abc123")
         .containsEntry("workgroup", "WORKGROUP")
-        .containsEntry("netBios", "BLACKBERRY");
+        .containsEntry("netBios", "BLACKBERRY")
+        .containsEntry("host", "169.254.0.1");
     assertThat(CREDENTIALS.toJson().keySet())
-        .containsExactly("user", "password", "workgroup", "netBios");
+        .containsExactly("user", "password", "workgroup", "netBios", "host");
   }
 
   @Test
   @DisplayName("toJson gives null for a workgroup and a NetBIOS name that the device did not give")
   void toJsonGivesNullForWhatIsMissing() {
-    assertThat(new SmbCredentials("dtm", "abc123", null, null).toJson())
+    assertThat(new SmbCredentials("dtm", "abc123", null, null, "169.254.0.1").toJson())
         .containsEntry("workgroup", null)
         .containsEntry("netBios", null);
   }
@@ -47,10 +46,13 @@ class SmbCredentialsTest {
   @DisplayName("a user and a password are required")
   void aUserAndAPasswordAreRequired() {
     assertThatNullPointerException()
-        .isThrownBy(() -> new SmbCredentials(null, "x", null, null))
+        .isThrownBy(() -> new SmbCredentials(null, "x", null, null, "169.254.0.1"))
         .withMessage("user");
     assertThatNullPointerException()
-        .isThrownBy(() -> new SmbCredentials("x", null, null, null))
+        .isThrownBy(() -> new SmbCredentials("x", null, null, null, "169.254.0.1"))
         .withMessage("password");
+    assertThatNullPointerException()
+        .isThrownBy(() -> new SmbCredentials("x", "y", null, null, null))
+        .withMessage("host");
   }
 }

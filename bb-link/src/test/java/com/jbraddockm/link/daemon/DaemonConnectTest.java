@@ -244,7 +244,8 @@ class DaemonConnectTest {
           .containsEntry("user", "dtm")
           .containsEntry("password", device.currentSharePassword())
           .containsEntry("workgroup", "WORKGROUP")
-          .containsEntry("netBios", "%h");
+          .containsEntry("netBios", "%h")
+          .containsEntry("host", "127.0.0.1");
     }
 
     @Test
