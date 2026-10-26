@@ -1,7 +1,1 @@
-{
-  "percent": 50,
-  "phase": "uploading",
-  "bytesDone": 512,
-  "bytesTotal": 1024,
-  "item": "app.bar"
-}
+{"percent":50,"phase":"uploading","bytesDone":512,"bytesTotal":1024,"item":"app.bar"}

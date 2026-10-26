@@ -1,4 +1,1 @@
-{
-  "code": "IO_ERROR",
-  "message": "no space left"
-}
+{"code":"IO_ERROR","message":"no space left"}

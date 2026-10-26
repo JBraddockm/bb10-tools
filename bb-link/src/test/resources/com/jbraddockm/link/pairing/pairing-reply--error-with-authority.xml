@@ -1,20 +1,20 @@
 <RimTabletResponse>
-    <Pairing>
-        <Status>Error</Status>
-        <ErrorDescription>Refused</ErrorDescription>
-        -----BEGIN CERTIFICATE-----
-        MIICHDCCAX+gAwIBAgIUWCMyXNBo1DYLFnCiOW+rgpPt04kwCQYHKoZIzj0EATAg
-        MR4wHAYDVQQDDBVCbGFja0JlcnJ5IFswMDAwMDAwMF0wIBcNMjYxMDE4MjIzMzI1
-        WhgPMjA2MjA1MjIyMjMzMjVaMCAxHjAcBgNVBAMMFUJsYWNrQmVycnkgWzAwMDAw
-        MDAwXTCBmzAQBgcqhkjOPQIBBgUrgQQAIwOBhgAEAMC/VlGBJb2vvbnKBv9cz8Zk
-        08t8F3GDE60qqBhLPNNeAMmLw8QK9DZwTjTMpV1G7hm9YM82sRygPRuF7UbC+pZs
-        AVFDg8N5a6W3UE9wAOP7mvUwscWaPSC0guArF0LjNlhtlZDWAMWW3+XpJSQcHvKb
-        CRaCXFpxjDc31wodUtpS5oH4o1MwUTAdBgNVHQ4EFgQUmbz7e93Vg3Ruskj37svZ
-        E4FItbQwHwYDVR0jBBgwFoAUmbz7e93Vg3Ruskj37svZE4FItbQwDwYDVR0TAQH/
-        BAUwAwEB/zAJBgcqhkjOPQQBA4GLADCBhwJCAPSJAwKUOBSfrh9iTlhJTOjDod9l
-        xcwIZoMf6OIE+oOdrxaw5k2+1ulP2TCX7VT66b/N/MK8vpzQSMYi5n3p4jbVAkFG
-        sglaVtAIlb7uV4165Rpw5wdo2DViezEKXTKMmRTfPpXSsfArGNz+5yABo68rzfrj
-        S/lVOpm+bhHhKNuhKUlWag==
-        -----END CERTIFICATE-----
-    </Pairing>
+<Pairing>
+<Status>Error</Status>
+<ErrorDescription>Refused</ErrorDescription>
+-----BEGIN CERTIFICATE-----
+MIICHDCCAX+gAwIBAgIUWCMyXNBo1DYLFnCiOW+rgpPt04kwCQYHKoZIzj0EATAg
+MR4wHAYDVQQDDBVCbGFja0JlcnJ5IFswMDAwMDAwMF0wIBcNMjYxMDE4MjIzMzI1
+WhgPMjA2MjA1MjIyMjMzMjVaMCAxHjAcBgNVBAMMFUJsYWNrQmVycnkgWzAwMDAw
+MDAwXTCBmzAQBgcqhkjOPQIBBgUrgQQAIwOBhgAEAMC/VlGBJb2vvbnKBv9cz8Zk
+08t8F3GDE60qqBhLPNNeAMmLw8QK9DZwTjTMpV1G7hm9YM82sRygPRuF7UbC+pZs
+AVFDg8N5a6W3UE9wAOP7mvUwscWaPSC0guArF0LjNlhtlZDWAMWW3+XpJSQcHvKb
+CRaCXFpxjDc31wodUtpS5oH4o1MwUTAdBgNVHQ4EFgQUmbz7e93Vg3Ruskj37svZ
+E4FItbQwHwYDVR0jBBgwFoAUmbz7e93Vg3Ruskj37svZE4FItbQwDwYDVR0TAQH/
+BAUwAwEB/zAJBgcqhkjOPQQBA4GLADCBhwJCAPSJAwKUOBSfrh9iTlhJTOjDod9l
+xcwIZoMf6OIE+oOdrxaw5k2+1ulP2TCX7VT66b/N/MK8vpzQSMYi5n3p4jbVAkFG
+sglaVtAIlb7uV4165Rpw5wdo2DViezEKXTKMmRTfPpXSsfArGNz+5yABo68rzfrj
+S/lVOpm+bhHhKNuhKUlWag==
+-----END CERTIFICATE-----
+</Pairing>
 </RimTabletResponse>
