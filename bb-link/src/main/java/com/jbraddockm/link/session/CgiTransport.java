@@ -66,6 +66,10 @@ final class CgiTransport implements AutoCloseable {
     return new KeyManager[] {new FixedClientKeyManager(PemIdentity.load(source))};
   }
 
+  private static String valueOf(Header header) {
+    return header == null ? null : header.getValue();
+  }
+
   DeviceTarget target() {
     return target;
   }
@@ -149,23 +153,24 @@ final class CgiTransport implements AutoCloseable {
     HttpConnectionParams.setSoTimeout(request.getParams(), (int) readTimeout.toMillis());
     var cookieNames =
         cookies.getCookies().stream().map(cookie -> cookie.getName()).sorted().toList();
-    var response = client.execute(request, context);
-    HttpEntity entity = response.getEntity();
-    var bytes = entity == null ? new byte[0] : EntityUtils.toByteArray(entity);
-    var contentType = response.getFirstHeader("Content-Type");
-    var setCookie = response.getFirstHeader("Set-Cookie");
-    var result =
-        new CgiResponse(
-            response.getStatusLine().getStatusCode(),
-            valueOf(contentType),
-            new String(bytes, StandardCharsets.UTF_8),
-            valueOf(setCookie));
-    observer.onExchange(requestLine, requestBody, cookieNames, result);
-    return result;
-  }
-
-  private static String valueOf(Header header) {
-    return header == null ? null : header.getValue();
+    try {
+      var response = client.execute(request, context);
+      HttpEntity entity = response.getEntity();
+      var bytes = entity == null ? new byte[0] : EntityUtils.toByteArray(entity);
+      var contentType = response.getFirstHeader("Content-Type");
+      var setCookie = response.getFirstHeader("Set-Cookie");
+      var result =
+          new CgiResponse(
+              response.getStatusLine().getStatusCode(),
+              valueOf(contentType),
+              new String(bytes, StandardCharsets.UTF_8),
+              valueOf(setCookie));
+      observer.onExchange(requestLine, requestBody, cookieNames, result);
+      return result;
+    } catch (IOException failure) {
+      observer.onFailedExchange(requestLine, requestBody, cookieNames, failure);
+      throw failure;
+    }
   }
 
   @Override

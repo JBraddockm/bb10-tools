@@ -64,4 +64,32 @@ public final class TraceRecorder implements ExchangeObserver {
       System.err.println("bb-link: could not write trace " + file + ": " + failure.getMessage());
     }
   }
+
+  @Override
+  public void onFailedExchange(
+      String requestLine, String requestBody, List<String> cookieNames, IOException failure) {
+    var file = directory.resolve("%04d.txt".formatted(counter.incrementAndGet()));
+    var content =
+        ">>> "
+            + requestLine
+            + (cookieNames.isEmpty()
+                ? ""
+                : "\n>>> Cookie: "
+                    + cookieNames.stream()
+                        .map(name -> name + "=***")
+                        .collect(Collectors.joining("; ")))
+            + "\n"
+            + requestBody
+            + "\n\n<<< "
+            + failure.getClass().getSimpleName()
+            + ": "
+            + (failure.getMessage() == null ? "(no message)" : failure.getMessage())
+            + "\n";
+    try {
+      Files.writeString(file, Scrub.identifiers(content), StandardCharsets.UTF_8);
+    } catch (IOException writeFailure) {
+      System.err.println(
+          "bb-link: could not write trace " + file + ": " + writeFailure.getMessage());
+    }
+  }
 }

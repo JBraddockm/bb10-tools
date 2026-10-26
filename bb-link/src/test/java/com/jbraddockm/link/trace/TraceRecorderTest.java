@@ -14,6 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import org.apache.http.NoHttpResponseException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,48 @@ class TraceRecorderTest {
 
   private String file(int number) throws Exception {
     return Files.readString(folder.resolve("%04d.txt".formatted(number)));
+  }
+
+  @Test
+  @DisplayName(
+      "says on the error output that a file could not be written, and goes on: a trace must never"
+          + " end an exchange")
+  void aFileThatCannotBeWritten() throws Exception {
+    var recorder = new TraceRecorder(folder);
+    Files.delete(folder);
+    Files.writeString(folder, "this is now a file, not a folder");
+    var captured = new ByteArrayOutputStream();
+    var original = System.err;
+    System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+    try {
+      recorder.onExchange("GET /x", "", List.of(), new CgiResponse(200, null, "", null));
+    } finally {
+      System.setErr(original);
+    }
+
+    assertThat(captured.toString(StandardCharsets.UTF_8))
+        .startsWith("bb-link: could not write trace " + folder.resolve("0001.txt") + ": ");
+  }
+
+  @Test
+  @DisplayName(
+      "writes a numbered file for a failed exchange: the request line and the exception class and"
+          + " message, but no response body")
+  void aFailedExchangeIsRecorded() throws Exception {
+    var recorder = new TraceRecorder(folder);
+    recorder.onFailedExchange(
+        "POST /cgi-bin/wipe.cgi",
+        "wipe=wipe",
+        List.of(),
+        new NoHttpResponseException("The target server failed to respond"));
+
+    var file = folder.resolve("0001.txt");
+    assertThat(file).exists();
+    var content = Files.readString(file, StandardCharsets.UTF_8);
+    assertThat(content).startsWith(">>> POST /cgi-bin/wipe.cgi");
+    assertThat(content)
+        .contains("<<< NoHttpResponseException: The target server failed to respond");
+    assertThat(content).doesNotContain("HTTP");
   }
 
   @Nested
@@ -191,26 +234,5 @@ class TraceRecorderTest {
                   .map(folder::resolve))
           .allMatch(Files::exists);
     }
-  }
-
-  @Test
-  @DisplayName(
-      "says on the error output that a file could not be written, and goes on: a trace must never"
-          + " end an exchange")
-  void aFileThatCannotBeWritten() throws Exception {
-    var recorder = new TraceRecorder(folder);
-    Files.delete(folder);
-    Files.writeString(folder, "this is now a file, not a folder");
-    var captured = new ByteArrayOutputStream();
-    var original = System.err;
-    System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
-    try {
-      recorder.onExchange("GET /x", "", List.of(), new CgiResponse(200, null, "", null));
-    } finally {
-      System.setErr(original);
-    }
-
-    assertThat(captured.toString(StandardCharsets.UTF_8))
-        .startsWith("bb-link: could not write trace " + folder.resolve("0001.txt") + ": ");
   }
 }

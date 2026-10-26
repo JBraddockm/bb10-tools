@@ -40,13 +40,15 @@ import org.junit.jupiter.api.io.TempDir;
 @DisplayName("CgiTransport: what goes over the wire to a device")
 class CgiTransportTest {
 
-  private record Observed(
-      String requestLine, String requestBody, List<String> cookieNames, CgiResponse response) {}
-
+  private final List<Observed> observed = new ArrayList<>();
+  private final List<FailedObservation> observedFailures = new ArrayList<>();
   @TempDir private Path folder;
   private ScriptedServer server;
   private CgiTransport transport;
-  private final List<Observed> observed = new ArrayList<>();
+
+  private static String answerXml() {
+    return Resources.text(CgiTransportTest.class, "transport--answer.xml");
+  }
 
   private DeviceTarget plain(int port) {
     return new DeviceTarget(
@@ -59,8 +61,19 @@ class CgiTransportTest {
     transport =
         new CgiTransport(
             plain(server.port()),
-            (line, body, cookies, response) ->
-                observed.add(new Observed(line, body, cookies, response)));
+            new ExchangeObserver() {
+              @Override
+              public void onExchange(
+                  String line, String body, List<String> cookies, CgiResponse response) {
+                observed.add(new Observed(line, body, cookies, response));
+              }
+
+              @Override
+              public void onFailedExchange(
+                  String line, String body, List<String> cookies, IOException failure) {
+                observedFailures.add(new FailedObservation(line, body, cookies, failure));
+              }
+            });
   }
 
   @AfterEach
@@ -69,9 +82,38 @@ class CgiTransportTest {
     server.close();
   }
 
-  private static String answerXml() {
-    return Resources.text(CgiTransportTest.class, "transport--answer.xml");
+  @Test
+  @DisplayName("says which target it is for")
+  void saysItsTarget() {
+    assertThat(transport.target()).isEqualTo(plain(server.port()));
   }
+
+  @Test
+  @DisplayName(
+      "takes the certificate of any device over HTTPS, though no authority lists it and the address"
+          + " is not in it")
+  void acceptsAnyDeviceCertificate() throws Exception {
+    try (var device = new TlsTestDevice();
+        var secure =
+            new CgiTransport(
+                new DeviceTarget(
+                    "127.0.0.1",
+                    device.port(),
+                    TransportScheme.HTTPS,
+                    new Authentication.NoPassword()),
+                ExchangeObserver.NONE)) {
+      var response = secure.get("/cgi-bin/login.cgi?request_version=1");
+
+      assertThat(response.statusCode()).isEqualTo(200);
+      assertThat(response.body()).contains("Success");
+    }
+  }
+
+  private record Observed(
+      String requestLine, String requestBody, List<String> cookieNames, CgiResponse response) {}
+
+  private record FailedObservation(
+      String requestLine, String requestBody, List<String> cookieNames, IOException failure) {}
 
   @Nested
   @DisplayName("a GET")
@@ -296,6 +338,20 @@ class CgiTransportTest {
       assertThat(observed.getFirst().requestBody())
           .isEqualTo("(application/octet-stream, 10 bytes: package.bar)");
     }
+
+    @Test
+    @DisplayName("a failed exchange is observed: the request line and the failure, but no response")
+    void aFailedExchangeIsObserved() {
+      server.dropConnection();
+      var form = CgiRequest.Form.to(Endpoint.WIPE).echo(FormField.WIPE);
+
+      assertThatThrownBy(() -> transport.send(form)).isInstanceOf(NoHttpResponseException.class);
+
+      assertThat(observed).isEmpty();
+      assertThat(observedFailures).hasSize(1);
+      assertThat(observedFailures.getFirst().requestLine()).isEqualTo("POST /cgi-bin/wipe.cgi");
+      assertThat(observedFailures.getFirst().failure()).isInstanceOf(NoHttpResponseException.class);
+    }
   }
 
   @Nested
@@ -361,33 +417,6 @@ class CgiTransportTest {
       closing.close();
 
       assertThatThrownBy(() -> closing.get("/cgi-bin/x")).isInstanceOf(IllegalStateException.class);
-    }
-  }
-
-  @Test
-  @DisplayName("says which target it is for")
-  void saysItsTarget() {
-    assertThat(transport.target()).isEqualTo(plain(server.port()));
-  }
-
-  @Test
-  @DisplayName(
-      "takes the certificate of any device over HTTPS, though no authority lists it and the address"
-          + " is not in it")
-  void acceptsAnyDeviceCertificate() throws Exception {
-    try (var device = new TlsTestDevice();
-        var secure =
-            new CgiTransport(
-                new DeviceTarget(
-                    "127.0.0.1",
-                    device.port(),
-                    TransportScheme.HTTPS,
-                    new Authentication.NoPassword()),
-                ExchangeObserver.NONE)) {
-      var response = secure.get("/cgi-bin/login.cgi?request_version=1");
-
-      assertThat(response.statusCode()).isEqualTo(200);
-      assertThat(response.body()).contains("Success");
     }
   }
 }
