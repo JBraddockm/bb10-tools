@@ -34,28 +34,39 @@ Every command is `[0x00][cmd][u16 len][payload]` on the TLS stream (`len` big-en
 Responses use the same framing with the response command id. Async **NOTIFY** (`0x05`) frames may
 arrive at any time and are skipped; an **ERROR** (`0x04`) frame aborts.
 
-| cmd | name | resp | notes |
-|-----|------|------|-------|
-| `0x00` | INIT | `0x01` | fixed 8-byte body `24 05 20 03 00 01 00 00`; the device echoes it. |
-| `0x02` | CONNECT | `0x03` | 20-byte body `[16B our ULA][u16 our UDP port][00 01]`. |
-| `0x0a` | IPV4_INQUIRE | `0x0b` | queries IPv4 sub-protocol state. |
-| `0x08` | IPV4_DISABLE | `0x09` | — |
-| `0x06` | IPV4_ENABLE | `0x07` | carries our / device inner IPv4. |
-| `0x05` | NOTIFY | — | async; skipped. |
-| `0x04` | ERROR | — | aborts. |
+| cmd    | name         | resp   | notes                                                                                       |
+|--------|--------------|--------|---------------------------------------------------------------------------------------------|
+| `0x00` | INIT         | `0x01` | fixed 8-byte body `24 05 20 03 00 01 00 00`; the device echoes it.                          |
+| `0x02` | CONNECT      | `0x03` | 20-byte body `[16B our ULA][u16 our UDP port][00 01]`.                                      |
+| `0x0a` | IPV4_INQUIRE | `0x0b` | queries IPv4 sub-protocol state.                                                            |
+| `0x08` | IPV4_DISABLE | `0x09` | —                                                                                           |
+| `0x06` | IPV4_ENABLE  | `0x07` | carries our / device inner IPv4 (`169.254/16`); the device binds its inner IPv4 to `bptp0`. |
+| `0x05` | NOTIFY       | —      | async; skipped.                                                                             |
+| `0x04` | ERROR        | —      | aborts.                                                                                     |
 
 ### 2.2 Sequence
 
 1. **INIT** (`0x00`) → **INIT_RESP** (`0x01`): the device echoes the fixed 8-byte body.
 2. **CONNECT** (`0x02`) → **CONNECT_RESP** (`0x03`):
-   - Request body (20 B): `[16B our ULA][u16 our UDP port][00 01]`. **Our ULA** is derived from the
-     client certificate (§4); it is the identity the device verifies and routes back to, so it must
-     match the enrolled cert.
-   - Response body: `[16B device ULA][u16 DTLS data port][u16 flags]`. The **device ULA** (stable
-     across sessions) and the **per-session DTLS port** are read here — neither is hardcoded.
-3. **IPv4 sub-protocol**: `IPV4_INQUIRE` (`0x0a`) → `0x0b`, then `IPV4_DISABLE` (`0x08`) and
-   `IPV4_ENABLE` (`0x06`) carrying our/device inner IPv4. (The device routes over IPv6; the inner-IPv4
-   plane is negotiated but not bridged by this client.)
+    - Request body (20 B): `[16B our ULA][u16 our UDP port][00 01]`. **Our ULA** is derived from the
+      client certificate (§4); it is the identity the device verifies and routes back to, so it must
+      match the enrolled cert.
+    - Response body: `[16B device ULA][u16 DTLS data port][u16 flags]`. The **device ULA** (stable
+      across sessions) and the **per-session DTLS port** are read here — neither is hardcoded.
+3. **IPv4 sub-protocol** (the SMB network drive): `IPV4_INQUIRE` (`0x0a`) → `0x0b`, then
+   `IPV4_DISABLE` (`0x08`) to clear stale state and `IPV4_ENABLE` (`0x06`) carrying our and the
+   device's inner IPv4 — both from link-local `169.254.0.0/16` (the device validates that prefix).
+   The device binds its inner IPv4 to `bptp0`, so its SMB share (smbd, bound to `bptp0`) becomes
+   reachable at `[deviceIpv4]:445` over the tunnel; the client assigns its own inner IPv4 to the utun (§3). This
+   address — the **SMB host** — is exposed by `Tunnel.deviceIpv4()` and is now returned to
+   callers as part of the SMB credential after login, so a client has what it needs to mount
+   `smb://[deviceIpv4]/<share>`.
+
+   > **Current limitation.** The inner-IPv4 pair is **fixed** (`169.254.1.1` device, `169.254.1.2`
+   > host). bb-link supports multiple sessions, but only one can use the IPv4/SMB plane at a time: two
+   > devices connected at once would collide on these addresses. Dynamic allocation from
+   > `169.254.0.0/16` (honouring the device's `IPV4_INQUIRE` restriction list, as the stock client
+   > does) would lift this — not done yet.
 4. **Data channel**: dial UDP to `device:<DTLS port>` and run the DTLS 1.0 mutual-auth handshake with
    the same certificate/cipher. The tunnel is then live (§3).
 
@@ -63,11 +74,11 @@ arrive at any time and are skipped; an **ERROR** (`0x04`) frame aborts.
 
 After the DTLS handshake the channel carries IP packets, each prefixed by a **2-byte channel tag**:
 
-| tag | meaning |
-|-----|---------|
-| `0x0001` | IPv6 packet |
+| tag      | meaning                    |
+|----------|----------------------------|
+| `0x0001` | IPv6 packet                |
 | `0x0002` | control / ping (keepalive) |
-| `0x0003` | IPv4 packet |
+| `0x0003` | IPv4 packet                |
 
 - **utun bridge**: inbound `0x0001`/`0x0003` payloads are written to the utun (2-byte tag stripped);
   outbound IP packets from the utun are tagged and sent over DTLS. IPv6 multicast is dropped.

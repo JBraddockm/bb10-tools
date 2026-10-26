@@ -7,6 +7,11 @@ is reachable at its inner tunnel address (ULA) — the device-manager CGIs (HTTP
 WebDAV (`:8080`), Blend (`:2708`), discovery (`:80`) — each on its own port. It is not specific to
 Blend.
 
+The tunnel also brings up a link-local inner IPv4, so the device's **SMB share** (the Link network
+drive) is reachable at `smb://169.254.1.1/` — that address is returned alongside the login's SMB
+credentials. The inner IPv4 is currently fixed, so only one device can use the SMB plane at a time (see [
+`PROTOCOL.md`](PROTOCOL.md) §2.2).
+
 The wire protocol is documented in [`PROTOCOL.md`](PROTOCOL.md). This README is enough to
 build and run the tunnel.
 
@@ -156,15 +161,25 @@ Tunnel t = Tunnel.open(
         TunnelConfig.fromClasspath("192.168.1.118"),
         cause -> log.warn("tunnel down: {}", cause));   // onClosed: null = clean close, else drop cause
 
-t.state();     // CONNECTING | UP | CLOSED | FAILED
+t.
 
-t.isOpen();    // true while UP
+state();     // CONNECTING | UP | CLOSED | FAILED
 
-t.failure();   // the cause of a FAILED drop (else null)
+t.
 
-t.restart();   // tear down and bring the same handle back up (e.g. after a drop)
+isOpen();    // true while UP
 
-t.close();     // idempotent; AutoCloseable
+t.
+
+failure();   // the cause of a FAILED drop (else null)
+
+t.
+
+restart();   // tear down and bring the same handle back up (e.g. after a drop)
+
+t.
+
+close();     // idempotent; AutoCloseable
 
 ```
 

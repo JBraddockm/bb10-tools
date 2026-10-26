@@ -17,6 +17,7 @@ import com.jbraddockm.link.pairing.CertificateRetrieval;
 import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.GetDeviceProperties;
+import com.jbraddockm.link.session.ConnectionPath;
 import com.jbraddockm.link.session.DeviceSession;
 import com.jbraddockm.link.session.DeviceTarget;
 import com.jbraddockm.link.session.ExchangeObserver;
@@ -139,7 +140,13 @@ public final class LinkService implements Service<DeviceSession> {
     }
     return switch (session.execute(new GetDeviceProperties(), reply)) {
       case CommandOutcome.Succeeded<DeviceProperties>(var properties, _) -> {
-        var summary = DeviceSummary.of(properties, readPin(session, reply));
+        // wipe.cgi closes the connection without responding over the tunnel [verified 2026-10-26];
+        // skip the PIN read on that path rather than wasting two attempts and logging a warn.
+        var pin =
+            session.target().path() != ConnectionPath.TUNNEL
+                ? readPin(session, reply)
+                : Optional.<DevicePin>empty();
+        var summary = DeviceSummary.of(properties, pin);
         yield new Establishment.Established(described(session, Optional.of(summary)));
       }
       case CommandOutcome.Failed<DeviceProperties>(var error, _, _) ->
