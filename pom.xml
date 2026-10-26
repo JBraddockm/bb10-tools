@@ -32,6 +32,10 @@
 
         <native.maven.plugin.version>0.11.0</native.maven.plugin.version>
 
+        <!-- Where `package` collects each module's runnable, so the binaries sit in one place and
+             survive `mvn clean` (which only wipes each module's target/). -->
+        <build.collect.dir>${maven.multiModuleProjectDirectory}/build</build.collect.dir>
+
         <!-- Testing. The tests are written against the API that JUnit 5.9 and AssertJ 3.14 share with
              these versions, which is what could be run where they were written. -->
         <junit.version>5.11.4</junit.version>
@@ -241,10 +245,6 @@
                             <buildArg>
                                 -J-Djdk.tls.client.protocols=TLSv1
                             </buildArg>
-
-                            <buildArg>
-                                -H:+PrintAnalysisCallTree
-                            </buildArg>
                         </buildArgs>
                     </configuration>
                 </plugin>
@@ -279,6 +279,35 @@
                             <goals>
                                 <goal>report</goal>
                             </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Collects the module's native executable into the root build/ folder, after
+                     native-image. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>3.1.0</version>
+                    <executions>
+                        <execution>
+                            <id>collect-to-build</id>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>run</goal>
+                            </goals>
+                            <configuration>
+                                <target>
+                                    <mkdir dir="${build.collect.dir}"/>
+                                    <!-- Per-device certs/identities live here, under <PIN>/ (created at
+                                         run time by the tools). Established so the layout is ready. -->
+                                    <mkdir dir="${build.collect.dir}/devices"/>
+                                    <copy file="${project.build.directory}/${native.image.name}"
+                                          todir="${build.collect.dir}" overwrite="true"/>
+                                    <chmod file="${build.collect.dir}/${native.image.name}"
+                                           perm="ugo+rx"/>
+                                </target>
+                            </configuration>
                         </execution>
                     </executions>
                 </plugin>

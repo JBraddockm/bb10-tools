@@ -30,6 +30,12 @@
             <artifactId>bb-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- mDNS/DNS-SD: advertise the bp2p _friendly service so a paired device shows our name. -->
+        <dependency>
+            <groupId>org.jmdns</groupId>
+            <artifactId>jmdns</artifactId>
+            <version>3.6.1</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -80,6 +86,11 @@
                         </buildArg>
                     </buildArgs>
                 </configuration>
+            </plugin>
+            <!-- Copy the native executable into the root build/ folder (config in the parent). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

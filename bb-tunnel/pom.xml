@@ -137,6 +137,11 @@
                     </buildArgs>
                 </configuration>
             </plugin>
+            <!-- Copy the native executable into the root build/ folder (config in the parent). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
 
