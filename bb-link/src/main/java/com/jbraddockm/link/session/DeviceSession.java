@@ -33,14 +33,16 @@ public final class DeviceSession implements ServiceSession {
 
   private final DeviceTarget target;
   private final ExchangeObserver observer;
+  private final String tunnelSmbHost;
   private final ReentrantLock lock = new ReentrantLock();
   private CgiTransport transport;
   private SmbCredentials smbCredentials;
   private boolean closed;
 
-  private DeviceSession(DeviceTarget target, ExchangeObserver observer) {
+  private DeviceSession(DeviceTarget target, ExchangeObserver observer, String tunnelSmbHost) {
     this.target = Objects.requireNonNull(target, "target");
     this.observer = Objects.requireNonNull(observer, "observer");
+    this.tunnelSmbHost = tunnelSmbHost;
   }
 
   /**
@@ -51,7 +53,23 @@ public final class DeviceSession implements ServiceSession {
    * @return the session
    */
   public static DeviceSession forTarget(DeviceTarget target, ExchangeObserver observer) {
-    return new DeviceSession(target, observer);
+    return forTarget(target, observer, null);
+  }
+
+  /**
+   * Creates a session whose Samba share address over the Wi-Fi tunnel is {@code tunnelSmbHost} —
+   * the inner IPv4 the externally-established tunnel bound for this device — rather than the
+   * default {@code 169.254.1.1}. This is how concurrent tunnels to different devices get distinct
+   * share addresses; it has no effect on a USB session, which reaches the share at its own address.
+   *
+   * @param target the device and its password
+   * @param observer is told about every exchange
+   * @param tunnelSmbHost the tunnel's inner IPv4 for the share, or {@code null} for the default
+   * @return the session
+   */
+  public static DeviceSession forTarget(
+      DeviceTarget target, ExchangeObserver observer, String tunnelSmbHost) {
+    return new DeviceSession(target, observer, tunnelSmbHost);
   }
 
   /**
@@ -121,7 +139,7 @@ public final class DeviceSession implements ServiceSession {
    */
   public DeviceSession sibling(TransportScheme scheme, int port, Authentication authentication) {
     return new DeviceSession(
-        new DeviceTarget(target.host(), port, scheme, authentication), observer);
+        new DeviceTarget(target.host(), port, scheme, authentication), observer, tunnelSmbHost);
   }
 
   /**
@@ -224,10 +242,14 @@ public final class DeviceSession implements ServiceSession {
 
   /**
    * The address at which the device's Samba share is reachable, regardless of how this session
-   * connected: USB link-local over USB, fixed {@code 169.254.1.1} over the tunnel.
+   * connected: the connection address over USB, and over the Wi-Fi tunnel the inner IPv4 the tunnel
+   * bound for this device ({@code tunnelSmbHost}) or {@code 169.254.1.1} when none was given.
    */
-  private String smbHost() {
-    return target.path() == ConnectionPath.TUNNEL ? "169.254.1.1" : target.host();
+  String smbHost() {
+    if (target.path() == ConnectionPath.TUNNEL) {
+      return tunnelSmbHost != null ? tunnelSmbHost : "169.254.1.1";
+    }
+    return target.host();
   }
 
   private SmbCredentials login(CgiTransport fresh, CommandListener listener)

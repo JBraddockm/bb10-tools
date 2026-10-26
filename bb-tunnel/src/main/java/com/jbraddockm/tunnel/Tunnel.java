@@ -1,9 +1,13 @@
 package com.jbraddockm.tunnel;
 
+import com.jbraddockm.tunnel.broker.Tunneld;
 import java.net.*;
+import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -93,6 +97,7 @@ public final class Tunnel implements AutoCloseable {
   private volatile State state = State.CONNECTING;
   private volatile Throwable failure;
   private volatile Consumer<Throwable> onClosed;
+
   /**
    * Package-private: builds a handle in {@link State#CONNECTING} without bringing the tunnel up.
    * {@link #open} uses it and then calls {@link #bringUp}; tests use it to exercise lifecycle
@@ -182,36 +187,78 @@ public final class Tunnel implements AutoCloseable {
   }
 
   /**
-   * Demo entry point: open a tunnel to the device at {@code args[0]} (default {@code
-   * 192.168.1.118}) with the bundled client identity, print the resolved ULAs and how to use them,
-   * and park until interrupted or the link drops.
+   * Demo entry point: open a tunnel to each device named in {@code args} (default the single host
+   * {@code 192.168.1.118}) through the {@link TunnelManager}, print the coordinates a consumer
+   * connects with, and park until interrupted. The manager allocates a distinct inner-IPv4 pair per
+   * device from its pool: the first device takes the stable {@code 169.254.1.1/.2} (so a
+   * single-device SMB address stays constant), and any further devices get pooled pairs ({@code
+   * 169.254.2.1}, …) — so more than one device can be connected at once without colliding.
    */
   static void main(String[] args) throws Throwable {
-    String host = args.length > 0 ? args[0] : "192.168.1.118";
-    CountDownLatch stopped = new CountDownLatch(1);
-    try (Tunnel t =
-        Tunnel.open(
-            TunnelConfig.fromClasspath(host),
-            cause -> {
-              System.out.println(cause == null ? "tunnel closed" : "tunnel dropped: " + cause);
-              stopped.countDown();
-            })) {
-      System.out.println();
-      System.out.println("tunnel up on " + t.tunInterface());
-      System.out.println("  device ULA : " + t.deviceUla());
-      System.out.println("  our ULA    : " + t.ourUla());
-      System.out.println();
-      System.out.println("The device ULA is the device's address on this tunnel; reach its Wi-Fi");
-      System.out.println(
-          "services at  https://[<device ULA>]:<port>/  (e.g. :8443 CGIs, :8080 WebDAV, :2708 Blend).");
-      System.out.println();
-      System.out.println("  device IPv4: " + t.deviceIpv4() + " (inner, for SMB)");
-      System.out.println(
-          "The device's SMB share is at  smb://" + t.deviceIpv4() + "/  (mount with the");
-      System.out.println("login.cgi 'dtm' credentials) — the Link network drive over Wi-Fi.");
-      System.out.println("Ctrl-C to stop.");
-      stopped.await(); // park until the link drops; the daemon threads carry the tunnel
+    if (args.length > 0 && args[0].equals("serve")) {
+      // Run the tunnel-broker daemon instead of the one-shot demo: `bb-tunnel serve [socket]`.
+      Tunneld.run(args.length > 1 ? Path.of(args[1]) : Path.of(Tunneld.DEFAULT_SOCKET));
+      return;
     }
+    String[] hosts = args.length > 0 ? args : new String[] {"192.168.1.118"};
+    TunnelManager manager = new TunnelManager();
+    List<TunnelManager.Lease> leases = new ArrayList<>();
+    try {
+      for (String host : hosts) {
+        TunnelManager.Lease lease;
+        try {
+          // The first device that opens takes the stable pair; the rest get pooled pairs.
+          lease = manager.acquire(host, leases.isEmpty());
+        } catch (Throwable failure) {
+          System.out.println();
+          System.out.println("could not open a tunnel to " + host + ": " + rootCause(failure));
+          continue; // a device we cannot reach (e.g. unpaired, no cert) does not stop the others
+        }
+        leases.add(lease);
+        System.out.println();
+        System.out.println("tunnel up to " + host);
+        System.out.println("  device ULA : " + lease.deviceUla());
+        System.out.println(
+            "  SMB host   : " + lease.deviceIpv4() + "  (smb://" + lease.deviceIpv4() + "/)");
+        System.out.println(
+            "  bb-link    : bblink connect --host "
+                + lease.deviceUla()
+                + " --smb-host "
+                + lease.deviceIpv4());
+      }
+      if (leases.isEmpty()) {
+        System.out.println();
+        System.out.println("no tunnel could be opened.");
+        return;
+      }
+      System.out.println();
+      System.out.println("Reach a device's Wi-Fi services over its ULA: https://[<ULA>]:<port>/");
+      System.out.println("(e.g. :8443 CGIs, :8080 WebDAV, :2708 Blend). Ctrl-C to stop.");
+      new CountDownLatch(1).await(); // park; the daemon threads carry the tunnels until Ctrl-C
+    } finally {
+      for (int i = leases.size() - 1; i >= 0; i--) {
+        try {
+          leases.get(i).close();
+        } catch (Throwable closing) {
+          System.out.println("error closing a tunnel: " + rootCause(closing));
+        }
+      }
+    }
+  }
+
+  /** The short root-cause text of a failure, for a one-line message rather than a stack trace. */
+  private static String rootCause(Throwable error) {
+    var cause = error;
+    while (cause.getCause() != null && cause.getCause() != cause) {
+      cause = cause.getCause();
+    }
+    var text = String.valueOf(cause);
+    if (text.contains("unknown_ca")) {
+      text +=
+          "  (the device rejected the tunnel certificate — is it paired and are its certs in"
+              + " place?)";
+    }
+    return text;
   }
 
   /**

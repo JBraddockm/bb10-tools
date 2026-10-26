@@ -47,32 +47,50 @@ public record TunnelConfig(
   private static final String DEVICE_IPV4 = "169.254.1.1";
 
   /**
-   * The bundled client identity ({@code /certs/blend_chain.pem} + {@code /certs/blend_key_p8.pem}).
+   * The bundled client identity ({@code /certs/blend_chain.pem} + {@code /certs/blend_key_p8.pem})
+   * with the default stable inner-IPv4 ({@code 169.254.1.1/.2}).
    */
   public static TunnelConfig fromClasspath(String host) {
+    return fromClasspath(host, PC_IPV4, DEVICE_IPV4);
+  }
+
+  /**
+   * The bundled client identity with an explicit inner-IPv4 pair — e.g. one handed out per session
+   * by {@link InnerAddressPool} so several devices can hold concurrent tunnels without colliding.
+   */
+  public static TunnelConfig fromClasspath(String host, String pcIpv4, String deviceIpv4) {
     try {
       return new TunnelConfig(
           host,
           CONTROL_PORT,
           PemUtil.readBlocks("/certs/blend_chain.pem", "CERTIFICATE"),
           PemUtil.readBlocks("/certs/blend_key_p8.pem", "PRIVATE KEY").getFirst(),
-          PC_IPV4,
-          DEVICE_IPV4);
+          pcIpv4,
+          deviceIpv4);
     } catch (Exception e) {
       throw new IllegalStateException("bundled client identity missing from the classpath", e);
     }
   }
 
-  /** A client identity read from PEM files on disk: a cert chain (leaf first) and a PKCS#8 key. */
+  /**
+   * A client identity read from PEM files on disk (cert chain leaf-first + PKCS#8 key) with the
+   * default stable inner-IPv4 ({@code 169.254.1.1/.2}).
+   */
   public static TunnelConfig fromFiles(String host, Path chainPem, Path keyPem) {
+    return fromFiles(host, chainPem, keyPem, PC_IPV4, DEVICE_IPV4);
+  }
+
+  /** A client identity read from PEM files on disk with an explicit inner-IPv4 pair. */
+  public static TunnelConfig fromFiles(
+      String host, Path chainPem, Path keyPem, String pcIpv4, String deviceIpv4) {
     try {
       return new TunnelConfig(
           host,
           CONTROL_PORT,
           PemUtil.readBlocksFromFile(chainPem, "CERTIFICATE"),
           PemUtil.readBlocksFromFile(keyPem, "PRIVATE KEY").getFirst(),
-          PC_IPV4,
-          DEVICE_IPV4);
+          pcIpv4,
+          deviceIpv4);
     } catch (Exception e) {
       throw new IllegalStateException(
           "could not read client identity from " + chainPem + " / " + keyPem, e);

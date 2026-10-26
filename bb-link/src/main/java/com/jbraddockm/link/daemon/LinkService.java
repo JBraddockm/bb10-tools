@@ -114,7 +114,7 @@ public final class LinkService implements Service<DeviceSession> {
             scheme,
             AuthenticationReader.read(params));
     describesDevice(params); // refuses a malformed option while no session exists yet
-    return DeviceSession.forTarget(target, observer);
+    return DeviceSession.forTarget(target, observer, params.optionalString("smbHost").orElse(null));
   }
 
   /**

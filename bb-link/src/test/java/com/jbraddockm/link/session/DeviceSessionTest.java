@@ -29,9 +29,9 @@ import org.junit.jupiter.api.Test;
 @DisplayName("DeviceSession: the life of a session with a device")
 class DeviceSessionTest {
 
+  private final List<String> trace = new ArrayList<>();
   private FakeDevice device;
   private DeviceSession session;
-  private final List<String> trace = new ArrayList<>();
 
   private DeviceSession sessionFor(int port, Authentication authentication) {
     return DeviceSession.forTarget(
@@ -300,6 +300,50 @@ class DeviceSessionTest {
       quiet.close();
 
       assertThat(trace).isEmpty();
+    }
+  }
+
+  @Nested
+  @DisplayName("the SMB share address")
+  class TheSmbShareAddress {
+
+    private DeviceSession tunnelSession(String tunnelSmbHost) {
+      return DeviceSession.forTarget(
+          new DeviceTarget(
+              "fd32:5bd4:58d2:3549:b594:f946:addb:bd94",
+              DeviceTarget.DEFAULT_PORT,
+              TransportScheme.HTTPS,
+              new Authentication.Password("secret")),
+          ExchangeObserver.NONE,
+          tunnelSmbHost);
+    }
+
+    @Test
+    @DisplayName("over the tunnel defaults to 169.254.1.1 when none is given")
+    void tunnelDefaultsToTheStableAddress() {
+      assertThat(tunnelSession(null).smbHost()).isEqualTo("169.254.1.1");
+    }
+
+    @Test
+    @DisplayName("over the tunnel uses the per-session inner IPv4 when given")
+    void tunnelUsesTheGivenInnerAddress() {
+      assertThat(tunnelSession("169.254.9.1").smbHost()).isEqualTo("169.254.9.1");
+    }
+
+    @Test
+    @DisplayName("over USB is the connection address, ignoring any tunnel override")
+    void usbIsTheConnectionAddress() {
+      var usb =
+          DeviceSession.forTarget(
+              new DeviceTarget(
+                  "169.254.0.1",
+                  DeviceTarget.DEFAULT_PORT,
+                  TransportScheme.HTTPS,
+                  new Authentication.Password("secret")),
+              ExchangeObserver.NONE,
+              "169.254.9.1");
+
+      assertThat(usb.smbHost()).isEqualTo("169.254.0.1");
     }
   }
 }
