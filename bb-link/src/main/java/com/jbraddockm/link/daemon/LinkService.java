@@ -10,14 +10,13 @@ import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.daemon.Service;
 import com.jbraddockm.core.daemon.ServiceInfo;
 import com.jbraddockm.core.json.Json;
-import com.jbraddockm.link.actions.DevicePin;
-import com.jbraddockm.link.actions.GetPin;
+import com.jbraddockm.link.characteristics.DeviceCharacteristics;
+import com.jbraddockm.link.characteristics.GetDeviceCharacteristics;
 import com.jbraddockm.link.discovery.DeviceScanner;
 import com.jbraddockm.link.pairing.CertificateRetrieval;
 import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.GetDeviceProperties;
-import com.jbraddockm.link.session.ConnectionPath;
 import com.jbraddockm.link.session.DeviceSession;
 import com.jbraddockm.link.session.DeviceTarget;
 import com.jbraddockm.link.session.ExchangeObserver;
@@ -83,11 +82,12 @@ public final class LinkService implements Service<DeviceSession> {
         "smb", session.smbCredentials().map(SmbCredentials::toJson).orElse(null));
   }
 
-  private static DevicePin readPin(DeviceSession session, Reply reply) {
-    return switch (session.execute(new GetPin(), reply)) {
-      case CommandOutcome.Succeeded<DevicePin>(var pin, _) -> pin;
-      case CommandOutcome.Failed<DevicePin>(var error, _, _) -> {
-        reply.onLog(LogLevel.WARN, "Could not read the device PIN: " + error.message());
+  private static DeviceCharacteristics readCharacteristics(DeviceSession session, Reply reply) {
+    return switch (session.execute(new GetDeviceCharacteristics(), reply)) {
+      case CommandOutcome.Succeeded<DeviceCharacteristics>(var characteristics, _) ->
+          characteristics;
+      case CommandOutcome.Failed<DeviceCharacteristics>(var error, _, _) -> {
+        reply.onLog(LogLevel.WARN, "Could not read the device characteristics: " + error.message());
         yield null;
       }
     };
@@ -138,10 +138,8 @@ public final class LinkService implements Service<DeviceSession> {
     }
     return switch (session.execute(new GetDeviceProperties(), reply)) {
       case CommandOutcome.Succeeded<DeviceProperties>(var properties, _) -> {
-        // wipe.cgi closes the connection without responding over the tunnel [verified 2026-10-26];
-        // skip the PIN read on that path rather than wasting two attempts and logging a warn.
-        var pin = session.target().path() != ConnectionPath.TUNNEL ? readPin(session, reply) : null;
-        var summary = DeviceSummary.of(properties, pin);
+        var characteristics = readCharacteristics(session, reply);
+        var summary = DeviceSummary.of(properties, characteristics);
         yield new Establishment.Established(described(session, summary));
       }
       case CommandOutcome.Failed<DeviceProperties>(var error, _, _) ->

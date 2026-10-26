@@ -11,7 +11,6 @@ import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.json.Json;
-import com.jbraddockm.link.actions.GetPin;
 import com.jbraddockm.link.pairing.CertificateRetrieval;
 import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.properties.GetDeviceProperties;
@@ -120,7 +119,7 @@ class LinkServiceTest {
     void hasACommandForEachMethod() {
       assertThat(service.commands())
           .extracting(CommandSpec::wireName)
-          .hasSize(13)
+          .hasSize(14)
           .first()
           .isEqualTo("getDeviceProperties");
     }
@@ -216,14 +215,21 @@ class LinkServiceTest {
       assertThat(JsonObjects.object(described.get("device")))
           .containsEntry("name", "Test Z10")
           .containsEntry("hardwareId", "0x0a0b0c0d")
-          .containsEntry("pin", "2A3B4C5D");
+          .containsEntry("pin", "2C1E7583")
+          .containsEntry("guid", "RkFLRUdVSUQwMDAx")
+          .containsEntry("osVersion", "10.3.3.2205")
+          .containsEntry("radioVersion", "10.3.3.2206")
+          .containsEntry("tunnelUp", true)
+          .containsEntry("developerMode", true)
+          .containsEntry("fuseEnabled", true)
+          .containsEntry("hasPower", false);
       assertThat(JsonObjects.object(described.get("smb")))
           .containsEntry("user", "dtm")
           .containsEntry("password", device.currentSharePassword());
     }
 
     @Test
-    @DisplayName("reads the properties and then the PIN, and logs in once")
+    @DisplayName("reads the properties and then discovery.cgi, and logs in once")
     void asksTheDeviceTwice() {
       establish("link-service--connect.json");
 
@@ -257,9 +263,10 @@ class LinkServiceTest {
     }
 
     @Test
-    @DisplayName("is told so in a warning when the PIN cannot be read, and goes on with no PIN")
-    void aPinThatCannotBeRead() {
-      device.pinXml = Resources.text(GetPin.class, "pin--error.xml");
+    @DisplayName(
+        "is told so in a warning when discovery.cgi cannot be read, and goes on with no PIN")
+    void characteristicsThatCannotBeRead() {
+      device.discoveryXml = Resources.text(FakeDevice.class, "fake-device--discovery-error.xml");
 
       var described = data(establish("link-service--connect.json"));
 
@@ -275,7 +282,7 @@ class LinkServiceTest {
               .toList();
       assertThat(warnings).hasSize(1);
       assertThat(String.valueOf(warnings.getFirst().get("message")))
-          .isEqualTo("Could not read the device PIN: Error - something failed");
+          .isEqualTo("Could not read the device characteristics: something failed");
       assertThat(warnings.getFirst().get("id")).isEqualTo(REQUEST_ID);
     }
   }

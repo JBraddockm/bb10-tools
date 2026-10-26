@@ -15,6 +15,9 @@ public enum ResponseElement {
   /** The device PIN. */
   DEVICE_PIN("DevicePIN"),
 
+  /** The device characteristics from {@code discovery.cgi}. */
+  DEVICE_CHARACTERISTICS("DeviceCharacteristics"),
+
   /** The device wants the client to authenticate again. */
   AUTH_CHALLENGE("AuthChallenge"),
 
@@ -46,15 +49,6 @@ public enum ResponseElement {
   }
 
   /**
-   * Returns the element name as the device writes it.
-   *
-   * @return the element name
-   */
-  public String elementName() {
-    return elementName;
-  }
-
-  /**
    * Recognises an element name.
    *
    * @param name the name of an element in a response
@@ -62,5 +56,14 @@ public enum ResponseElement {
    */
   public static Optional<ResponseElement> of(String name) {
     return Arrays.stream(values()).filter(known -> known.elementName.equals(name)).findFirst();
+  }
+
+  /**
+   * Returns the element name as the device writes it.
+   *
+   * @return the element name
+   */
+  public String elementName() {
+    return elementName;
   }
 }

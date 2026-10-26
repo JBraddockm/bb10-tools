@@ -1,1 +1,21 @@
-{"name":"BLACKBERRY-4C5D","hardwareId":null,"pin":null,"serialNumber":null,"osVersion":null,"radioVersion":null}
+{
+  "name": "BLACKBERRY-4C5D",
+  "hardwareId": null,
+  "pin": null,
+  "guid": null,
+  "serialNumber": null,
+  "osVersion": null,
+  "radioVersion": null,
+  "freeApplicationSpace": null,
+  "hasPower": null,
+  "batteryLevel": null,
+  "batteryStateOfHealth": null,
+  "tunnelUp": null,
+  "developerMode": null,
+  "flashSize": null,
+  "sdCard": null,
+  "modelName": null,
+  "blendPolicy": null,
+  "fuseEnabled": null,
+  "fuseInstalled": null
+}

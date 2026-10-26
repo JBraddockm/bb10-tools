@@ -6,7 +6,6 @@ import static com.jbraddockm.link.daemon.DaemonRun.errorMessage;
 import static com.jbraddockm.link.testing.JsonObjects.object;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.jbraddockm.link.actions.GetPin;
 import com.jbraddockm.link.pairing.CertificateRetrieval;
 import com.jbraddockm.link.pairing.Pairing;
 import com.jbraddockm.link.session.ExchangeObserver;
@@ -227,9 +226,12 @@ class DaemonConnectTest {
       var summary = object(daemon.data(6).get("device"));
       assertThat(summary)
           .containsEntry("name", "Test Z10")
-          .containsEntry("pin", "2A3B4C5D")
+          .containsEntry("pin", "2C1E7583")
+          .containsEntry("guid", "RkFLRUdVSUQwMDAx")
           .containsEntry("osVersion", "10.3.3.2205")
-          .containsEntry("radioVersion", "10.3.3.2206");
+          .containsEntry("radioVersion", "10.3.3.2206")
+          .containsEntry("tunnelUp", true)
+          .containsEntry("fuseEnabled", true);
     }
 
     @Test
@@ -250,8 +252,8 @@ class DaemonConnectTest {
 
     @Test
     @DisplayName(
-        "describes the request for the PIN by what it does, and never names a program of the device"
-            + " in the log")
+        "describes the request for the characteristics by what it does, and never names a program of"
+            + " the device in the log")
     void logsWhatItDoes() throws Exception {
       connect(6, "request--connect.json", "secret");
 
@@ -259,7 +261,7 @@ class DaemonConnectTest {
           daemon.events(6, "log").stream()
               .map(event -> String.valueOf(event.get("message")))
               .toList();
-      assertThat(messages).contains("Reading the device PIN");
+      assertThat(messages).contains("Reading the device characteristics");
       assertThat(messages).noneMatch(message -> message.contains(".cgi"));
     }
 
@@ -287,7 +289,7 @@ class DaemonConnectTest {
         "without a PIN that can be read still connects, with no PIN in the summary and a warning"
             + " that says why")
     void withoutAPin() throws Exception {
-      device.pinXml = Resources.text(GetPin.class, "pin--error.xml");
+      device.discoveryXml = Resources.text(FakeDevice.class, "fake-device--discovery-error.xml");
 
       assertThat(connect(10, "request--connect.json", "secret").get("ok")).isEqualTo(true);
 
@@ -300,7 +302,7 @@ class DaemonConnectTest {
               event ->
                   "warn".equals(event.get("level"))
                       && String.valueOf(event.get("message"))
-                          .startsWith("Could not read the device PIN"));
+                          .startsWith("Could not read the device characteristics"));
     }
 
     @Test

@@ -6,6 +6,9 @@ public enum Endpoint {
   /** Device properties and installed packages. */
   DYNAMIC_PROPERTIES("dynamicProperties.cgi"),
 
+  /** Device characteristics (identity, PIN, status), pre-auth and without the package list. */
+  DISCOVERY("discovery.cgi"),
+
   /** Installing and uninstalling packages and operating system images. */
   UPDATE("update.cgi"),
 

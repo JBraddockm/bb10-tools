@@ -11,6 +11,7 @@ import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.link.actions.GetPin;
+import com.jbraddockm.link.characteristics.GetDeviceCharacteristics;
 import com.jbraddockm.link.discovery.DeviceDiscovery;
 import com.jbraddockm.link.discovery.DeviceScanner;
 import com.jbraddockm.link.pairing.CertificateRetrieval;
@@ -50,6 +51,9 @@ enum LinkMethod {
 
   /** Reads the device's identity and installed packages. */
   GET_DEVICE_PROPERTIES("getDeviceProperties"),
+
+  /** Reads the device's characteristics (identity, PIN, status) from {@code discovery.cgi}. */
+  GET_DEVICE_CHARACTERISTICS("getDeviceCharacteristics"),
 
   /** Reads the device PIN. */
   GET_PIN("getPin"),
@@ -192,6 +196,8 @@ enum LinkMethod {
     return switch (this) {
       case GET_DEVICE_PROPERTIES ->
           argument == null ? Optional.of(new GetDeviceProperties()) : Optional.empty();
+      case GET_DEVICE_CHARACTERISTICS ->
+          argument == null ? Optional.of(new GetDeviceCharacteristics()) : Optional.empty();
       case GET_PIN -> argument == null ? Optional.of(new GetPin()) : Optional.empty();
       case LIST_PIM_ACCOUNTS ->
           argument == null ? Optional.of(new ListPimAccounts()) : Optional.empty();
@@ -246,6 +252,7 @@ enum LinkMethod {
       DeviceScanner scanner, Pairing pairing, CertificateRetrieval retrieval) {
     return switch (this) {
       case GET_DEVICE_PROPERTIES -> onSession(_ -> new GetDeviceProperties());
+      case GET_DEVICE_CHARACTERISTICS -> onSession(_ -> new GetDeviceCharacteristics());
       case GET_PIN -> onSession(_ -> new GetPin());
       case LIST_PIM_ACCOUNTS -> onSession(_ -> new ListPimAccounts());
       case FIND_PIM_ACCOUNT ->

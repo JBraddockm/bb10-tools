@@ -1,1 +1,21 @@
-{"name":"BLACKBERRY-4C5D","hardwareId":"0x0a0b0c0d","pin":"2A3B4C5D","serialNumber":"FAKESERIAL0001","osVersion":"10.3.3.2205","radioVersion":"10.3.3.2206"}
+{
+  "name": "BLACKBERRY-4C5D",
+  "hardwareId": "0x0a0b0c0d",
+  "pin": "2A3B4C5D",
+  "guid": "RkFLRUdVSUQ=",
+  "serialNumber": "FAKESERIAL0001",
+  "osVersion": "10.3.3.2205",
+  "radioVersion": "10.3.3.2206",
+  "freeApplicationSpace": 5368709120,
+  "hasPower": true,
+  "batteryLevel": 87,
+  "batteryStateOfHealth": 95,
+  "tunnelUp": true,
+  "developerMode": true,
+  "flashSize": 14157856768,
+  "sdCard": 0,
+  "modelName": "Passport",
+  "blendPolicy": 1,
+  "fuseEnabled": true,
+  "fuseInstalled": true
+}

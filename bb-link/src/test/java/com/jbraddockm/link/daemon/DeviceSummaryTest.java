@@ -4,8 +4,8 @@ import static com.jbraddockm.link.testing.Steps.finished;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.core.json.Json;
-import com.jbraddockm.link.actions.DevicePin;
 import com.jbraddockm.link.cgi.ResponseEnvelope;
+import com.jbraddockm.link.characteristics.DeviceCharacteristics;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.GetDeviceProperties;
 import com.jbraddockm.link.testing.Resources;
@@ -27,17 +27,36 @@ class DeviceSummaryTest {
 
   @Test
   @DisplayName(
-      "is the name, the hardware, the PIN, the serial number, and the versions of the system and"
-          + " the radio")
+      "merges dynamicProperties.cgi (identity, serial, versions, battery) with discovery.cgi (PIN,"
+          + " GUID, and the tunnel/developer/Blend/fuse flags)")
   void isWhatTheDeviceSays() {
-    var summary = DeviceSummary.of(properties("properties--full.xml"), new DevicePin("2A3B4C5D"));
+    var characteristics =
+        new DeviceCharacteristics(
+            "2A3B4C5D",
+            "RkFLRUdVSUQ=",
+            "Passport",
+            "BlackBerry 10",
+            "10.3.3.2205",
+            "000000000000000",
+            100,
+            true,
+            true,
+            720,
+            1280,
+            14_157_856_768L,
+            0,
+            1,
+            true,
+            true);
+    var summary = DeviceSummary.of(properties("properties--full.xml"), characteristics);
 
     assertThat(Json.write(summary.toJson())).isEqualTo(expected("device-summary--expected.json"));
   }
 
   @Test
-  @DisplayName("has no PIN when it could not be read, and the rest as it was")
-  void hasNoPinWhenItCouldNotBeRead() {
+  @DisplayName(
+      "has no PIN, GUID or flags when discovery.cgi could not be read, and the rest as it was")
+  void hasNoCharacteristicsWhenDiscoveryCouldNotBeRead() {
     var summary = DeviceSummary.of(properties("properties--full.xml"), null);
 
     assertThat(Json.write(summary.toJson()))

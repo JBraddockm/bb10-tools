@@ -86,6 +86,7 @@ class LinkMethodTest {
     @ParameterizedTest(name = "{0} is \"{1}\"")
     @CsvSource({
       "GET_DEVICE_PROPERTIES, getDeviceProperties",
+      "GET_DEVICE_CHARACTERISTICS, getDeviceCharacteristics",
       "GET_PIN, getPin",
       "GET_SMB_CREDENTIALS, getSmbCredentials",
       "LIST_PIM_ACCOUNTS, listPimAccounts",
@@ -106,10 +107,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 13, and distinct")
-    void areThirteenAndDistinct() {
+    @DisplayName("are 14, and distinct")
+    void areFourteenAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(13)
+          .hasSize(14)
           .doesNotHaveDuplicates();
     }
 

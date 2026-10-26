@@ -35,46 +35,33 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class FakeDevice implements AutoCloseable {
 
-  /** How the device answers the login. */
-  public enum LoginMode {
-    /** A challenge that must be answered with the password hash. */
-    CHALLENGE,
-    /** Success at once, as for a device without a password. */
-    NO_PASSWORD,
-    /** An HTML page. */
-    GARBAGE,
-    /** The status {@code Error}, which asks for the legacy login. */
-    LEGACY
-  }
-
-  /** How the {@code Set-Cookie} header of a successful login looks. */
-  public enum CookieStyle {
-    /** A cookie that expires far in the future. */
-    NORMAL,
-    /** A cookie that expired long ago, as when the device's clock is behind the host's. */
-    EXPIRED,
-    /** No cookie at all. */
-    MISSING
-  }
-
-  /** What the CGI programs do with the {@code dtmauth} cookie in their own answers. */
-  public enum CgiCookie {
-    /** Renew it with an expiry far in the future. */
-    RENEW,
-    /** Set it with an expiry in the past, which a client that honours dates throws away. */
-    EXPIRED
-  }
-
-  /** How the CGI programs reject a request without a valid cookie. */
-  public enum StaleStyle {
-    /** Status 200 and an empty body, as a real device does with an unknown cookie. */
-    EMPTY,
-    /** HTTP 401. */
-    UNAUTHORIZED,
-    /** An {@code AuthChallenge} element. */
-    AUTH_CHALLENGE
-  }
-
+  /** The start of the file share password; the device appends the number of the login. */
+  public static final String SHARE_PASSWORD_PREFIX = "FAKE-SHARE-PASSWORD-";
+  /** The form body that requests the properties of the device. */
+  public static final String PROPERTIES_BODY =
+      "Get%20Dynamic%20Properties=Get%20Dynamic%20Properties";
+  /** The form body that requests the PIN of the device. */
+  public static final String PIN_BODY = "wipe=getpin";
+  /** The properties that the device answers by default. */
+  public static final String DEFAULT_PROPERTIES =
+      Resources.text(FakeDevice.class, "fake-device--properties.xml");
+  /**
+   * What a real device answers to pimsync without a session; not valid JSON, {@code data} is not
+   * quoted.
+   */
+  public static final String UNAUTHENTICATED_PIM_SYNC =
+      Resources.text(FakeDevice.class, "fake-device--pim-unauthenticated.json").strip();
+  /** The PIN answer that the device gives by default. */
+  public static final String DEFAULT_PIN = Resources.text(FakeDevice.class, "fake-device--pin.xml");
+  /** The {@code discovery.cgi} answer that the device gives by default. */
+  public static final String DEFAULT_DISCOVERY =
+      Resources.text(FakeDevice.class, "fake-device--discovery.xml");
+  /** What a real device answers to dynamicProperties.cgi when the request has no valid session. */
+  public static final String UNAUTHORIZED_PROPERTIES =
+      Resources.text(FakeDevice.class, "fake-device--properties-unauthorized.xml");
+  /** The answer to a command that has no entry in {@link #pimResponses}. */
+  public static final String DEFAULT_PIM_ANSWER =
+      Resources.text(FakeDevice.class, "fake-device--pim-answer.json").strip();
   private static final String SALT = "4EB86E31B720EAFF";
   private static final int ITERATIONS = 6000;
   private static final String CHALLENGE =
@@ -82,66 +69,157 @@ public final class FakeDevice implements AutoCloseable {
   private static final int MAX_ATTEMPTS = 5;
   private static final String FUTURE = "expires=Fri, 01-Jan-2100 00:00:00 GMT; path=/";
   private static final String PAST = "expires=Thu, 01-Jan-1970 00:00:10 GMT; path=/";
-
-  /** The start of the file share password; the device appends the number of the login. */
-  public static final String SHARE_PASSWORD_PREFIX = "FAKE-SHARE-PASSWORD-";
-
-  /** The form body that requests the properties of the device. */
-  public static final String PROPERTIES_BODY =
-      "Get%20Dynamic%20Properties=Get%20Dynamic%20Properties";
-
-  /** The form body that requests the PIN of the device. */
-  public static final String PIN_BODY = "wipe=getpin";
-
-  /** The properties that the device answers by default. */
-  public static final String DEFAULT_PROPERTIES =
-      Resources.text(FakeDevice.class, "fake-device--properties.xml");
-
-  /**
-   * What a real device answers to pimsync without a session; not valid JSON, {@code data} is not
-   * quoted.
-   */
-  public static final String UNAUTHENTICATED_PIM_SYNC =
-      Resources.text(FakeDevice.class, "fake-device--pim-unauthenticated.json").strip();
-
-  /** The PIN answer that the device gives by default. */
-  public static final String DEFAULT_PIN = Resources.text(FakeDevice.class, "fake-device--pin.xml");
-
+  /** A moment in the past, written as a device writes the date of a cookie. */
+  private static final String EXPIRED =
+      DateTimeFormatter.ofPattern("EEE, dd-MMM-yyyy HH:mm:ss 'GMT'", Locale.ENGLISH)
+          .format(ZonedDateTime.now(ZoneOffset.UTC).minusYears(1));
+  /** What pimsync answers to a request with a valid session, by command; the default otherwise. */
+  public final Map<String, String> pimResponses = new ConcurrentHashMap<>();
+  /** Counts requests to the login program. */
+  public final AtomicInteger loginRequests = new AtomicInteger();
+  /** Counts successful logins; the file share password changes with each one. */
+  public final AtomicInteger successfulLogins = new AtomicInteger();
+  /** Counts requests to the CGI programs, including rejected and dropped ones. */
+  public final AtomicInteger cgiRequests = new AtomicInteger();
+  /** The package ids that update.cgi refuses to remove. */
+  public final Set<String> updateUnremovable = ConcurrentHashMap.newKeySet();
+  /** What update.cgi was asked, one line per request, in order. */
+  public final List<String> updateRequests = Collections.synchronizedList(new ArrayList<>());
+  /** The user agent of every request to update.cgi. */
+  public final List<String> updateAgents = Collections.synchronizedList(new ArrayList<>());
   private final HttpServer server;
   private final String password;
   private final List<String> cgiBodies = Collections.synchronizedList(new ArrayList<>());
   private final List<String> cookiesSeen = Collections.synchronizedList(new ArrayList<>());
   private final List<String> pimRequests = Collections.synchronizedList(new ArrayList<>());
-
+  private final List<String> pairingBodies = Collections.synchronizedList(new ArrayList<>());
+  private final Map<String, String> pairings = new ConcurrentHashMap<>();
+  private final List<AuthenticationRequest> authenticationRequests =
+      Collections.synchronizedList(new ArrayList<>());
   /**
    * When set, the device signs a certificate request that is posted to {@code login.cgi}, as the
    * real one does; when not, it answers that it cannot.
    */
   public volatile TestAuthority authority;
-
   /** When set, what a certificate request to {@code login.cgi} is answered, whatever it was. */
   public volatile String authenticationAnswer;
-
   /** When set, the certificate that the device signs is for another key than the request's. */
   public volatile boolean authenticationForAnotherKey;
-
   /** When set, what {@code pairing.cgi} answers a request that has a session, whatever it was. */
   public volatile String pairingAnswer;
-
-  private final List<String> pairingBodies = Collections.synchronizedList(new ArrayList<>());
-  private final Map<String, String> pairings = new ConcurrentHashMap<>();
-
-  private final List<AuthenticationRequest> authenticationRequests =
-      Collections.synchronizedList(new ArrayList<>());
+  /** Whether the login answer carries file share credentials. */
+  public volatile boolean offersShare = true;
+  /** How the device answers the login. */
+  public volatile LoginMode loginMode = LoginMode.CHALLENGE;
+  /** How the cookie of a successful login is written. */
+  public volatile CookieStyle cookieStyle = CookieStyle.NORMAL;
+  /** What the CGI programs do with the session cookie in their answers. */
+  public volatile CgiCookie cgiCookie = CgiCookie.RENEW;
+  /** How the CGI programs reject a request without a valid session. */
+  public volatile StaleStyle staleStyle = StaleStyle.EMPTY;
+  /** The properties answer of the device. */
+  public volatile String propertiesXml = DEFAULT_PROPERTIES;
+  /** The PIN answer of the device. */
+  public volatile String pinXml = DEFAULT_PIN;
+  /** The {@code discovery.cgi} answer of the device. */
+  public volatile String discoveryXml = DEFAULT_DISCOVERY;
+  /** The number of failed password attempts that the login reports. */
+  public volatile int failedAttempts;
+  /** The number of upcoming CGI requests to drop without an answer. */
+  public volatile int dropNext;
+  /** Run once while the next CGI request is answered, before the answer is sent; then cleared. */
+  public volatile Runnable afterNextCgiRequest;
+  /** Whether the device rejects every cookie, never accepting a session. */
+  public volatile boolean alwaysRejectCookie;
+  /**
+   * The percentages that update.cgi reports as {@code InProgress} for the successive polls of a
+   * package; the next poll reports {@code Success}. A real device reports {@code InProgress} with
+   * 100 once before {@code Success}.
+   */
+  public volatile List<Integer> updateProgress = List.of(3, 100);
+  /** The status that update.cgi puts in {@code UpdateEnd}; empty for an end without a status. */
+  public volatile String updateEndStatus = "Success";
+  /**
+   * The stage at which update.cgi fails: {@code start}, {@code send}, {@code progress}, {@code
+   * finish}, or empty.
+   */
+  public volatile String updateFailsAt = "";
+  /** If not negative, update.cgi drops the connection after reading this many upload bytes. */
+  public volatile int updateDropUploadAfter = -1;
+  /** Whether update.cgi takes a whole upload and then closes the connection without an answer. */
+  public volatile boolean updateDropAfterUpload;
+  /** If set, update.cgi answers every request with this text. */
+  public volatile String updateAnswer;
+  /**
+   * The element that update.cgi answers the start of a removal with. A real device answers {@code
+   * UpdateStart}.
+   */
+  public volatile String deleteStartElement = "UpdateStart";
+  /**
+   * The element that update.cgi answers every removal with. When {@code null}, the behavior of a
+   * real device is used: {@code DeleteRequest} for the first removal of a conversation and {@code
+   * DeleteProgress} for the others.
+   */
+  public volatile String deleteAnswerElement = null;
+  /** The status that update.cgi gives in the answer to a removal. */
+  public volatile String deleteAnswerStatus = "Success";
+  /**
+   * What update.cgi answers to the end of a removal: {@code UpdateEnd}, {@code empty} (nothing at
+   * all), {@code DeleteProgress} or {@code Surprise}.
+   */
+  public volatile String deleteEnd = "UpdateEnd";
+  /** If set, update.cgi answers every poll with this text. */
+  public volatile String updatePollAnswer;
+  private volatile int removalsSinceStart;
+  private volatile int pollIndex;
+  private volatile String token = "TOKEN-1";
 
   /**
-   * A certificate request that reached {@code login.cgi}.
+   * Starts the device on a free local port.
    *
-   * @param query the query string
-   * @param contentType the content type of the body
-   * @param body the body
+   * @param password the password the device expects
+   * @throws IOException if the port cannot be opened
    */
-  public record AuthenticationRequest(String query, String contentType, String body) {}
+  public FakeDevice(String password) throws IOException {
+    this.password = password;
+    server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+    server.setExecutor(Executors.newCachedThreadPool());
+    server.createContext("/cgi-bin/login.cgi", new LoginEndpoint()::handle);
+    server.createContext("/cgi-bin/pairing.cgi", new PairingEndpoint()::handle);
+    server.createContext(
+        "/cgi-bin/dynamicProperties.cgi", exchange -> cgi(exchange, PROPERTIES_BODY));
+    server.createContext("/cgi-bin/wipe.cgi", exchange -> cgi(exchange, PIN_BODY));
+    server.createContext("/cgi-bin/discovery.cgi", this::discovery);
+    server.createContext("/cgi-bin/pimsync.cgi", new PimSyncEndpoint()::handle);
+    server.createContext("/cgi-bin/update.cgi", new UpdateEndpoint()::handle);
+    server.start();
+  }
+
+  private static void respond(HttpExchange exchange, int status, String body, String setCookie)
+      throws IOException {
+    respond(exchange, status, body, setCookie, "text/xml");
+  }
+
+  private static void respond(
+      HttpExchange exchange, int status, String body, String setCookie, String contentType)
+      throws IOException {
+    var bytes = body.getBytes(StandardCharsets.UTF_8);
+    if (contentType != null) {
+      exchange.getResponseHeaders().add("Content-Type", contentType);
+    }
+    if (setCookie != null) {
+      exchange.getResponseHeaders().add("Set-Cookie", setCookie);
+    }
+    if (bytes.length == 0) {
+      exchange.sendResponseHeaders(status, -1);
+      exchange.close();
+      return;
+    }
+    exchange.sendResponseHeaders(status, bytes.length);
+    try (var stream = exchange.getResponseBody()) {
+      stream.write(bytes);
+    }
+  }
 
   /**
    * The bodies of the requests that reached {@code pairing.cgi}.
@@ -172,149 +250,6 @@ public final class FakeDevice implements AutoCloseable {
     synchronized (authenticationRequests) {
       return List.copyOf(authenticationRequests);
     }
-  }
-
-  /** What pimsync answers to a request with a valid session, by command; the default otherwise. */
-  public final Map<String, String> pimResponses = new ConcurrentHashMap<>();
-
-  /** What a real device answers to dynamicProperties.cgi when the request has no valid session. */
-  public static final String UNAUTHORIZED_PROPERTIES =
-      Resources.text(FakeDevice.class, "fake-device--properties-unauthorized.xml");
-
-  /** The answer to a command that has no entry in {@link #pimResponses}. */
-  public static final String DEFAULT_PIM_ANSWER =
-      Resources.text(FakeDevice.class, "fake-device--pim-answer.json").strip();
-
-  /** Counts requests to the login program. */
-  public final AtomicInteger loginRequests = new AtomicInteger();
-
-  /** Counts successful logins; the file share password changes with each one. */
-  public final AtomicInteger successfulLogins = new AtomicInteger();
-
-  /** Whether the login answer carries file share credentials. */
-  public volatile boolean offersShare = true;
-
-  /** Counts requests to the CGI programs, including rejected and dropped ones. */
-  public final AtomicInteger cgiRequests = new AtomicInteger();
-
-  /** How the device answers the login. */
-  public volatile LoginMode loginMode = LoginMode.CHALLENGE;
-
-  /** How the cookie of a successful login is written. */
-  public volatile CookieStyle cookieStyle = CookieStyle.NORMAL;
-
-  /** What the CGI programs do with the session cookie in their answers. */
-  public volatile CgiCookie cgiCookie = CgiCookie.RENEW;
-
-  /** How the CGI programs reject a request without a valid session. */
-  public volatile StaleStyle staleStyle = StaleStyle.EMPTY;
-
-  /** The properties answer of the device. */
-  public volatile String propertiesXml = DEFAULT_PROPERTIES;
-
-  /** The PIN answer of the device. */
-  public volatile String pinXml = DEFAULT_PIN;
-
-  /** The number of failed password attempts that the login reports. */
-  public volatile int failedAttempts;
-
-  /** The number of upcoming CGI requests to drop without an answer. */
-  public volatile int dropNext;
-
-  /** Run once while the next CGI request is answered, before the answer is sent; then cleared. */
-  public volatile Runnable afterNextCgiRequest;
-
-  /** Whether the device rejects every cookie, never accepting a session. */
-  public volatile boolean alwaysRejectCookie;
-
-  /**
-   * The percentages that update.cgi reports as {@code InProgress} for the successive polls of a
-   * package; the next poll reports {@code Success}. A real device reports {@code InProgress} with
-   * 100 once before {@code Success}.
-   */
-  public volatile List<Integer> updateProgress = List.of(3, 100);
-
-  /** The status that update.cgi puts in {@code UpdateEnd}; empty for an end without a status. */
-  public volatile String updateEndStatus = "Success";
-
-  /**
-   * The stage at which update.cgi fails: {@code start}, {@code send}, {@code progress}, {@code
-   * finish}, or empty.
-   */
-  public volatile String updateFailsAt = "";
-
-  /** If not negative, update.cgi drops the connection after reading this many upload bytes. */
-  public volatile int updateDropUploadAfter = -1;
-
-  /** Whether update.cgi takes a whole upload and then closes the connection without an answer. */
-  public volatile boolean updateDropAfterUpload;
-
-  /** If set, update.cgi answers every request with this text. */
-  public volatile String updateAnswer;
-
-  /**
-   * The element that update.cgi answers the start of a removal with. A real device answers {@code
-   * UpdateStart}.
-   */
-  public volatile String deleteStartElement = "UpdateStart";
-
-  /**
-   * The element that update.cgi answers every removal with. When {@code null}, the behavior of a
-   * real device is used: {@code DeleteRequest} for the first removal of a conversation and {@code
-   * DeleteProgress} for the others.
-   */
-  public volatile String deleteAnswerElement = null;
-
-  private volatile int removalsSinceStart;
-
-  /** The status that update.cgi gives in the answer to a removal. */
-  public volatile String deleteAnswerStatus = "Success";
-
-  /**
-   * What update.cgi answers to the end of a removal: {@code UpdateEnd}, {@code empty} (nothing at
-   * all), {@code DeleteProgress} or {@code Surprise}.
-   */
-  public volatile String deleteEnd = "UpdateEnd";
-
-  /** The package ids that update.cgi refuses to remove. */
-  public final Set<String> updateUnremovable = ConcurrentHashMap.newKeySet();
-
-  /** If set, update.cgi answers every poll with this text. */
-  public volatile String updatePollAnswer;
-
-  /** What update.cgi was asked, one line per request, in order. */
-  public final List<String> updateRequests = Collections.synchronizedList(new ArrayList<>());
-
-  /** The user agent of every request to update.cgi. */
-  public final List<String> updateAgents = Collections.synchronizedList(new ArrayList<>());
-
-  private volatile int pollIndex;
-
-  /** A moment in the past, written as a device writes the date of a cookie. */
-  private static final String EXPIRED =
-      DateTimeFormatter.ofPattern("EEE, dd-MMM-yyyy HH:mm:ss 'GMT'", Locale.ENGLISH)
-          .format(ZonedDateTime.now(ZoneOffset.UTC).minusYears(1));
-
-  private volatile String token = "TOKEN-1";
-
-  /**
-   * Starts the device on a free local port.
-   *
-   * @param password the password the device expects
-   * @throws IOException if the port cannot be opened
-   */
-  public FakeDevice(String password) throws IOException {
-    this.password = password;
-    server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
-    server.setExecutor(Executors.newCachedThreadPool());
-    server.createContext("/cgi-bin/login.cgi", new LoginEndpoint()::handle);
-    server.createContext("/cgi-bin/pairing.cgi", new PairingEndpoint()::handle);
-    server.createContext(
-        "/cgi-bin/dynamicProperties.cgi", exchange -> cgi(exchange, PROPERTIES_BODY));
-    server.createContext("/cgi-bin/wipe.cgi", exchange -> cgi(exchange, PIN_BODY));
-    server.createContext("/cgi-bin/pimsync.cgi", new PimSyncEndpoint()::handle);
-    server.createContext("/cgi-bin/update.cgi", new UpdateEndpoint()::handle);
-    server.start();
   }
 
   /**
@@ -411,6 +346,45 @@ public final class FakeDevice implements AutoCloseable {
   }
 
   /**
+   * Answers {@code discovery.cgi}, which is a GET (no body) rather than the POST form the others
+   * use.
+   */
+  private void discovery(HttpExchange exchange) throws IOException {
+    cgiRequests.incrementAndGet();
+    var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+    cookiesSeen.add(cookie == null ? "" : cookie);
+    if (dropNext > 0) {
+      dropNext--;
+      exchange.close();
+      return;
+    }
+    int status = 200;
+    String answer;
+    String renewal = null;
+    if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
+      switch (staleStyle) {
+        case EMPTY -> answer = "";
+        case UNAUTHORIZED -> {
+          status = 401;
+          answer = "unauthorized";
+        }
+        case AUTH_CHALLENGE ->
+            answer =
+                Resources.text(FakeDevice.class, "fake-device--stale-auth-challenge.xml").strip();
+        default -> throw new IllegalStateException();
+      }
+    } else if (!"GET".equals(exchange.getRequestMethod())) {
+      status = 400;
+      answer = "unexpected request: " + exchange.getRequestMethod();
+    } else {
+      renewal = "dtmauth=" + token + "; " + (cgiCookie == CgiCookie.RENEW ? FUTURE : PAST);
+      answer = discoveryXml;
+    }
+    fireHook();
+    respond(exchange, status, answer, renewal);
+  }
+
+  /**
    * Runs the hook set for "after the next request", once, after the answer is decided and before it
    * is sent. Running it later would race with the next request of the client.
    */
@@ -422,39 +396,70 @@ public final class FakeDevice implements AutoCloseable {
     }
   }
 
-  private static void respond(HttpExchange exchange, int status, String body, String setCookie)
-      throws IOException {
-    respond(exchange, status, body, setCookie, "text/xml");
-  }
-
-  private static void respond(
-      HttpExchange exchange, int status, String body, String setCookie, String contentType)
-      throws IOException {
-    var bytes = body.getBytes(StandardCharsets.UTF_8);
-    if (contentType != null) {
-      exchange.getResponseHeaders().add("Content-Type", contentType);
-    }
-    if (setCookie != null) {
-      exchange.getResponseHeaders().add("Set-Cookie", setCookie);
-    }
-    if (bytes.length == 0) {
-      exchange.sendResponseHeaders(status, -1);
-      exchange.close();
-      return;
-    }
-    exchange.sendResponseHeaders(status, bytes.length);
-    try (var stream = exchange.getResponseBody()) {
-      stream.write(bytes);
-    }
-  }
-
   @Override
   public void close() {
     server.stop(0);
   }
 
+  /** How the device answers the login. */
+  public enum LoginMode {
+    /** A challenge that must be answered with the password hash. */
+    CHALLENGE,
+    /** Success at once, as for a device without a password. */
+    NO_PASSWORD,
+    /** An HTML page. */
+    GARBAGE,
+    /** The status {@code Error}, which asks for the legacy login. */
+    LEGACY
+  }
+
+  /** How the {@code Set-Cookie} header of a successful login looks. */
+  public enum CookieStyle {
+    /** A cookie that expires far in the future. */
+    NORMAL,
+    /** A cookie that expired long ago, as when the device's clock is behind the host's. */
+    EXPIRED,
+    /** No cookie at all. */
+    MISSING
+  }
+
+  /** What the CGI programs do with the {@code dtmauth} cookie in their own answers. */
+  public enum CgiCookie {
+    /** Renew it with an expiry far in the future. */
+    RENEW,
+    /** Set it with an expiry in the past, which a client that honours dates throws away. */
+    EXPIRED
+  }
+
+  /** How the CGI programs reject a request without a valid cookie. */
+  public enum StaleStyle {
+    /** Status 200 and an empty body, as a real device does with an unknown cookie. */
+    EMPTY,
+    /** HTTP 401. */
+    UNAUTHORIZED,
+    /** An {@code AuthChallenge} element. */
+    AUTH_CHALLENGE
+  }
+
+  /**
+   * A certificate request that reached {@code login.cgi}.
+   *
+   * @param query the query string
+   * @param contentType the content type of the body
+   * @param body the body
+   */
+  public record AuthenticationRequest(String query, String contentType, String body) {}
+
   /** Handles login requests. */
   final class LoginEndpoint {
+    private static String auth(String status, String more) {
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--login-auth.xml",
+              Map.of("status", status, "more", more))
+          .strip();
+    }
+
     void handle(HttpExchange exchange) throws IOException {
       if ("POST".equals(exchange.getRequestMethod())) {
         new AuthenticationEndpoint().handle(exchange);
@@ -528,14 +533,6 @@ public final class FakeDevice implements AutoCloseable {
       };
     }
 
-    private static String auth(String status, String more) {
-      return Resources.text(
-              FakeDevice.class,
-              "fake-device--login-auth.xml",
-              Map.of("status", status, "more", more))
-          .strip();
-    }
-
     /** A real device hands the password of its file share to every client that logs in. */
     private String success() {
       var sharePassword = SHARE_PASSWORD_PREFIX + successfulLogins.incrementAndGet();
@@ -553,6 +550,18 @@ public final class FakeDevice implements AutoCloseable {
 
   /** Handles pimsync requests. */
   final class PimSyncEndpoint {
+    private static String commandOf(String query) {
+      if (query == null) {
+        return null;
+      }
+      for (var pair : query.split("&")) {
+        if (pair.startsWith("command=")) {
+          return pair.substring("command=".length());
+        }
+      }
+      return null;
+    }
+
     /** pimsync: a GET with a command; a real device's answer when there is no valid session. */
     void handle(HttpExchange exchange) throws IOException {
       cgiRequests.incrementAndGet();
@@ -587,22 +596,28 @@ public final class FakeDevice implements AutoCloseable {
             "application/json");
       }
     }
-
-    private static String commandOf(String query) {
-      if (query == null) {
-        return null;
-      }
-      for (var pair : query.split("&")) {
-        if (pair.startsWith("command=")) {
-          return pair.substring("command=".length());
-        }
-      }
-      return null;
-    }
   }
 
   /** Handles update requests. */
   final class UpdateEndpoint {
+    private static String updateAnswerOf(String element, String status, String extra) {
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--update-answer.xml",
+              Map.of("element", element, "status", status, "extra", extra))
+          .strip();
+    }
+
+    private static String updateError(String element, int identifier, String description) {
+      var details =
+          Resources.text(
+                  FakeDevice.class,
+                  "fake-device--update-error-details.xml",
+                  Map.of("identifier", String.valueOf(identifier), "description", description))
+              .strip();
+      return updateAnswerOf(element, "Error", details);
+    }
+
     /**
      * Handles update.cgi: a conversation tracked by a cookie issued by the start, with a start (a
      * form with a mode and a size), uploads (octet-stream bodies, with a type in the query), polls
@@ -743,28 +758,22 @@ public final class FakeDevice implements AutoCloseable {
       fireHook();
       respond(exchange, 200, answer, setCookie);
     }
-
-    private static String updateAnswerOf(String element, String status, String extra) {
-      return Resources.text(
-              FakeDevice.class,
-              "fake-device--update-answer.xml",
-              Map.of("element", element, "status", status, "extra", extra))
-          .strip();
-    }
-
-    private static String updateError(String element, int identifier, String description) {
-      var details =
-          Resources.text(
-                  FakeDevice.class,
-                  "fake-device--update-error-details.xml",
-                  Map.of("identifier", String.valueOf(identifier), "description", description))
-              .strip();
-      return updateAnswerOf(element, "Error", details);
-    }
   }
 
   /** Handles pairing requests. */
   final class PairingEndpoint {
+    private static String pairingNotAuthorized() {
+      return Resources.text(FakeDevice.class, "fake-device--pairing-not-authorized.xml").strip();
+    }
+
+    private static String pairingError(int number, String description) {
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--pairing-error.xml",
+              Map.of("number", String.valueOf(number), "description", description))
+          .strip();
+    }
+
     /**
      * Handles a POST to pairing.cgi. An insert is answered with the authority of the device as the
      * text of {@code Pairing}, without {@code Status}; any other request with error 7; a request
@@ -790,10 +799,6 @@ public final class FakeDevice implements AutoCloseable {
       }
       fireHook();
       respond(exchange, 200, answer, null);
-    }
-
-    private static String pairingNotAuthorized() {
-      return Resources.text(FakeDevice.class, "fake-device--pairing-not-authorized.xml").strip();
     }
 
     private String pairingAnswerFor(String body) {
@@ -823,18 +828,18 @@ public final class FakeDevice implements AutoCloseable {
         throw new IllegalStateException(failure);
       }
     }
-
-    private static String pairingError(int number, String description) {
-      return Resources.text(
-              FakeDevice.class,
-              "fake-device--pairing-error.xml",
-              Map.of("number", String.valueOf(number), "description", description))
-          .strip();
-    }
   }
 
   /** Handles authentication requests. */
   final class AuthenticationEndpoint {
+    private static String authenticationError(int number, String description) {
+      return Resources.text(
+              FakeDevice.class,
+              "fake-device--authentication-error.xml",
+              Map.of("number", String.valueOf(number), "description", description))
+          .strip();
+    }
+
     /**
      * Handles a certificate request posted to login.cgi: the certificate as PEM in {@code
      * application/octet-stream}, or error 260 in {@code CgiAuth} for a body of another content
@@ -895,14 +900,6 @@ public final class FakeDevice implements AutoCloseable {
       } catch (GeneralSecurityException failure) {
         throw new IllegalStateException(failure);
       }
-    }
-
-    private static String authenticationError(int number, String description) {
-      return Resources.text(
-              FakeDevice.class,
-              "fake-device--authentication-error.xml",
-              Map.of("number", String.valueOf(number), "description", description))
-          .strip();
     }
   }
 }
