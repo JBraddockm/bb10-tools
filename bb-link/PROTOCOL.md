@@ -28,21 +28,22 @@ which of its programs answer. bb-link works out the path from the host address a
 refuses, with a clear message, a command whose program the path cannot reach — before it dials, not
 after a dead connection times out.
 
-| Path      | Address                                                        | Reachable programs                            |
-|-----------|----------------------------------------------------------------|-----------------------------------------------|
-| USB       | IPv4 link-local, `169.254.x.x`                                 | the whole interface                           |
-| Tunnel    | IPv6 unique-local, `fd00::/8` or `fc00::/8` (the device's ULA) | the whole interface                           |
-| Wi-Fi LAN | a private IPv4 range (`10/8`, `172.16/12`, `192.168/16`)       | only `login.cgi`                              |
-| Other     | anything else (loopback, an unknown shape)                     | not refused by shape — left to the connection |
+| Path      | Address                                                        | Reachable programs                                                               |
+|-----------|----------------------------------------------------------------|----------------------------------------------------------------------------------|
+| USB       | IPv4 link-local, `169.254.x.x`                                 | the whole interface                                                              |
+| Tunnel    | IPv6 unique-local, `fd00::/8` or `fc00::/8` (the device's ULA) | the whole interface                                                              |
+| Wi-Fi LAN | a private IPv4 range (`10/8`, `172.16/12`, `192.168/16`)       | directly, only `login.cgi`; the **whole interface with `tunnel`** (over the ULA) |
+| Other     | anything else (loopback, an unknown shape)                     | not refused by shape — left to the connection                                    |
 
-Over USB and the tunnel every method works. Over a Wi-Fi LAN address only the login is reachable, so
-a `connect` with `deviceInfo: false` (login only) and `getSmbCredentials` and
-`getAuthenticationCertificate` are allowed, while every method that reads or changes the device —
-`getDeviceProperties`, `getPin`, the PIM methods, `pairDevice`, `installPackages`,
-`uninstallPackages` — is refused as `COMMAND_FAILED` naming the paths that would reach it. A full
-`connect` (the default, which reads the device properties) is refused over a Wi-Fi LAN address for
-the same reason — unless the connect sets `tunnel: true`, which has bb-link bring a Wi-Fi tunnel up
-through the broker and run the whole connect over the device's ULA instead (see `tunnel` below).
+Over USB and the tunnel every method works. A Wi-Fi LAN address has two modes. **Connected directly**,
+only the login is reachable, so a `connect` with `deviceInfo: false` (login only) and
+`getSmbCredentials` and `getAuthenticationCertificate` are allowed, while every method that reads or
+changes the device — `getDeviceProperties`, `getPin`, the PIM methods, `pairDevice`,
+`installPackages`, `uninstallPackages` — is refused as `COMMAND_FAILED` naming the paths that would
+reach it, and a full `connect` (the default, which reads the device properties) is refused for the
+same reason. **With `tunnel: true`**, bb-link brings the device's tunnel up through the broker daemon
+and runs the whole connect over the device's ULA, so the full interface *is* reachable from that same
+Wi-Fi LAN address — the limitation above is only for a direct LAN connection (see `tunnel` below).
 
 The tunnel's port, like USB, is `8443` and is gated by the client certificate: a tunnel connection
 without the paired certificate fails the TLS handshake, and the error says so. What a reachable
@@ -173,11 +174,27 @@ socket (default `/tmp/bb-tunneld.sock`); `stableSmb` (boolean, default `false`) 
 `169.254.1.1` SMB address instead of a pool-allocated one. The tunnel protocol is in
 `../bb-tunnel/PROTOCOL.md` §7.
 
+Start the broker daemon once (it owns the privileged `utun`, so it needs `sudo`), then connect with a
+Wi-Fi LAN address and `--tunnel` — bb-link brings the tunnel up and runs the connect over the ULA **[verified]**:
+
+```
+sudo ./build/bb-tunnel serve                                   # the broker, on /tmp/bb-tunneld.sock
+./bblink connect --host 192.168.1.118 --tunnel --device 2C1E7583
+```
+
+The device's full management surface and its SMB share are then reachable over the tunnel, from the
+Wi-Fi LAN address, without ever typing the ULA.
+
 `smb` in the `connect` result and the result of `getSmbCredentials` **[verified]** carry the
 credentials of the device's file share, which the device hands out with every successful login:
 
 ```json
-{"user":"dtm","password":"…","workgroup":"WORKGROUP","netBios":"%h"}
+{
+  "user": "dtm",
+  "password": "…",
+  "workgroup": "WORKGROUP",
+  "netBios": "%h"
+}
 ```
 
 They give access to the contents of the device, even when neither Wi-Fi storage nor USB mass storage
@@ -191,13 +208,53 @@ the client that logged in on purpose; traces and `raw` output mask it, and nothi
 `getDeviceProperties` data **[verified]**:
 
 ```json
-{"device":{"name":"…","model":"BlackBerry","hardwareId":"0x0a0b0c0d","imei":"…","serialNumber":"…",
- "batteryLevel":11,"batteryHealth":88,"hasPower":true,"freeApplicationSpace":26503909376,
- "refurbDate":"0","policyRestrictions":"…",
- "os":{"name":"…","version":"10.3.3.3216"},"radio":{"name":"…","version":"10.3.3.3217"}},
- "perimeters":[{"kind":"personal","bbid":"…"}],
- "packages":[{"name":"…","type":"application","packageId":"…","versionId":"…","version":"…","fingerprint":"…"}],
- "removedPackages":[{"name":"…","type":"unclassified","packageId":"…","version":"…"}]}
+{
+  "device": {
+    "name": "…",
+    "model": "BlackBerry",
+    "hardwareId": "0x0a0b0c0d",
+    "imei": "…",
+    "serialNumber": "…",
+    "batteryLevel": 11,
+    "batteryHealth": 88,
+    "hasPower": true,
+    "freeApplicationSpace": 26503909376,
+    "refurbDate": "0",
+    "policyRestrictions": "…",
+    "os": {
+      "name": "…",
+      "version": "10.3.3.3216"
+    },
+    "radio": {
+      "name": "…",
+      "version": "10.3.3.3217"
+    }
+  },
+  "perimeters": [
+    {
+      "kind": "personal",
+      "bbid": "…"
+    }
+  ],
+  "packages": [
+    {
+      "name": "…",
+      "type": "application",
+      "packageId": "…",
+      "versionId": "…",
+      "version": "…",
+      "fingerprint": "…"
+    }
+  ],
+  "removedPackages": [
+    {
+      "name": "…",
+      "type": "unclassified",
+      "packageId": "…",
+      "version": "…"
+    }
+  ]
+}
 ```
 
 The device nests its answer: packages under `Applications`, packages that were removed but whose data
@@ -217,10 +274,24 @@ perimeter types. How a device writes an enterprise perimeter in this answer is *
 plain Wi-Fi LAN) **[verified]**:
 
 ```json
-{"pin":"2C1E7583","guid":"EDunxOMuoNpdOlvSIBPJD1dfcMs=","modelName":"STR100-1","osType":"BlackBerry 10",
- "platformVersion":"10.3.3.3216","imei":"354359061740215","batteryLevel":100,"developerMode":true,
- "tunnelUp":true,"screenWidth":720,"screenHeight":1280,"flashSize":14157856768,"sdCard":0,
- "blendPolicy":1,"fuseEnabled":true,"fuseInstalled":true}
+{
+  "pin": "2C1E7583",
+  "guid": "EDunxOMuoNpdOlvSIBPJD1dfcMs=",
+  "modelName": "STR100-1",
+  "osType": "BlackBerry 10",
+  "platformVersion": "10.3.3.3216",
+  "imei": "354359061740215",
+  "batteryLevel": 100,
+  "developerMode": true,
+  "tunnelUp": true,
+  "screenWidth": 720,
+  "screenHeight": 1280,
+  "flashSize": 14157856768,
+  "sdCard": 0,
+  "blendPolicy": 1,
+  "fuseEnabled": true,
+  "fuseInstalled": true
+}
 ```
 
 The device numbers the PIN in decimal (`BbPin` `740193667`); bb-link formats it as the 8-digit
@@ -474,7 +545,22 @@ of an `workstationId` is not known, so both are sent as given.
 The result:
 
 ```json
-{"command":"listAccounts","httpStatus":200,"contentType":"application/json","code":0,"message":"Success","bodyFormat":"json","body":{"version":"1.0","status":{"code":0,"msg":"Success"},"data":[]}}
+{
+  "command": "listAccounts",
+  "httpStatus": 200,
+  "contentType": "application/json",
+  "code": 0,
+  "message": "Success",
+  "bodyFormat": "json",
+  "body": {
+    "version": "1.0",
+    "status": {
+      "code": 0,
+      "msg": "Success"
+    },
+    "data": []
+  }
+}
 ```
 
 - `contentType` is the `Content-Type` header of the answer (omitted if the device sent none), so a
@@ -994,7 +1080,16 @@ password session. Whether the package is now listed by `getDeviceProperties` was
 ### 12.9 uninstallPackages
 
 ```json
-{"id":9,"method":"uninstallPackages","params":{"session":"s1","packageIds":["testRel_le_TLSDeBugc09806e9"]}}
+{
+  "id": 9,
+  "method": "uninstallPackages",
+  "params": {
+    "session": "s1",
+    "packageIds": [
+      "testRel_le_TLSDeBugc09806e9"
+    ]
+  }
+}
 ```
 
 Parameters: `session`; `packageIds` (strings, at least one, each made of letters, digits, dots, dashes

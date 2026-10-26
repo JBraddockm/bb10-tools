@@ -168,3 +168,50 @@ consumers.
 
 **Lifecycle.** A hold is scoped to the connection that made it: when a client's socket closes — clean
 or crashed — the daemon releases that connection's leases, so a dead client cannot pin a tunnel up.
+
+Lifecycle of a device's tunnel (one per device, ref-counted):
+
+```mermaid
+stateDiagram-v2
+    [*] --> Up: acquire, first consumer (allocate inner IPv4, open Tunnel)
+    Up --> Up: acquire, later consumer (join, refs++)
+    Up --> Up: release or socket close, refs still above 0
+    Up --> [*]: last release, refs 0 (close Tunnel, free inner IPv4)
+    Up --> [*]: link drops (evict, free inner IPv4, dropped event to holders)
+```
+
+**Socket access.** Launched with `sudo` the daemon runs as root, so an unprivileged consumer could not
+connect to the default root-owned `0755` socket (connecting to a Unix socket needs write permission).
+On bind the daemon hands the socket to the real invoking user (`SUDO_USER`, mode `0600`), falling back
+to local-user-accessible if that cannot be done; not under sudo it already runs as the connecting user.
+
+**Example.** The daemon fronts the whole device-facing flow above; a consumer never speaks the tunnel
+protocol itself. Start the daemon, then let bb-link bring a tunnel up from a device's Wi-Fi LAN address
+**[verified]**:
+
+```sh
+sudo ./build/bb-tunnel serve                                   # the broker, on /tmp/bb-tunneld.sock
+./bblink connect --host 192.168.1.118 --tunnel --device 2C1E7583
+```
+
+bb-link `acquire`s the tunnel over the socket, connects to the device over the returned ULA, and takes
+the SMB host from the lease — so the device's CGIs, WebDAV, Blend and SMB share are all reachable from
+the Wi-Fi LAN address, without the user ever handling the ULA.
+
+Over the socket, that exchange is:
+
+```mermaid
+sequenceDiagram
+    participant C as consumer (bb-link)
+    participant D as bb-tunneld
+    C->>D: connect over the UDS
+    D-->>C: event hello (lists ops)
+    C->>D: op acquire {host}
+    Note over D: opens or joins the tunnel (device-facing flow in sections 1 to 6)
+    D-->>C: ok {ula, innerIpv4, token}
+    Note over C: use the device over the ULA
+    D-->>C: event dropped {host} (unsolicited, only if the link fails)
+    C->>D: op release {token}
+    D-->>C: ok {refs} (last release tears the tunnel down)
+    C->>D: socket close (auto-releases any leases still held)
+```

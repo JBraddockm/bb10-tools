@@ -63,6 +63,39 @@ the last `release` (or a dropped connection) brings it down. Consumers use the c
 is in [`PROTOCOL.md`](PROTOCOL.md) §7; the design, decisions and roadmap are in
 [`../analysis/TUNNEL-BROKER-DAEMON-PLAN.md`](../analysis/TUNNEL-BROKER-DAEMON-PLAN.md).
 
+End to end, from a device's **Wi-Fi LAN address** — bb-link asks the daemon to bring the tunnel up and
+runs the whole session over the device's ULA, so you never type the ULA **[verified]**:
+
+```sh
+sudo ./build/bb-tunnel serve                                   # the broker, on /tmp/bb-tunneld.sock
+./bblink connect --host 192.168.1.118 --tunnel --device 2C1E7583
+```
+
+Launched with `sudo` the daemon runs as root, so on bind it hands the socket to the real invoking user (`SUDO_USER`,
+mode `0600`) — otherwise an unprivileged `bblink` could not connect to a root-owned
+socket. The device's full management surface and its SMB share are then reachable over the tunnel.
+
+What those two commands set in motion — the **invoke path**:
+
+```mermaid
+sequenceDiagram
+    participant L as bb-link (unprivileged)
+    participant D as bb-tunneld (root)
+    participant Dev as BB10 device
+    L ->> D: acquire {host 192.168.1.118} over the UDS
+    D ->> Dev: TLS 1.0 on 1111, control handshake
+    D ->> Dev: CONNECT
+    Dev -->> D: CONNECT_RESP (device ULA)
+    D ->> Dev: IPV4_ENABLE (binds inner IPv4)
+    D ->> Dev: DTLS 1.0, data plane into a utun
+    D -->> L: ok {ula, innerIpv4, token}
+    L ->> Dev: connect over the ULA — CGIs 8443, WebDAV 8080, Blend 2708, SMB 445
+```
+
+The daemon owns the device-facing tunnel; bb-link only speaks the broker protocol, then talks to the
+device over the ULA it was handed. Its lifecycle (ref-counting, teardown, drops) is in
+[`PROTOCOL.md`](PROTOCOL.md) §7.
+
 ## Device pairing is required
 
 **The tunnel certificate is necessary but not sufficient.** The device completes the tunnel handshake
