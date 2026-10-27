@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -158,5 +159,48 @@ class ArchitectureBoundaryTest {
 
     assertThat(violations).isEmpty();
     assertThat(scanned).as("the lift-ready sources that were read").isNotEmpty();
+  }
+
+  /**
+   * An absolute classpath resource named in a test — notably a {@code @CsvFileSource(resources =
+   * "/…")}. These are written out by hand and do not move when a package is renamed, so a stale one
+   * only surfaces on a clean build. This guard catches it at once.
+   */
+  private static final Pattern ABSOLUTE_RESOURCE =
+      Pattern.compile("\"(/com/jbraddockm/[A-Za-z0-9/_.-]+\\.(?:csv|xml|json|pem|txt|bin))\"");
+
+  @Test
+  @DisplayName("every absolute classpath resource a test names actually resolves")
+  void absoluteTestResourcesResolve() {
+    Optional<Path> root =
+        Stream.of(Path.of("src/test/java"), Path.of("bb-link/src/test/java"))
+            .filter(path -> Files.isDirectory(path.resolve("com/jbraddockm/link")))
+            .findFirst();
+    assumeTrue(root.isPresent(), "the test sources are not here, so resources were not checked");
+
+    var link = root.orElseThrow().resolve("com/jbraddockm/link");
+    try (var paths = Files.walk(link)) {
+      var violations =
+          paths
+              .filter(path -> path.toString().endsWith(".java"))
+              .flatMap(
+                  path ->
+                      ABSOLUTE_RESOURCE.matcher(readString(path)).results().map(match -> match.group(1)))
+              .distinct()
+              .filter(resource -> getClass().getResource(resource) == null)
+              .toList();
+
+      assertThat(violations).isEmpty();
+    } catch (IOException failure) {
+      throw new UncheckedIOException(failure);
+    }
+  }
+
+  private static String readString(Path path) {
+    try {
+      return Files.readString(path);
+    } catch (IOException failure) {
+      throw new UncheckedIOException(failure);
+    }
   }
 }

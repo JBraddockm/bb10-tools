@@ -1,0 +1,33 @@
+{
+  "resources": [
+    {
+      "glob": "com/blackberry/tools/bar/**"
+    },
+    {
+      "glob": "net/rim/tools/bar/application.properties"
+    },
+    {
+      "glob": "com/qnx/bbt/**/*.properties"
+    },
+    {
+      "glob": "com/qnx/bbt/**/*.xml"
+    },
+    {
+      "glob": "com/trustpoint/**"
+    },
+    {
+      "glob": "net/rim/device/codesigning/**/*.properties"
+    }
+  ],
+  "bundles": [
+    {
+      "name": "com.qnx.bbt.packager.messages"
+    },
+    {
+      "name": "com.qnx.bbt.deploy.messages"
+    },
+    {
+      "name": "net.rim.device.codesigning.barsigner.BarSignerMessages"
+    }
+  ]
+}
