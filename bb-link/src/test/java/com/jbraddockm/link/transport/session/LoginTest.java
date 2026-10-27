@@ -7,6 +7,7 @@ import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.testing.ScriptedServer;
 import com.jbraddockm.link.testing.TestPki;
+import com.jbraddockm.link.transport.tls.ClientCertificate;
 import java.io.IOException;
 import java.nio.file.Path;
 import org.apache.http.cookie.Cookie;

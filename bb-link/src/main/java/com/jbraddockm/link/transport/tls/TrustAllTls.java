@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.tls;
 
 import com.jbraddockm.link.transport.internal.Impossible;
 import java.security.SecureRandom;
@@ -20,7 +20,7 @@ import org.apache.http.conn.ssl.SSLSocketFactory;
  */
 @SuppressWarnings(
     "deprecation") // deprecated only in newer HttpClient versions; the build pins 4.0.3
-final class TrustAllTls {
+public final class TrustAllTls {
 
   private static final int HTTPS_PORT = 8443;
 
@@ -32,7 +32,7 @@ final class TrustAllTls {
    * @param keyManagers what to offer if the device asks for a client certificate, or {@code null}
    *     to offer none
    */
-  static Scheme scheme(KeyManager[] keyManagers) {
+  public static Scheme scheme(KeyManager[] keyManagers) {
     return Impossible.call(
         () -> {
           var context = SSLContext.getInstance("SSL");

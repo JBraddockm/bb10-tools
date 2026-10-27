@@ -4,7 +4,7 @@ import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.transport.session.Authentication;
 import com.jbraddockm.link.transport.session.AuthenticationType;
-import com.jbraddockm.link.transport.session.ClientCertificate;
+import com.jbraddockm.link.transport.tls.ClientCertificate;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.tls;
 
 import java.nio.file.Path;
 import java.util.Objects;

@@ -7,7 +7,7 @@ import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.transport.session.Authentication;
-import com.jbraddockm.link.transport.session.ClientCertificate;
+import com.jbraddockm.link.transport.tls.ClientCertificate;
 import com.jbraddockm.link.testing.Resources;
 import java.nio.file.Path;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.tls;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
 import java.io.ByteArrayInputStream;
@@ -32,7 +32,7 @@ import java.util.regex.Pattern;
  * KEY} (PKCS #1), the two forms an export from Windows tools normally has. An encrypted key, or an
  * EC key in the older SEC1 form, is refused with the command that converts it.
  */
-final class PemIdentity {
+public final class PemIdentity {
 
   /** The certificate chain, leaf first, and the private key that belongs to the leaf. */
   record Loaded(PrivateKey key, X509Certificate[] chain) {}
@@ -67,7 +67,7 @@ final class PemIdentity {
 
   private PemIdentity() {}
 
-  static Loaded load(ClientCertificate source) throws IOException {
+  public static Loaded load(ClientCertificate source) throws IOException {
     var chain = readChain(source);
     var key = readKey(source);
     checkPair(key, chain[0]);

@@ -16,7 +16,7 @@ import com.jbraddockm.link.endpoint.pairing.pki.SignatureScheme;
 import com.jbraddockm.link.endpoint.pairing.store.FilesExistException;
 import com.jbraddockm.link.endpoint.pairing.store.IdentityDirectory;
 import com.jbraddockm.link.endpoint.pairing.store.StoredIdentity;
-import com.jbraddockm.link.transport.session.ClientCertificate;
+import com.jbraddockm.link.transport.tls.ClientCertificate;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import java.io.IOException;
 import java.security.GeneralSecurityException;

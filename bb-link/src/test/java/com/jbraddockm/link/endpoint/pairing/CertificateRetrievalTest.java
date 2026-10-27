@@ -11,7 +11,7 @@ import com.jbraddockm.link.endpoint.pairing.pki.Pem;
 import com.jbraddockm.link.endpoint.pairing.pki.SignatureScheme;
 import com.jbraddockm.link.endpoint.pairing.store.IdentityDirectory;
 import com.jbraddockm.link.endpoint.pairing.store.StoredIdentity;
-import com.jbraddockm.link.transport.session.ClientCertificate;
+import com.jbraddockm.link.transport.tls.ClientCertificate;
 import com.jbraddockm.link.testing.DeviceFixture;
 import com.jbraddockm.link.testing.Logs;
 import com.jbraddockm.link.testing.TestDer;

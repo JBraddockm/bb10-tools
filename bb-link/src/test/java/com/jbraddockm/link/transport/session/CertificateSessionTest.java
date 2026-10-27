@@ -14,6 +14,7 @@ import com.jbraddockm.link.testing.Logs;
 import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.testing.TestPki;
 import com.jbraddockm.link.testing.TlsTestDevice;
+import com.jbraddockm.link.transport.tls.ClientCertificate;
 import java.nio.file.Path;
 import java.util.List;
 import javax.net.ssl.SSLHandshakeException;

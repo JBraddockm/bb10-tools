@@ -7,7 +7,7 @@ import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.link.LinkErrorCode;
 import com.jbraddockm.link.endpoint.pairing.pki.CertificateDetails;
 import com.jbraddockm.link.transport.session.Authentication;
-import com.jbraddockm.link.transport.session.ClientCertificate;
+import com.jbraddockm.link.transport.tls.ClientCertificate;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import com.jbraddockm.link.transport.session.DeviceTarget;
 import com.jbraddockm.link.transport.session.TransportScheme;
