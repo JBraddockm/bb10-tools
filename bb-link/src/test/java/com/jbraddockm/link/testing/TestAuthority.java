@@ -1,10 +1,10 @@
 package com.jbraddockm.link.testing;
 
-import com.jbraddockm.link.pairing.pki.CertificateRequest;
-import com.jbraddockm.link.pairing.pki.Der;
-import com.jbraddockm.link.pairing.pki.Pem;
-import com.jbraddockm.link.pairing.pki.RsaKeys;
-import com.jbraddockm.link.pairing.pki.SignatureScheme;
+import com.jbraddockm.link.endpoint.pairing.pki.CertificateRequest;
+import com.jbraddockm.link.endpoint.pairing.pki.Der;
+import com.jbraddockm.link.endpoint.pairing.pki.Pem;
+import com.jbraddockm.link.endpoint.pairing.pki.RsaKeys;
+import com.jbraddockm.link.endpoint.pairing.pki.SignatureScheme;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;

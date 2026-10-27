@@ -2,9 +2,9 @@ package com.jbraddockm.link.testing;
 
 import com.jbraddockm.core.command.CommandResult;
 import com.jbraddockm.core.error.ServiceError;
-import com.jbraddockm.link.cgi.CgiRequest;
-import com.jbraddockm.link.cgi.Step;
-import com.jbraddockm.link.cgi.StepEffect;
+import com.jbraddockm.link.transport.cgi.CgiRequest;
+import com.jbraddockm.link.transport.cgi.Step;
+import com.jbraddockm.link.transport.cgi.StepEffect;
 import java.util.List;
 import java.util.Optional;
 

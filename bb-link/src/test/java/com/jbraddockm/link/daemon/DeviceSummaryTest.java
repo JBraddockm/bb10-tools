@@ -4,10 +4,10 @@ import static com.jbraddockm.link.testing.Steps.finished;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.core.json.Json;
-import com.jbraddockm.link.cgi.ResponseEnvelope;
-import com.jbraddockm.link.characteristics.DeviceCharacteristics;
-import com.jbraddockm.link.properties.DeviceProperties;
-import com.jbraddockm.link.properties.GetDeviceProperties;
+import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
+import com.jbraddockm.link.endpoint.characteristics.DeviceCharacteristics;
+import com.jbraddockm.link.endpoint.properties.DeviceProperties;
+import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.testing.Resources;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

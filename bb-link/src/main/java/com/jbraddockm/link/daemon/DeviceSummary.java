@@ -1,9 +1,9 @@
 package com.jbraddockm.link.daemon;
 
 import com.jbraddockm.core.json.Json;
-import com.jbraddockm.link.characteristics.DeviceCharacteristics;
-import com.jbraddockm.link.properties.DeviceProperties;
-import com.jbraddockm.link.properties.InstalledPackage;
+import com.jbraddockm.link.endpoint.characteristics.DeviceCharacteristics;
+import com.jbraddockm.link.endpoint.properties.DeviceProperties;
+import com.jbraddockm.link.endpoint.properties.InstalledPackage;
 import java.util.Map;
 
 /**

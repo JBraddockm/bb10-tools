@@ -5,12 +5,12 @@ import static com.jbraddockm.link.testing.JsonObjects.array;
 import static com.jbraddockm.link.testing.JsonObjects.object;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.jbraddockm.link.discovery.ConnectionKind;
-import com.jbraddockm.link.discovery.DiscoveredDevice;
-import com.jbraddockm.link.pairing.CertificateRetrieval;
-import com.jbraddockm.link.pairing.Pairing;
-import com.jbraddockm.link.session.ExchangeObserver;
-import com.jbraddockm.link.session.TransportScheme;
+import com.jbraddockm.link.endpoint.discovery.ConnectionKind;
+import com.jbraddockm.link.endpoint.discovery.DiscoveredDevice;
+import com.jbraddockm.link.endpoint.pairing.CertificateRetrieval;
+import com.jbraddockm.link.endpoint.pairing.Pairing;
+import com.jbraddockm.link.transport.session.ExchangeObserver;
+import com.jbraddockm.link.transport.session.TransportScheme;
 import com.jbraddockm.link.testing.Resources;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;

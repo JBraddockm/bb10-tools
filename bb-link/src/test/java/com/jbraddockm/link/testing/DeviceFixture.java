@@ -1,6 +1,6 @@
 package com.jbraddockm.link.testing;
 
-import com.jbraddockm.link.session.DeviceSession;
+import com.jbraddockm.link.transport.session.DeviceSession;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.security.GeneralSecurityException;

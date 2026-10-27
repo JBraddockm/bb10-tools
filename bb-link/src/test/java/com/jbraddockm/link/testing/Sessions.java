@@ -1,10 +1,10 @@
 package com.jbraddockm.link.testing;
 
-import com.jbraddockm.link.session.Authentication;
-import com.jbraddockm.link.session.DeviceSession;
-import com.jbraddockm.link.session.DeviceTarget;
-import com.jbraddockm.link.session.ExchangeObserver;
-import com.jbraddockm.link.session.TransportScheme;
+import com.jbraddockm.link.transport.session.Authentication;
+import com.jbraddockm.link.transport.session.DeviceSession;
+import com.jbraddockm.link.transport.session.DeviceTarget;
+import com.jbraddockm.link.transport.session.ExchangeObserver;
+import com.jbraddockm.link.transport.session.TransportScheme;
 import java.net.InetAddress;
 
 /** Opens sessions to a {@link FakeDevice}. */

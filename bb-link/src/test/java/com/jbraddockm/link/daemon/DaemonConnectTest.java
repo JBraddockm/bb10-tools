@@ -6,10 +6,10 @@ import static com.jbraddockm.link.daemon.DaemonRun.errorMessage;
 import static com.jbraddockm.link.testing.JsonObjects.object;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.jbraddockm.link.pairing.CertificateRetrieval;
-import com.jbraddockm.link.pairing.Pairing;
-import com.jbraddockm.link.session.ExchangeObserver;
-import com.jbraddockm.link.session.TransportScheme;
+import com.jbraddockm.link.endpoint.pairing.CertificateRetrieval;
+import com.jbraddockm.link.endpoint.pairing.Pairing;
+import com.jbraddockm.link.transport.session.ExchangeObserver;
+import com.jbraddockm.link.transport.session.TransportScheme;
 import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.testing.Resources;
 import java.util.List;

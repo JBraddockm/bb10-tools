@@ -1,0 +1,56 @@
+package com.jbraddockm.link.endpoint.pairing;
+
+import com.jbraddockm.core.error.ServiceError;
+import com.jbraddockm.core.json.Json;
+import com.jbraddockm.link.LinkErrorCode;
+import com.jbraddockm.link.transport.cgi.CgiRequest;
+import com.jbraddockm.link.transport.cgi.CgiResponse;
+import com.jbraddockm.link.transport.cgi.Conversation;
+import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
+import com.jbraddockm.link.transport.cgi.ResponseFailures;
+import com.jbraddockm.link.transport.cgi.Step;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * One request to {@code pairing.cgi} and the reading of its answer, which the three operations
+ * share: a success is the answer, an error is a failed command, and anything else is not taken for
+ * a success.
+ */
+final class PairingExchange implements Conversation<PairingReply> {
+
+  private final CgiRequest request;
+
+  PairingExchange(CgiRequest request) {
+    this.request = request;
+  }
+
+  @Override
+  public Step<PairingReply> start() {
+    return new Step.Send<>(request);
+  }
+
+  @Override
+  public Step<PairingReply> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
+    if (envelope == null) {
+      return new Step.Fail<>(
+          ResponseFailures.notXml(response), Optional.of(PairingReply.unreadable(response)));
+    }
+    var reply = PairingReply.read(response, envelope);
+    return switch (reply.status()) {
+      case SUCCESS -> new Step.Finish<>(reply);
+      case ERROR ->
+          new Step.Fail<>(
+              ResponseFailures.deviceError(
+                  reply.errorDescription(), reply.errorIdentifier(), Map.of()),
+              Optional.of(reply));
+      case READY, IN_PROGRESS, DENIED, PASSWORD_CHALLENGE, UNKNOWN ->
+          new Step.Fail<>(
+              new ServiceError(
+                  LinkErrorCode.UNEXPECTED_RESPONSE,
+                  "The device answered pairing.cgi with a status that is not a success or an error",
+                  Json.object("status", reply.statusText() == null ? "" : reply.statusText())),
+              Optional.of(reply));
+    };
+  }
+}

@@ -1,9 +1,9 @@
 package com.jbraddockm.link.testing;
 
-import com.jbraddockm.link.pairing.pki.CertificateDetails;
-import com.jbraddockm.link.pairing.pki.CertificateRequest;
-import com.jbraddockm.link.pairing.pki.RsaKeys;
-import com.jbraddockm.link.pairing.pki.SignatureScheme;
+import com.jbraddockm.link.endpoint.pairing.pki.CertificateDetails;
+import com.jbraddockm.link.endpoint.pairing.pki.CertificateRequest;
+import com.jbraddockm.link.endpoint.pairing.pki.RsaKeys;
+import com.jbraddockm.link.endpoint.pairing.pki.SignatureScheme;
 import com.qnx.bbt.deploy.PwCrypto;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
