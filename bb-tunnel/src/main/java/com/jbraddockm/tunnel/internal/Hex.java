@@ -1,8 +1,11 @@
-package com.jbraddockm.tunnel;
+package com.jbraddockm.tunnel.internal;
 
 import java.util.HexFormat;
 
-/** Small byte/hex/IP helpers used throughout the tunnel code. All offsets are into caller-provided arrays. */
+/**
+ * Small byte/hex/IP helpers used throughout the tunnel code. All offsets are into caller-provided
+ * arrays.
+ */
 public final class Hex {
   private Hex() {}
 
@@ -62,8 +65,9 @@ public final class Hex {
   }
 
   /**
-   * Colon IPv6 string → 16 bytes. Handles "::" zero-compression by filling the head from the left and the
-   * tail from the right, leaving the gap as zeros. (Used to build the fd00::/8 ULA addresses for bptp0.)
+   * Colon IPv6 string → 16 bytes. Handles "::" zero-compression by filling the head from the left
+   * and the tail from the right, leaving the gap as zeros. (Used to build the fd00::/8 ULA
+   * addresses for bptp0.)
    */
   public static byte[] ipv6ToBytes(String s) {
     String[] halves = s.split("::", -1);

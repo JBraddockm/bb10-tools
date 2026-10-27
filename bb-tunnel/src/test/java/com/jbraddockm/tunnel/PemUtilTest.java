@@ -3,6 +3,7 @@ package com.jbraddockm.tunnel;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.jbraddockm.tunnel.internal.PemUtil;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -12,7 +13,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Tests for {@link PemUtil}: loading DER blocks of a given PEM type from the classpath and from files. */
+/**
+ * Tests for {@link PemUtil}: loading DER blocks of a given PEM type from the classpath and from
+ * files.
+ */
 @DisplayName("PemUtil: loading DER blocks out of PEM")
 class PemUtilTest {
 
@@ -59,7 +63,7 @@ class PemUtilTest {
       var fromClasspath = PemUtil.readBlocks("/certs/blend_chain.pem", "CERTIFICATE");
       assertThat(fromFile).isNotEmpty().hasSameSizeAs(fromClasspath); // byte[] equals is identity,
       for (int i = 0; i < fromFile.size(); i++) // so compare contents element by element
-        assertThat(fromFile.get(i)).containsExactly(fromClasspath.get(i));
+      assertThat(fromFile.get(i)).containsExactly(fromClasspath.get(i));
     }
   }
 }

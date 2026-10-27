@@ -1,4 +1,4 @@
-package com.jbraddockm.tunnel;
+package com.jbraddockm.tunnel.internal;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -7,14 +7,17 @@ import java.nio.file.Path;
 import java.util.*;
 import org.bouncycastle.util.io.pem.PemReader;
 
-/** Loads DER blocks of a given PEM type (e.g. "CERTIFICATE", "PRIVATE KEY") from a classpath resource or file. */
+/**
+ * Loads DER blocks of a given PEM type (e.g. "CERTIFICATE", "PRIVATE KEY") from a classpath
+ * resource or file.
+ */
 public final class PemUtil {
   private PemUtil() {}
 
   /**
-   * Reads every PEM object whose type contains {@code type} from the classpath resource at
-   * {@code resourcePath}, returning each one's raw DER content. Used to load the bundled tunnel cert
-   * chain and PKCS#8 key from {@code src/main/resources/certs/}.
+   * Reads every PEM object whose type contains {@code type} from the classpath resource at {@code
+   * resourcePath}, returning each one's raw DER content. Used to load the bundled tunnel cert chain
+   * and PKCS#8 key from {@code src/main/resources/certs/}.
    */
   public static List<byte[]> readBlocks(String resourcePath, String type) throws Exception {
     try (InputStream is = PemUtil.class.getResourceAsStream(resourcePath)) {
@@ -36,7 +39,8 @@ public final class PemUtil {
     List<byte[]> out = new ArrayList<>();
     try (PemReader r = new PemReader(src)) {
       org.bouncycastle.util.io.pem.PemObject o;
-      while ((o = r.readPemObject()) != null) if (o.getType().contains(type)) out.add(o.getContent());
+      while ((o = r.readPemObject()) != null)
+        if (o.getType().contains(type)) out.add(o.getContent());
     }
     return out;
   }

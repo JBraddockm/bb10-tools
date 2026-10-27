@@ -9,39 +9,42 @@ import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
 /**
  * A {@link BcTlsCrypto} that tolerates the BlackBerry device's malformed certificate.
  *
- * <p><b>Why this class exists.</b> The device's TLS/DTLS leaf certificate is an X.509 <b>version 1</b>
- * certificate (its TBSCertificate has <i>no</i> {@code [0] version} field, which implicitly means v1)
- * yet it still carries a {@code [3] extensions} block, which is only legal in v3. Every strict ASN.1
- * X.509 parser — Java's SUN provider, BouncyCastle's JCA provider, and BouncyCastle's own TLS cert
- * parser — rejects this with <i>"version 1 certificate contains extra data"</i>. There is no lenient
- * flag anywhere to turn this off, so we cannot complete the handshake with a stock parser.
+ * <p><b>Why this class exists.</b> The device's TLS/DTLS leaf certificate is an X.509 <b>version
+ * 1</b> certificate (its TBSCertificate has <i>no</i> {@code [0] version} field, which implicitly
+ * means v1) yet it still carries a {@code [3] extensions} block, which is only legal in v3. Every
+ * strict ASN.1 X.509 parser — Java's SUN provider, BouncyCastle's JCA provider, and BouncyCastle's
+ * own TLS cert parser — rejects this with <i>"version 1 certificate contains extra data"</i>. There
+ * is no lenient flag anywhere to turn this off, so we cannot complete the handshake with a stock
+ * parser.
  *
- * <p><b>The fix.</b> We subclass {@code BcTlsCrypto} and intercept certificate creation. When the normal
- * parse throws, we re-encode the DER with an explicit {@code [0]{INTEGER 2}} version tag inserted at the
- * front of the TBSCertificate (turning it into a well-formed v3 cert) and parse that instead. The
- * re-encode changes the signed bytes, so the certificate signature no longer verifies — but that is fine:
- * the device cert is accepted in {@code notifyServerCertificate} <i>without</i> chain validation
- * (trust comes from the pairing relationship, not from the certificate chain), so the signature is never
- * checked.
+ * <p><b>The fix.</b> We subclass {@code BcTlsCrypto} and intercept certificate creation. When the
+ * normal parse throws, we re-encode the DER with an explicit {@code [0]{INTEGER 2}} version tag
+ * inserted at the front of the TBSCertificate (turning it into a well-formed v3 cert) and parse
+ * that instead. The re-encode changes the signed bytes, so the certificate signature no longer
+ * verifies — but that is fine: the device cert is accepted in {@code notifyServerCertificate}
+ * <i>without</i> chain validation (trust comes from the pairing relationship, not from the
+ * certificate chain), so the signature is never checked.
  *
- * <p><b>Why both overrides.</b> BouncyCastle calls {@link #createCertificate(short, byte[])} (the typed
- * form) when parsing <i>server</i> certificates during the handshake, and {@link #createCertificate(byte[])}
- * when we build our own client credential chain. Both must apply the patch, so both are overridden.
+ * <p><b>Why both overrides.</b> BouncyCastle calls {@link #createCertificate(short, byte[])} (the
+ * typed form) when parsing <i>server</i> certificates during the handshake, and {@link
+ * #createCertificate(byte[])} when we build our own client credential chain. Both must apply the
+ * patch, so both are overridden.
  */
-public class LenientCrypto extends BcTlsCrypto {
+final class LenientCrypto extends BcTlsCrypto {
 
-  public LenientCrypto(SecureRandom r) {
+  LenientCrypto(SecureRandom r) {
     super(r);
   }
 
   /**
-   * Rewrites a DER-encoded certificate so a strict parser accepts it: if the TBSCertificate is missing
-   * the explicit {@code [0] version} field, insert {@code [0]{INTEGER 2}} (= version 3) at the front.
+   * Rewrites a DER-encoded certificate so a strict parser accepts it: if the TBSCertificate is
+   * missing the explicit {@code [0] version} field, insert {@code [0]{INTEGER 2}} (= version 3) at
+   * the front.
    *
-   * <p>A Certificate is {@code SEQUENCE { tbsCertificate, signatureAlgorithm, signatureValue }}. We take
-   * the tbsCertificate (index 0), check whether its first element is already a {@code [0]}-tagged version,
-   * and if not, prepend one, then reassemble the outer Certificate SEQUENCE with the original
-   * signatureAlgorithm (index 1) and signatureValue (index 2) untouched.
+   * <p>A Certificate is {@code SEQUENCE { tbsCertificate, signatureAlgorithm, signatureValue }}. We
+   * take the tbsCertificate (index 0), check whether its first element is already a {@code
+   * [0]}-tagged version, and if not, prepend one, then reassemble the outer Certificate SEQUENCE
+   * with the original signatureAlgorithm (index 1) and signatureValue (index 2) untouched.
    *
    * @return the original bytes if already well-formed, otherwise the re-encoded (v3) bytes
    */

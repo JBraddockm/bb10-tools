@@ -1,5 +1,6 @@
 package com.jbraddockm.tunnel;
 
+import com.jbraddockm.tunnel.internal.Hex;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -10,16 +11,20 @@ import java.security.NoSuchAlgorithmException;
  *
  * <p>The 5 prefix bytes are a free choice: the device recomputes the identity from whatever we send
  * in {@code CONNECT} and routes return traffic to it, so {@link #ourUla} uses an all-zero prefix.
- * Verified — with the bundled {@code CN=blend_client_9665} leaf and a zero prefix this reproduces the
- * identity the device accepts ({@code fd00:0000:0000:2fc2:4132:a6e5:2b64:8fdb}).
+ * Verified — with the bundled {@code CN=blend_client_9665} leaf and a zero prefix this reproduces
+ * the identity the device accepts ({@code fd00:0000:0000:2fc2:4132:a6e5:2b64:8fdb}).
  *
- * <p>The <i>device's</i> own ULA is deliberately not computed here: its prefix is device-assigned and
- * not cert-derivable, and it is handed to us directly in {@code CONNECT_RESP} — see {@link Tunnel}.
+ * <p>The <i>device's</i> own ULA is deliberately not computed here: its prefix is device-assigned
+ * and not cert-derivable, and it is handed to us directly in {@code CONNECT_RESP} — see {@link
+ * Tunnel}.
  */
 final class TunnelIdentity {
   private TunnelIdentity() {}
 
-  /** Our 16-byte tunnel identity for {@code CONNECT}, derived from {@code leafCertDer} with a zero prefix. */
+  /**
+   * Our 16-byte tunnel identity for {@code CONNECT}, derived from {@code leafCertDer} with a zero
+   * prefix.
+   */
   static byte[] ourUlaBytes(byte[] leafCertDer) {
     return deriveUla(leafCertDer, new byte[5]);
   }

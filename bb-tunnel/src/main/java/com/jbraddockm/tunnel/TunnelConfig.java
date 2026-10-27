@@ -1,5 +1,6 @@
 package com.jbraddockm.tunnel;
 
+import com.jbraddockm.tunnel.internal.PemUtil;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -24,7 +25,7 @@ import java.util.List;
  *     it to {@code bptp0}, so its SMB share is reachable at {@code [deviceIpv4]:445} over the
  *     tunnel
  */
-public record TunnelConfig(
+record TunnelConfig(
     String host,
     int controlPort,
     List<byte[]> certChainDer,
@@ -50,7 +51,7 @@ public record TunnelConfig(
    * The bundled client identity ({@code /certs/blend_chain.pem} + {@code /certs/blend_key_p8.pem})
    * with the default stable inner-IPv4 ({@code 169.254.1.1/.2}).
    */
-  public static TunnelConfig fromClasspath(String host) {
+  static TunnelConfig fromClasspath(String host) {
     return fromClasspath(host, PC_IPV4, DEVICE_IPV4);
   }
 
@@ -58,7 +59,7 @@ public record TunnelConfig(
    * The bundled client identity with an explicit inner-IPv4 pair — e.g. one handed out per session
    * by {@link InnerAddressPool} so several devices can hold concurrent tunnels without colliding.
    */
-  public static TunnelConfig fromClasspath(String host, String pcIpv4, String deviceIpv4) {
+  static TunnelConfig fromClasspath(String host, String pcIpv4, String deviceIpv4) {
     try {
       return new TunnelConfig(
           host,
@@ -76,12 +77,12 @@ public record TunnelConfig(
    * A client identity read from PEM files on disk (cert chain leaf-first + PKCS#8 key) with the
    * default stable inner-IPv4 ({@code 169.254.1.1/.2}).
    */
-  public static TunnelConfig fromFiles(String host, Path chainPem, Path keyPem) {
+  static TunnelConfig fromFiles(String host, Path chainPem, Path keyPem) {
     return fromFiles(host, chainPem, keyPem, PC_IPV4, DEVICE_IPV4);
   }
 
   /** A client identity read from PEM files on disk with an explicit inner-IPv4 pair. */
-  public static TunnelConfig fromFiles(
+  static TunnelConfig fromFiles(
       String host, Path chainPem, Path keyPem, String pcIpv4, String deviceIpv4) {
     try {
       return new TunnelConfig(

@@ -5,24 +5,26 @@ import java.net.*;
 import org.bouncycastle.tls.DatagramTransport;
 
 /**
- * Adapts a {@code connect()}ed {@link DatagramSocket} to BouncyCastle's {@link DatagramTransport} so the
- * DTLS client can run over UDP.
+ * Adapts a {@code connect()}ed {@link DatagramSocket} to BouncyCastle's {@link DatagramTransport}
+ * so the DTLS client can run over UDP.
  *
  * <p>Two device-specific details matter here:
+ *
  * <ul>
- *   <li><b>PortUnreachableException → -1.</b> The busy device sometimes emits stale ICMP port-unreachable
- *       for the ephemeral data port. We swallow it and return -1 (a benign "no datagram this round") so a
- *       transient ICMP does not abort the long DTLS handshake.</li>
- *   <li><b>A long receive-timeout floor (30 s).</b> The device is slow: each DTLS flight takes ~20 s of
- *       P-521 math on the Leap. Using at least 30 s stops BouncyCastle from retransmitting a flight before
- *       the device has answered — retransmits only make the device re-process and compound the delay.</li>
+ *   <li><b>PortUnreachableException → -1.</b> The busy device sometimes emits stale ICMP
+ *       port-unreachable for the ephemeral data port. We swallow it and return -1 (a benign "no
+ *       datagram this round") so a transient ICMP does not abort the long DTLS handshake.
+ *   <li><b>A long receive-timeout floor (30 s).</b> The device is slow: each DTLS flight takes ~20
+ *       s of P-521 math on the Leap. Using at least 30 s stops BouncyCastle from retransmitting a
+ *       flight before the device has answered — retransmits only make the device re-process and
+ *       compound the delay.
  * </ul>
  */
-public class UdpDatagramTransport implements DatagramTransport {
+final class UdpDatagramTransport implements DatagramTransport {
   final DatagramSocket socket;
   final int mtu;
 
-  public UdpDatagramTransport(DatagramSocket s, int mtu) {
+  UdpDatagramTransport(DatagramSocket s, int mtu) {
     this.socket = s;
     this.mtu = mtu;
   }

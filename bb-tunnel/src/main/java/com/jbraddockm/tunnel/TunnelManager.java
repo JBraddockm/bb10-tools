@@ -25,24 +25,27 @@ import java.util.function.Consumer;
  * ref-count logic is unit-tested without a device or {@code sudo}; the default opens a real {@link
  * Tunnel}.
  */
-public final class TunnelManager {
+public final class TunnelManager implements Tunnels {
 
   private final InnerAddressPool pool;
   private final Opener opener;
   private final Map<String, Entry> byHost = new HashMap<>();
+
   /**
    * Told {@code (host, cause)} when a tunnel drops on its own; set by a consumer like the broker.
    */
   private volatile BiConsumer<String, Throwable> onDrop;
+
   /** A manager that opens real tunnels, with a fresh address pool. */
   public TunnelManager() {
     this(new InnerAddressPool(), null);
   }
+
   /**
    * A manager with an explicit pool and opener; a {@code null} opener uses the real tunnel
    * bring-up.
    */
-  public TunnelManager(InnerAddressPool pool, Opener opener) {
+  TunnelManager(InnerAddressPool pool, Opener opener) {
     this.pool = Objects.requireNonNull(pool, "pool");
     this.opener = opener != null ? opener : this::liveOpen;
   }
@@ -59,6 +62,7 @@ public final class TunnelManager {
    * @return a hold on the tunnel, carrying the coordinates to connect with
    * @throws Exception if the tunnel cannot be opened; the allocated pair is returned to the pool
    */
+  @Override
   public synchronized Lease acquire(String host, boolean stable) throws Exception {
     Objects.requireNonNull(host, "host");
     var entry = byHost.get(host);
@@ -78,16 +82,12 @@ public final class TunnelManager {
     return new Lease(host, entry);
   }
 
-  /** Whether a tunnel is currently held for {@code host}. */
+  @Override
   public synchronized boolean isOpen(String host) {
     return byHost.containsKey(host);
   }
 
-  /**
-   * Registers a listener told {@code (host, cause)} whenever a tunnel drops on its own (the link
-   * failed, not a {@link Lease#close}). A clean last-lease close does not fire it. Used by the
-   * broker to emit {@code dropped} events and forget the device. Set once before use.
-   */
+  @Override
   public void onDrop(BiConsumer<String, Throwable> listener) {
     this.onDrop = listener;
   }
@@ -156,7 +156,7 @@ public final class TunnelManager {
    * Connection}.
    */
   @FunctionalInterface
-  public interface Opener {
+  interface Opener {
     /**
      * Opens the transport to {@code host} with {@code inner}. The opener wires the connection's
      * <b>spontaneous</b> drop (the link failing on its own, not a {@link Connection#close}) to call
@@ -169,7 +169,7 @@ public final class TunnelManager {
    * A live tunnel the manager holds: its device ULA (from {@code CONNECT_RESP}) and how to close
    * it.
    */
-  public interface Connection {
+  interface Connection {
     String deviceUla();
 
     void close();
@@ -189,7 +189,7 @@ public final class TunnelManager {
   /**
    * A hold on a device's tunnel: the coordinates a consumer connects with, and a ref-counted close.
    */
-  public final class Lease implements AutoCloseable {
+  public final class Lease implements Tunnels.Lease {
     private final String host;
     private final Entry entry;
     private boolean closed;
@@ -199,24 +199,21 @@ public final class TunnelManager {
       this.entry = entry;
     }
 
-    /** The device's tunnel ULA — the host a consumer (bb-link, Blend) connects to. */
+    @Override
     public String deviceUla() {
       return entry.connection.deviceUla();
     }
 
-    /**
-     * The device's inner IPv4 — the SMB host bb-link reports (its {@code smbHost} connect param).
-     */
+    @Override
     public String deviceIpv4() {
       return entry.inner.deviceIpv4();
     }
 
-    /** The transport address the tunnel was opened with. */
+    @Override
     public String host() {
       return host;
     }
 
-    /** Releases this hold; the tunnel comes down when the last lease closes. Idempotent. */
     @Override
     public void close() {
       if (!closed) {

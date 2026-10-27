@@ -4,9 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.core.tunnel.BrokerEvent;
 import com.jbraddockm.core.tunnel.TunnelBrokerClient;
-import com.jbraddockm.tunnel.InnerAddressPool;
-import com.jbraddockm.tunnel.InnerIpv4;
-import com.jbraddockm.tunnel.TunnelManager;
+import com.jbraddockm.tunnel.Tunnels;
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
@@ -18,19 +16,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * End-to-end test: the bb-core {@link TunnelBrokerClient} driving {@link BrokerServer} over a UDS.
+ * End-to-end test: the bb-core {@link TunnelBrokerClient} driving {@link BrokerServer} over a UDS,
+ * with the tunnel service faked so no device is needed.
  */
 @DisplayName("Broker round trip: client ↔ server over a Unix-domain socket")
 class BrokerServerRoundTripTest {
 
-  private final FakeOpener opener = new FakeOpener();
+  private final FakeTunnels tunnels = new FakeTunnels();
   private Path socket;
   private BrokerServer server;
   private Thread serving;
@@ -50,8 +49,7 @@ class BrokerServerRoundTripTest {
   void startServer() throws Exception {
     // A short path: macOS caps a Unix-domain socket path near 104 bytes.
     socket = Path.of("/tmp", "bb-tunneld-test-" + System.nanoTime() + ".sock");
-    var broker = new TunnelBroker(new TunnelManager(new InnerAddressPool(), opener));
-    server = new BrokerServer(broker, socket, "test");
+    server = new BrokerServer(new TunnelBroker(tunnels), socket, "test");
     serving =
         new Thread(
             () -> {
@@ -134,28 +132,89 @@ class BrokerServerRoundTripTest {
       client.onEvent(events::add);
       client.acquire("192.168.1.118", false, "bb-link");
 
-      opener.dropCallbacks.get("192.168.1.118").accept(new IllegalStateException("link lost"));
+      tunnels.drop("192.168.1.118", new IllegalStateException("link lost"));
 
       var dropped = poll(events, "dropped");
       assertThat(dropped.host()).isEqualTo("192.168.1.118");
     }
   }
 
-  private static final class FakeOpener implements TunnelManager.Opener {
-    final Map<String, Consumer<Throwable>> dropCallbacks = new HashMap<>();
+  /** A {@link Tunnels} stand-in: one shared, ref-counted entry per host, with a drop hook. */
+  private static final class FakeTunnels implements Tunnels {
+    private record Info(String ula, String innerIpv4) {}
+
+    private final Map<String, Info> up = new HashMap<>();
+    private final Map<String, Integer> refs = new HashMap<>();
+    private BiConsumer<String, Throwable> onDrop;
 
     @Override
-    public TunnelManager.Connection open(String host, InnerIpv4 inner, Consumer<Throwable> onDrop) {
-      dropCallbacks.put(host, onDrop);
-      return new TunnelManager.Connection() {
-        @Override
-        public String deviceUla() {
-          return "fd00::" + host;
-        }
+    public synchronized Lease acquire(String host, boolean stable) {
+      var info =
+          up.computeIfAbsent(
+              host, h -> new Info("fd00::" + h, stable ? "169.254.1.1" : "169.254.9.1"));
+      refs.merge(host, 1, Integer::sum);
+      return new FakeLease(host, info);
+    }
 
-        @Override
-        public void close() {}
-      };
+    @Override
+    public synchronized boolean isOpen(String host) {
+      return up.containsKey(host);
+    }
+
+    @Override
+    public void onDrop(BiConsumer<String, Throwable> listener) {
+      this.onDrop = listener;
+    }
+
+    void drop(String host, Throwable cause) {
+      synchronized (this) {
+        up.remove(host);
+        refs.remove(host);
+      }
+      if (onDrop != null) {
+        onDrop.accept(host, cause);
+      }
+    }
+
+    private synchronized void release(String host) {
+      if (refs.merge(host, -1, Integer::sum) <= 0) {
+        refs.remove(host);
+        up.remove(host);
+      }
+    }
+
+    private final class FakeLease implements Lease {
+      private final String host;
+      private final Info info;
+      private boolean closed;
+
+      FakeLease(String host, Info info) {
+        this.host = host;
+        this.info = info;
+      }
+
+      @Override
+      public String deviceUla() {
+        return info.ula();
+      }
+
+      @Override
+      public String deviceIpv4() {
+        return info.innerIpv4();
+      }
+
+      @Override
+      public String host() {
+        return host;
+      }
+
+      @Override
+      public void close() {
+        if (!closed) {
+          closed = true;
+          release(host);
+        }
+      }
     }
   }
 }

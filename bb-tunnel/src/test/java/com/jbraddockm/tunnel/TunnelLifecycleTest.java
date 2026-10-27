@@ -10,11 +10,12 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link Tunnel}'s lifecycle that don't need a device, exercised through the
- * package-private constructor (a handle that never brought the tunnel up). Bring-up, drop detection,
- * and restart are device-coupled and verified live instead.
+ * package-private constructor (a handle that never brought the tunnel up). Bring-up, drop
+ * detection, and restart are device-coupled and verified live instead.
  */
 @DisplayName("Tunnel: the lifecycle of a handle")
-@SuppressWarnings("resource") // handles come from the package-private ctor: no device, nothing to close
+@SuppressWarnings(
+    "resource") // handles come from the package-private ctor: no device, nothing to close
 class TunnelLifecycleTest {
 
   private static Tunnel handle() {

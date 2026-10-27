@@ -19,7 +19,7 @@ import java.util.BitSet;
  * <p>Thread-safe; the session manager holds one pool and {@link #release(InnerIpv4) releases} a
  * pair when its tunnel tears down.
  */
-public final class InnerAddressPool {
+final class InnerAddressPool {
 
   /**
    * The reserved stable third octet — {@code 169.254.1.1/.2}; granted only via {@link
@@ -33,7 +33,7 @@ public final class InnerAddressPool {
   private final BitSet used = new BitSet(256);
   private boolean stableTaken;
 
-  public InnerAddressPool() {
+  InnerAddressPool() {
     used.set(0); // 169.254.0.0/24 — USB NCM + RFC-3927 reserved first /24
     used.set(STABLE_K); // held back for allocateStable()
     used.set(255); // 169.254.255.0/24 — RFC-3927 reserved last /24
@@ -51,7 +51,7 @@ public final class InnerAddressPool {
    * The preferred stable pair {@code 169.254.1.1/.2}, for a single-device or external-app mount
    * that wants a constant SMB address. Throws if it is already in use.
    */
-  public synchronized InnerIpv4 allocateStable() {
+  synchronized InnerIpv4 allocateStable() {
     if (stableTaken) {
       throw new IllegalStateException("stable inner-IPv4 (169.254.1.x) already in use");
     }
@@ -60,7 +60,7 @@ public final class InnerAddressPool {
   }
 
   /** The next free pair ({@code k = 2…254}). Throws when all 253 are in use. */
-  public synchronized InnerIpv4 allocate() {
+  synchronized InnerIpv4 allocate() {
     int k = used.nextClearBit(MIN_K);
     if (k > MAX_K) {
       throw new IllegalStateException("inner-IPv4 pool exhausted (253 concurrent sessions)");
@@ -70,7 +70,7 @@ public final class InnerAddressPool {
   }
 
   /** Returns a pair to the pool; ignored if it was not one this pool handed out. */
-  public synchronized void release(InnerIpv4 pair) {
+  synchronized void release(InnerIpv4 pair) {
     int k = thirdOctet(pair.deviceIpv4());
     if (k == STABLE_K) {
       stableTaken = false;

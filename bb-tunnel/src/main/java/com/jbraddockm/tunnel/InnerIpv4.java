@@ -9,9 +9,9 @@ package com.jbraddockm.tunnel;
  * @param pcIpv4 our inner IPv4
  * @param deviceIpv4 the device's inner IPv4 (the SMB host)
  */
-public record InnerIpv4(String pcIpv4, String deviceIpv4) {
+record InnerIpv4(String pcIpv4, String deviceIpv4) {
 
-  public InnerIpv4 {
+  InnerIpv4 {
     requireLinkLocal(pcIpv4);
     requireLinkLocal(deviceIpv4);
   }

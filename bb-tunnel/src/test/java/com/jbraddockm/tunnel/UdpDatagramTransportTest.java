@@ -2,6 +2,7 @@ package com.jbraddockm.tunnel;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.jbraddockm.tunnel.internal.Hex;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -13,8 +14,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link UdpDatagramTransport}: the BouncyCastle {@code DatagramTransport} over UDP. Its
- * receive path floors the timeout at 30&nbsp;s (the device is slow), so that branch is exercised live
- * rather than here; these cover the limits, sending, and close.
+ * receive path floors the timeout at 30&nbsp;s (the device is slow), so that branch is exercised
+ * live rather than here; these cover the limits, sending, and close.
  */
 @DisplayName("UdpDatagramTransport: UDP under BouncyCastle DTLS")
 class UdpDatagramTransportTest {
@@ -47,7 +48,8 @@ class UdpDatagramTransportTest {
         sender.connect(lo, receiver.getLocalPort());
         UdpDatagramTransport t = new UdpDatagramTransport(sender, 1500);
 
-        byte[] framed = Hex.fromHex("ffff" + "0001deadbeef"); // 2 leading bytes skipped via the offset
+        byte[] framed =
+            Hex.fromHex("ffff" + "0001deadbeef"); // 2 leading bytes skipped via the offset
         t.send(framed, 2, framed.length - 2);
 
         receiver.setSoTimeout(2000);

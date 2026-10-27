@@ -30,7 +30,7 @@ import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
  *   <li>Server cert: accepted without validation; trust comes from pairing, not the chain.
  * </ul>
  */
-public class TunnelTlsClient extends DefaultTlsClient {
+final class TunnelTlsClient extends DefaultTlsClient {
   private final boolean dtls;
   private final List<byte[]> certChainDer;
   private final byte[] keyDer;
@@ -38,10 +38,11 @@ public class TunnelTlsClient extends DefaultTlsClient {
   /**
    * @param crypto a {@link LenientCrypto} (so the device's malformed cert parses)
    * @param dtls false → control channel (TLS 1.0); true → data channel (DTLS 1.0)
-   * @param certChainDer our client certificate chain as DER blocks, leaf first (from {@link TunnelConfig})
+   * @param certChainDer our client certificate chain as DER blocks, leaf first (from {@link
+   *     TunnelConfig})
    * @param keyDer the PKCS#8 DER private key matching the leaf
    */
-  public TunnelTlsClient(BcTlsCrypto crypto, boolean dtls, List<byte[]> certChainDer, byte[] keyDer) {
+  TunnelTlsClient(BcTlsCrypto crypto, boolean dtls, List<byte[]> certChainDer, byte[] keyDer) {
     super(crypto);
     this.dtls = dtls;
     this.certChainDer = certChainDer;
@@ -49,8 +50,8 @@ public class TunnelTlsClient extends DefaultTlsClient {
   }
 
   /**
-   * Builds our client credential from the certificate chain and key supplied by {@link TunnelConfig}
-   * (the bundled {@code CN=blend_client_9665} leaf, or whatever the caller enrolled).
+   * Builds our client credential from the certificate chain and key supplied by {@link
+   * TunnelConfig} (the bundled {@code CN=blend_client_9665} leaf, or whatever the caller enrolled).
    *
    * <p><b>Why an agreement credential, not a signer.</b> For the static-ECDH suite 0xC005,
    * BouncyCastle's {@code TlsECDHKeyExchange} calls {@code requireAgreementCredentials} and rejects
@@ -59,14 +60,15 @@ public class TunnelTlsClient extends DefaultTlsClient {
    * there is no CertificateVerify signature. So we return a {@link
    * BcDefaultTlsCredentialedAgreement}.
    *
-   * <p>The leaf is the device's trusted bp2p peer: {@code tunmgr} verifies it by issuer+hash against
-   * the entries in {@code /var/bp2p/trustedpeers}, and the {@code CONNECT} identity ULA is derived
-   * from its SHA-1 (see {@link TunnelIdentity}). The key is PKCS#8 and must correspond to the leaf,
-   * because it participates directly in the key agreement.
+   * <p>The leaf is the device's trusted bp2p peer: {@code tunmgr} verifies it by issuer+hash
+   * against the entries in {@code /var/bp2p/trustedpeers}, and the {@code CONNECT} identity ULA is
+   * derived from its SHA-1 (see {@link TunnelIdentity}). The key is PKCS#8 and must correspond to
+   * the leaf, because it participates directly in the key agreement.
    */
   TlsCredentials makeClientCredentials(BcTlsCrypto crypto) throws Exception {
     TlsCertificate[] certs = new TlsCertificate[certChainDer.size()];
-    for (int i = 0; i < certChainDer.size(); i++) certs[i] = crypto.createCertificate(certChainDer.get(i));
+    for (int i = 0; i < certChainDer.size(); i++)
+      certs[i] = crypto.createCertificate(certChainDer.get(i));
     Certificate tlsChain = new Certificate(certs);
 
     AsymmetricKeyParameter privKey = PrivateKeyFactory.createKey(keyDer);
@@ -91,9 +93,12 @@ public class TunnelTlsClient extends DefaultTlsClient {
    * curve or the device aborts with handshake_failure(40).
    */
   @Override
-  public Hashtable getClientExtensions() throws IOException {
-    Hashtable ext = super.getClientExtensions();
-    if (ext == null) ext = new Hashtable();
+  public Hashtable<Integer, byte[]> getClientExtensions() throws IOException {
+    // BouncyCastle's TLS API declares these extension maps as a raw Hashtable; the one unchecked
+    // assignment is where we adopt that raw value into our typed view.
+    @SuppressWarnings("unchecked")
+    Hashtable<Integer, byte[]> ext = super.getClientExtensions();
+    if (ext == null) ext = new Hashtable<>();
     TlsExtensionsUtils.addSupportedGroupsExtension(ext, new int[] {NamedGroup.secp521r1});
     return ext;
   }
@@ -104,7 +109,7 @@ public class TunnelTlsClient extends DefaultTlsClient {
       /** Accept the device cert unconditionally — trust is from pairing, not the chain. */
       @Override
       public void notifyServerCertificate(TlsServerCertificate c) {
-        System.out.println(
+        IO.println(
             (dtls ? "DTLS" : "TLS")
                 + " server sent "
                 + c.getCertificate().getCertificateList().length

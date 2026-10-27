@@ -3,6 +3,7 @@ package com.jbraddockm.tunnel;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.jbraddockm.tunnel.internal.Hex;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
@@ -58,8 +59,8 @@ class ControlChannelTest {
     void returnsTheMatchingFrame() throws IOException {
       ControlChannel ctl = over(Hex.fromHex("0003" + "0001" + "99"), new ByteArrayOutputStream());
       ControlChannel.Frame f = ctl.read(0x03);
-      assertThat(f.cmd).isEqualTo(0x03);
-      assertThat(f.body).containsExactly(0x99);
+      assertThat(f.cmd()).isEqualTo(0x03);
+      assertThat(f.body()).containsExactly(0x99);
     }
 
     @Test
@@ -67,8 +68,8 @@ class ControlChannelTest {
     void skipsAsyncNotifyFrames() throws IOException {
       byte[] stream = Hex.fromHex("0005" + "0002" + "aabb" + "0003" + "0001" + "99");
       ControlChannel.Frame f = over(stream, new ByteArrayOutputStream()).read(0x03);
-      assertThat(f.cmd).isEqualTo(0x03);
-      assertThat(f.body).containsExactly(0x99);
+      assertThat(f.cmd()).isEqualTo(0x03);
+      assertThat(f.body()).containsExactly(0x99);
     }
 
     @Test
@@ -109,7 +110,7 @@ class ControlChannelTest {
           };
       ControlChannel.Frame f =
           new ControlChannel(new ByteArrayOutputStream(), oneByteAtATime).read(0x03);
-      assertThat(f.body).containsExactly(0x01, 0x02, 0x03);
+      assertThat(f.body()).containsExactly(0x01, 0x02, 0x03);
     }
   }
 

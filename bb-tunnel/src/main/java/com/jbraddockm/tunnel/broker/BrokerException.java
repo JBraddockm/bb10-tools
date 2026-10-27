@@ -8,7 +8,7 @@ import java.io.Serial;
  * human-readable. {@link BrokerServer} turns it into the request's {@code {ok:false, error:{code,
  * message}}} reply.
  */
-public final class BrokerException extends RuntimeException {
+final class BrokerException extends RuntimeException {
 
   @Serial private static final long serialVersionUID = 1L;
 
@@ -18,13 +18,13 @@ public final class BrokerException extends RuntimeException {
    * @param code a short, stable machine token for the failure
    * @param message a human-readable explanation
    */
-  public BrokerException(String code, String message) {
+  BrokerException(String code, String message) {
     super(message);
     this.code = code;
   }
 
   /** The short machine token for this failure. */
-  public String code() {
+  String code() {
     return code;
   }
 }

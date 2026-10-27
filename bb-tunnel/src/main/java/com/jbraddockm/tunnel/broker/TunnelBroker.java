@@ -2,7 +2,7 @@ package com.jbraddockm.tunnel.broker;
 
 import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.json.Json;
-import com.jbraddockm.tunnel.TunnelManager;
+import com.jbraddockm.tunnel.Tunnels;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -13,15 +13,15 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * The shared, thread-safe core of the tunnel broker daemon: it layers consumer-facing leases,
- * identity and events on top of {@link TunnelManager}, which owns the one-shared-tunnel-per-device
- * transport. bb-link and Blend are peer consumers; neither owns a tunnel's lifecycle (see {@code
+ * identity and events on top of {@link Tunnels}, the one-shared-tunnel-per-device transport.
+ * bb-link and Blend are peer consumers; neither owns a tunnel's lifecycle (see {@code
  * analysis/TUNNEL-BROKER-DAEMON-PLAN.md}).
  *
  * <p>This class is transport-agnostic — it speaks {@link RequestParams}/JSON maps and knows nothing
  * of sockets — so it is unit-tested directly. {@link BrokerServer} wraps it in a Unix-domain-socket
  * server, one connection per client.
  *
- * <h2>What it adds over {@link TunnelManager}</h2>
+ * <h2>What it adds over {@link Tunnels}</h2>
  *
  * <ul>
  *   <li><b>Tokens &amp; connection-scoped leases.</b> Every {@code acquire} hands back an opaque
@@ -32,23 +32,24 @@ import java.util.concurrent.atomic.AtomicLong;
  *       discovery.cgi}, which only it can reach) reports them with {@code identify}; the broker
  *       records {@code GUID → host} so the {@code acquire {guid}} rejoin form works, and tells the
  *       device's other consumers with an {@code identity} event.
- *   <li><b>Drop events.</b> When a tunnel drops on its own, {@link TunnelManager#onDrop} fires; the
+ *   <li><b>Drop events.</b> When a tunnel drops on its own, {@link Tunnels#onDrop} fires; the
  *       broker forgets the device and sends a {@code dropped} event to the consumers that held it.
  * </ul>
  */
-public final class TunnelBroker {
+final class TunnelBroker {
 
-  private final TunnelManager manager;
+  private final Tunnels tunnels;
   private final Object lock = new Object();
   private final AtomicLong tokens = new AtomicLong();
   private final Map<String, Hold> byToken = new HashMap<>();
   private final Map<String, DeviceInfo> byHost = new HashMap<>();
   private final Map<String, String> hostByGuid = new HashMap<>();
   private final Map<String, EventSink> connections = new HashMap<>();
-  /** Wraps {@code manager} and subscribes to its drop notifications. */
-  public TunnelBroker(TunnelManager manager) {
-    this.manager = Objects.requireNonNull(manager, "manager");
-    manager.onDrop(this::dropped);
+
+  /** Wraps the tunnel service and subscribes to its drop notifications. */
+  TunnelBroker(Tunnels tunnels) {
+    this.tunnels = Objects.requireNonNull(tunnels, "tunnels");
+    tunnels.onDrop(this::dropped);
   }
 
   /** Delivers an event to each sink outside the lock; a failed write never breaks the others. */
@@ -63,14 +64,14 @@ public final class TunnelBroker {
   }
 
   /** Registers a connection and where to write its events. Call before handling its requests. */
-  public void connected(String connection, EventSink events) {
+  void connected(String connection, EventSink events) {
     synchronized (lock) {
       connections.put(connection, events);
     }
   }
 
   /** Forgets a connection and releases every lease it still held (its socket closed). */
-  public void disconnected(String connection) {
+  void disconnected(String connection) {
     List<String> toRelease;
     synchronized (lock) {
       connections.remove(connection);
@@ -89,7 +90,7 @@ public final class TunnelBroker {
    * with plus the lease {@code token}. The slow bring-up runs without the broker lock, so other
    * connections are not blocked by it.
    */
-  public Map<String, Object> acquire(String connection, RequestParams params) throws Exception {
+  Map<String, Object> acquire(String connection, RequestParams params) throws Exception {
     var consumer = params.optionalString("consumer").orElse("unknown");
     var stable = params.flag("stable");
     var guid = params.optionalString("guid");
@@ -105,7 +106,7 @@ public final class TunnelBroker {
       host = params.requireString("host");
     }
 
-    var lease = manager.acquire(host, stable); // may block on bring-up; no broker lock held
+    var lease = tunnels.acquire(host, stable); // may block on bring-up; no broker lock held
 
     synchronized (lock) {
       var info = byHost.computeIfAbsent(host, _ -> new DeviceInfo());
@@ -118,7 +119,7 @@ public final class TunnelBroker {
   }
 
   /** Releases one lease by token. Idempotent; reports the references remaining for the device. */
-  public Map<String, Object> release(RequestParams params) {
+  Map<String, Object> release(RequestParams params) {
     var token = params.requireString("token");
     synchronized (lock) {
       return Json.object("refs", (long) releaseLocked(token));
@@ -126,7 +127,7 @@ public final class TunnelBroker {
   }
 
   /** Lists the tunnels the broker holds (optionally one {@code host}). */
-  public Map<String, Object> status(RequestParams params) {
+  Map<String, Object> status(RequestParams params) {
     var only = params.optionalString("host");
     synchronized (lock) {
       var tunnels = new ArrayList<Object>();
@@ -167,7 +168,7 @@ public final class TunnelBroker {
    * never reads {@code discovery.cgi} itself — only a consumer can, over the tunnel — so identity
    * arrives this way.
    */
-  public Map<String, Object> identify(RequestParams params) {
+  Map<String, Object> identify(RequestParams params) {
     var host = params.requireString("host");
     var guid = params.requireString("guid");
     var pin = params.optionalString("pin").orElse(null);
@@ -188,7 +189,7 @@ public final class TunnelBroker {
     return Json.object("ok", true);
   }
 
-  /** Called by {@link TunnelManager} when a tunnel drops on its own. */
+  /** Called by {@link Tunnels} when a tunnel drops on its own. */
   private void dropped(String host, Throwable cause) {
     List<EventSink> sinks;
     Map<String, Object> event;
@@ -217,7 +218,7 @@ public final class TunnelBroker {
     if (hold == null) {
       return 0; // already released, or never existed — idempotent
     }
-    hold.lease.close(); // TunnelManager ref--; brings the tunnel down on the last lease
+    hold.lease.close(); // tunnel ref--; brings the tunnel down on the last lease
     var remaining = holdsFor(hold.host).size();
     if (remaining == 0) {
       byHost.remove(hold.host);
@@ -264,13 +265,13 @@ public final class TunnelBroker {
    * Where a connection's events (server-initiated {@code dropped}/{@code identity}) are written.
    */
   @FunctionalInterface
-  public interface EventSink {
+  interface EventSink {
     void event(Map<String, Object> event);
   }
 
   /** One consumer hold on a device's tunnel. */
   private record Hold(
-      String token, String host, String connection, String consumer, TunnelManager.Lease lease) {}
+      String token, String host, String connection, String consumer, Tunnels.Lease lease) {}
 
   /**
    * What the broker knows about a device whose tunnel is up: its coordinates and (later) identity.

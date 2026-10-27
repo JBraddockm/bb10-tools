@@ -2,6 +2,7 @@ package com.jbraddockm.tunnel;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.jbraddockm.tunnel.internal.Hex;
 import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

@@ -30,7 +30,7 @@ import java.util.List;
  * address-family word ({@code AF_INET=2} or {@code AF_INET6=0x1e}). {@link #read} strips it; {@link
  * #write} prepends it (choosing the family from the IP version nibble).
  */
-public class TunDevice implements AutoCloseable {
+final class TunDevice implements AutoCloseable {
 
   /**
    * The libc downcall descriptors this device binds. {@link ForeignRegistrationFeature} registers
@@ -48,6 +48,7 @@ public class TunDevice implements AutoCloseable {
               JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS), // getsockopt
           FunctionDescriptor.of(ADDRESS, JAVA_INT), // strerror
           FunctionDescriptor.of(ADDRESS)); // __error
+
   // --- macOS constants ---
   private static final int PF_SYSTEM = 32;
   private static final int SOCK_DGRAM = 2;
@@ -74,7 +75,7 @@ public class TunDevice implements AutoCloseable {
   private final String ifName;
   private final Arena arena = Arena.ofShared();
 
-  public TunDevice() throws Throwable {
+  TunDevice() throws Throwable {
     // Bind the libc functions we need as Panama downcall handles.
     socket = h("socket", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
     ioctl = h("ioctl", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_LONG, ADDRESS));
@@ -135,12 +136,12 @@ public class TunDevice implements AutoCloseable {
   }
 
   /** The kernel-assigned interface name, e.g. "utun4". */
-  public String name() {
+  String name() {
     return ifName;
   }
 
   /** Reads one raw IP packet from the tun, stripping the leading 4-byte AF header. Blocks. */
-  public byte[] read() throws Throwable {
+  byte[] read() throws Throwable {
     MemorySegment buf = arena.allocate(2048);
     long n = (long) read.invoke(fd, buf, 2048L);
     if (n <= 4) return new byte[0]; // nothing but (or less than) the AF header
@@ -154,7 +155,7 @@ public class TunDevice implements AutoCloseable {
    * the IP version nibble: {@code 0x60..} → IPv6 ({@code AF_INET6=0x1e}), else IPv4 ({@code
    * AF_INET=2}).
    */
-  public void write(byte[] pkt, int off, int len) throws Throwable {
+  void write(byte[] pkt, int off, int len) throws Throwable {
     boolean v6 = (pkt[off] & 0xf0) == 0x60;
     MemorySegment buf = arena.allocate(4 + len);
     buf.set(

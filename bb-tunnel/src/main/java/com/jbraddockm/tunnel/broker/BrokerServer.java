@@ -32,10 +32,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>A connection's close — clean or a crash — releases every lease it still held (via {@link
  * TunnelBroker#disconnected}), so no client can pin a tunnel up by dying.
  */
-public final class BrokerServer implements AutoCloseable {
+final class BrokerServer implements AutoCloseable {
 
   /** The line protocol version announced in {@code hello}. */
-  public static final int PROTOCOL_VERSION = 1;
+  static final int PROTOCOL_VERSION = 1;
 
   private static final List<String> OPS = List.of("acquire", "status", "release", "identify");
 
@@ -52,14 +52,14 @@ public final class BrokerServer implements AutoCloseable {
    * @param socketPath the Unix-domain socket to bind (a stale file at the path is removed first)
    * @param version the daemon version reported in {@code hello}
    */
-  public BrokerServer(TunnelBroker broker, Path socketPath, String version) {
+  BrokerServer(TunnelBroker broker, Path socketPath, String version) {
     this.broker = broker;
     this.socketPath = socketPath;
     this.version = version;
   }
 
   /** Binds the socket and accepts connections until {@link #close}. Blocks the calling thread. */
-  public void serve() throws IOException {
+  void serve() throws IOException {
     Files.deleteIfExists(socketPath);
     server = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
     server.bind(UnixDomainSocketAddress.of(socketPath));
@@ -84,11 +84,11 @@ public final class BrokerServer implements AutoCloseable {
 
   /**
    * Makes the freshly-bound socket reachable by its client. Launched with {@code sudo}, the daemon
-   * runs as root, so the default root-owned {@code 0755} socket is not connectable by an unprivileged
-   * consumer (connecting to a Unix socket needs write permission). Hand it to the real invoking user
-   * ({@code SUDO_USER}) with owner-only {@code rw}; if that cannot be done, fall back to opening it to
-   * all local users so a dev run still works. Not under sudo, the daemon already runs as the
-   * connecting user, so the default owner access is left as it is.
+   * runs as root, so the default root-owned {@code 0755} socket is not connectable by an
+   * unprivileged consumer (connecting to a Unix socket needs write permission). Hand it to the real
+   * invoking user ({@code SUDO_USER}) with owner-only {@code rw}; if that cannot be done, fall back
+   * to opening it to all local users so a dev run still works. Not under sudo, the daemon already
+   * runs as the connecting user, so the default owner access is left as it is.
    */
   private static void grantSocketAccess(Path socket) {
     var sudoUser = System.getenv("SUDO_USER");

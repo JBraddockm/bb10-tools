@@ -2,6 +2,7 @@ package com.jbraddockm.tunnel;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.jbraddockm.tunnel.internal.Hex;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -79,7 +80,8 @@ class HexTest {
     void foldsAndInverts() {
       assertThat(Hex.checksum(new byte[] {0x00, 0x00}, 0, 2)).isEqualTo(0xffff);
       assertThat(Hex.checksum(new byte[] {(byte) 0xff, (byte) 0xff}, 0, 2)).isEqualTo(0x0000);
-      assertThat(Hex.checksum(new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff}, 0, 4))
+      assertThat(
+              Hex.checksum(new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff}, 0, 4))
           .isEqualTo(0x0000);
     }
 
