@@ -1,11 +1,9 @@
 package com.jbraddockm.link.transport.tunnel;
 
 /**
- * A hold on a device's Wi-Fi tunnel for the lifetime of a {@link DeviceSession}. The session
- * connects over {@link #ula()} and reports {@link #smbHost()} as the share address; {@link
- * #isDown()} turns true once the tunnel has dropped, so the session can fail further commands with
- * a clear "tunnel down" rather than hang. Closing it releases the hold (the broker brings the
- * shared tunnel down when the last consumer releases).
+ * A hold on a device's Wi-Fi tunnel for the lifetime of a session. The session connects over {@link
+ * #ula()} and reports {@link #smbHost()} as the share address; {@link #isDown()} turns true once the
+ * tunnel has dropped. Closing it releases the hold.
  */
 public interface TunnelBinding extends AutoCloseable {
 
