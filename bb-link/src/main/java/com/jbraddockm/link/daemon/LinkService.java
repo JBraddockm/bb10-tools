@@ -16,8 +16,12 @@ import com.jbraddockm.core.tunnel.TunnelBrokerClient;
 import com.jbraddockm.link.characteristics.DeviceCharacteristics;
 import com.jbraddockm.link.characteristics.GetDeviceCharacteristics;
 import com.jbraddockm.link.discovery.DeviceScanner;
+import com.jbraddockm.link.discovery.FriendlyNameAdvertiser;
 import com.jbraddockm.link.pairing.CertificateRetrieval;
+import com.jbraddockm.link.pairing.ClientNames;
 import com.jbraddockm.link.pairing.Pairing;
+import com.jbraddockm.link.pairing.store.PairingDirectory;
+import com.jbraddockm.link.pairing.store.StoredPairing;
 import com.jbraddockm.link.properties.DeviceProperties;
 import com.jbraddockm.link.properties.GetDeviceProperties;
 import com.jbraddockm.link.session.BrokerTunnelConnector;
@@ -29,10 +33,12 @@ import com.jbraddockm.link.session.LoginOnly;
 import com.jbraddockm.link.session.SmbCredentials;
 import com.jbraddockm.link.session.TransportScheme;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** The bb-link service: what the shared daemon server runs. */
 public final class LinkService implements Service<DeviceSession> {
@@ -153,8 +159,55 @@ public final class LinkService implements Service<DeviceSession> {
               "bb-link",
               tunnelCert,
               tunnelKey));
+      advertiseFriendlyName(session, tunnelCert);
     }
     return session;
+  }
+
+  /**
+   * Advertises this workstation's friendly name over mDNS for the device this tunnel connect pairs
+   * with, so the device shows it in Device Connections instead of the {@code Desktop-XXXX} fallback.
+   * Best-effort, and attached to the session so the advert is withdrawn when the connection ends. A
+   * connect without a pairing beside the tunnel certificate advertises nothing.
+   */
+  private static void advertiseFriendlyName(DeviceSession session, Path tunnelCertificate) {
+    pairedDeviceId(tunnelCertificate).ifPresent(id -> advertiseFriendlyName(session, id));
+  }
+
+  /**
+   * Starts the friendly-name advert for an explicit paired {@code deviceId} and attaches it to the
+   * session. Used right after a pairing, when the device is adding this computer and so is most
+   * likely to be browsing for our Friendly service. Best-effort — it never throws.
+   *
+   * @param session the session the advert lives with; it is withdrawn when the session closes
+   * @param deviceId the identifier the device stored for this computer (which it folds to match us)
+   */
+  static void advertiseFriendlyName(DeviceSession session, String deviceId) {
+    if (deviceId == null || deviceId.isBlank()) {
+      return;
+    }
+    FriendlyNameAdvertiser.tryStart(ClientNames.localWorkstation(), deviceId)
+        .ifPresent(session::attach);
+  }
+
+  /**
+   * The identifier the device stored for this computer, read from the {@code pairing.json} beside
+   * the tunnel certificate: the {@code deviceId} the pairing gave itself, which the device folds to
+   * match our Friendly advert. Empty when there is no certificate or no readable pairing beside it.
+   *
+   * @param tunnelCertificate the path the connect passed, or {@code null}
+   * @return the identifier, or empty
+   */
+  static Optional<String> pairedDeviceId(Path tunnelCertificate) {
+    if (tunnelCertificate == null) {
+      return Optional.empty();
+    }
+    var pairingFile = tunnelCertificate.resolveSibling(PairingDirectory.METADATA_FILE);
+    try {
+      return Optional.of(StoredPairing.fromJsonText(Files.readString(pairingFile)).deviceId());
+    } catch (IOException | RuntimeException noPairing) {
+      return Optional.empty();
+    }
   }
 
   /**

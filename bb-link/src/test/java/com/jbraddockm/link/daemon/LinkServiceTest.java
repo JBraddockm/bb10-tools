@@ -13,6 +13,8 @@ import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.pairing.CertificateRetrieval;
 import com.jbraddockm.link.pairing.Pairing;
+import com.jbraddockm.link.pairing.store.PairingDirectory;
+import com.jbraddockm.link.pairing.store.StoredPairing;
 import com.jbraddockm.link.properties.GetDeviceProperties;
 import com.jbraddockm.link.session.Authentication;
 import com.jbraddockm.link.session.DeviceSession;
@@ -25,6 +27,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -32,6 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -91,6 +97,38 @@ class LinkServiceTest {
     var params = connect(resource);
     session = service.open(params);
     return service.establish(session, params, reply);
+  }
+
+  @Nested
+  @DisplayName("the paired device identifier read beside a tunnel certificate")
+  class PairedDeviceId {
+
+    @TempDir private Path folder;
+
+    @Test
+    @DisplayName("is the deviceId that the pairing gave itself")
+    void fromThePairing() throws IOException {
+      var cert = folder.resolve("tunnel_cert.pem");
+      Files.writeString(cert, "unused");
+      Files.writeString(
+          folder.resolve(PairingDirectory.METADATA_FILE),
+          new StoredPairing("019C197F3871C2F52B133252D06A4A96A3", "PC issuer X", Instant.EPOCH)
+              .toJsonText());
+
+      assertThat(LinkService.pairedDeviceId(cert)).contains("019C197F3871C2F52B133252D06A4A96A3");
+    }
+
+    @Test
+    @DisplayName("is empty when no certificate path was passed")
+    void withoutACertificate() {
+      assertThat(LinkService.pairedDeviceId(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("is empty when there is no pairing beside the certificate")
+    void withoutAPairing() {
+      assertThat(LinkService.pairedDeviceId(folder.resolve("tunnel_cert.pem"))).isEmpty();
+    }
   }
 
   private List<Map<String, Object>> events() {

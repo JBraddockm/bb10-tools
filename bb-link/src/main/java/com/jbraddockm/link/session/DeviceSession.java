@@ -43,6 +43,7 @@ public final class DeviceSession implements ServiceSession {
   private TunnelBinding tunnelBinding;
   private CgiTransport transport;
   private SmbCredentials smbCredentials;
+  private AutoCloseable attachment;
   private boolean closed;
 
   private DeviceSession(DeviceTarget target, ExchangeObserver observer, String tunnelSmbHost) {
@@ -164,6 +165,21 @@ public final class DeviceSession implements ServiceSession {
     lock.lock();
     try {
       this.tunnelConnector = Objects.requireNonNull(connector, "connector");
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Registers a resource to be closed when this session closes — a friendly-name advert that should
+   * live exactly as long as the connection. Replaces any resource attached before.
+   *
+   * @param resource the resource to close with the session
+   */
+  public void attach(AutoCloseable resource) {
+    lock.lock();
+    try {
+      this.attachment = Objects.requireNonNull(resource, "resource");
     } finally {
       lock.unlock();
     }
@@ -370,6 +386,14 @@ public final class DeviceSession implements ServiceSession {
         tunnelBinding
             .close(); // release the broker lease; the tunnel drops when the last consumer does
         tunnelBinding = null;
+      }
+      if (attachment != null) {
+        try {
+          attachment.close(); // withdraw the friendly-name advert; a courtesy, not the connection
+        } catch (Exception _) {
+          // Best-effort: a failed withdrawal must not break closing the session.
+        }
+        attachment = null;
       }
     } finally {
       lock.unlock();

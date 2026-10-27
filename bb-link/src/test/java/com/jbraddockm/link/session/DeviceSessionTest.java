@@ -3,6 +3,7 @@ package com.jbraddockm.link.session;
 import static com.jbraddockm.link.testing.Outcomes.failed;
 import static com.jbraddockm.link.testing.Outcomes.succeeded;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.jbraddockm.core.command.CommandListener;
 import com.jbraddockm.core.command.LogLevel;
@@ -16,6 +17,7 @@ import com.jbraddockm.link.testing.ScriptedServer;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,6 +51,34 @@ class DeviceSessionTest {
   void closeEverything() {
     session.close();
     device.close();
+  }
+
+  @Nested
+  @DisplayName("a resource attached to the session")
+  class Attachment {
+
+    @Test
+    @DisplayName("is closed when the session closes, and not again on a second close")
+    void isClosedOnce() {
+      var closes = new AtomicInteger();
+      session.attach(closes::incrementAndGet);
+
+      session.close();
+      session.close();
+
+      assertThat(closes.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("that fails to close does not stop the session from closing")
+    void aFailingCloseIsSwallowed() {
+      session.attach(
+          () -> {
+            throw new IOException("the advert could not be withdrawn");
+          });
+
+      assertThatCode(session::close).doesNotThrowAnyException();
+    }
   }
 
   @Nested

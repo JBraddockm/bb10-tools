@@ -6,7 +6,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 /** Where the names in a certificate come from: the PIN, the user and the computer. */
-final class ClientNames {
+public final class ClientNames {
 
   private static final String UNKNOWN = "unknown";
 
@@ -37,7 +37,7 @@ final class ClientNames {
         .toUpperCase(Locale.ROOT);
   }
 
-  static String localWorkstation() {
+  public static String localWorkstation() {
     var fromEnvironment =
         Optional.ofNullable(System.getenv("COMPUTERNAME"))
             .or(() -> Optional.ofNullable(System.getenv("HOSTNAME")));
