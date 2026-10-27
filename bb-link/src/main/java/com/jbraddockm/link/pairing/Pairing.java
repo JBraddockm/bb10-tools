@@ -106,8 +106,8 @@ public final class Pairing {
 
         // The tunnel is part of BlackBerry Link — the Wi-Fi endpoints do not work without it. Make a
         // self-signed identity for the tunnel and enrol it through the same pairing the authority
-        // used, so the device trusts the certificate the tunnel will present. Then make a Blend
-        // identity and leave it in the folder, ready, until Blend is wired.
+        // used, so the device trusts the certificate the tunnel will present. The device keeps one
+        // trusted peer per computer, so this one identity also serves Blend; no separate cert is made.
         var tunnel = serviceIdentity("tunnel", now);
         listener.onLog(LogLevel.INFO, "Enrolling the Wi-Fi tunnel identity with the device");
         // Enrol under the same workstation identifier: the device keeps one peer per computer, so this
@@ -115,12 +115,8 @@ public final class Pairing {
         steps.run(new PairWithDevice(deviceId, tunnel.certificate().pem()));
         directory.writeServiceIdentity(
             "tunnel", tunnel.certificate().pem(), tunnel.keys().getPrivate());
-        var blend = serviceIdentity("blend", now);
-        directory.writeServiceIdentity("blend", blend.certificate().pem(), blend.keys().getPrivate());
         listener.onLog(
-            LogLevel.INFO,
-            "Paired. The Wi-Fi tunnel identity is enrolled and the Blend identity is ready in "
-                + directory.directory());
+            LogLevel.INFO, "Paired. The Wi-Fi tunnel identity is enrolled in " + directory.directory());
 
         return CommandOutcome.succeeded(
             new PairingResult(
@@ -179,7 +175,7 @@ public final class Pairing {
     }
   }
 
-  /** A self-signed service identity (tunnel or Blend), the same shape as the pairing authority. */
+  /** A self-signed service identity (the tunnel), the same shape as the pairing authority. */
   private record ServiceIdentity(KeyPair keys, AuthorityCertificate certificate) {}
 
   /** Makes a self-signed P-521 identity named {@code commonName}, valid like the authority. */

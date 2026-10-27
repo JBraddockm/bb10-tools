@@ -3,7 +3,6 @@ package com.jbraddockm.tunnel;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -25,14 +24,12 @@ import java.util.Optional;
  * </ol>
  *
  * <p>Inside a {@code <PIN>/} folder the tunnel identity is {@code tunnel_cert.pem} + {@code
- * tunnel_key.pem}, falling back to the legacy {@code myleaf.pem} + {@code myleafkey.pem}.
+ * tunnel_key.pem}.
  */
 public final class DeviceIdentitySources {
 
-  private static final List<String[]> CANDIDATES =
-      List.of(
-          new String[] {"tunnel_cert.pem", "tunnel_key.pem"},
-          new String[] {"myleaf.pem", "myleafkey.pem"});
+  private static final String TUNNEL_CERT = "tunnel_cert.pem";
+  private static final String TUNNEL_KEY = "tunnel_key.pem";
 
   private final Path explicitCert;
   private final Path explicitKey;
@@ -94,14 +91,12 @@ public final class DeviceIdentitySources {
     }
   }
 
-  /** The first candidate cert/key pair that both exist in {@code folder}. */
+  /** The tunnel identity in {@code folder}, if both its cert and key are there. */
   private static Optional<Tunnels.Identity> identityIn(Path folder) {
-    for (var names : CANDIDATES) {
-      var cert = folder.resolve(names[0]);
-      var key = folder.resolve(names[1]);
-      if (Files.isReadable(cert) && Files.isReadable(key)) {
-        return Optional.of(new Tunnels.Identity(cert, key));
-      }
+    var cert = folder.resolve(TUNNEL_CERT);
+    var key = folder.resolve(TUNNEL_KEY);
+    if (Files.isReadable(cert) && Files.isReadable(key)) {
+      return Optional.of(new Tunnels.Identity(cert, key));
     }
     return Optional.empty();
   }
