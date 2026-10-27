@@ -24,7 +24,7 @@ import com.jbraddockm.link.endpoint.pairing.store.PairingDirectory;
 import com.jbraddockm.link.endpoint.pairing.store.StoredPairing;
 import com.jbraddockm.link.endpoint.properties.DeviceProperties;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
-import com.jbraddockm.link.transport.session.BrokerTunnelConnector;
+import com.jbraddockm.link.transport.tunnel.BrokerTunnelConnector;
 import com.jbraddockm.link.transport.session.ConnectionPath;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import com.jbraddockm.link.transport.session.DeviceTarget;

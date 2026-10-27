@@ -8,6 +8,8 @@ import com.jbraddockm.core.command.CommandListener;
 import com.jbraddockm.core.command.CommandOutcome;
 import com.jbraddockm.link.endpoint.actions.GetPin;
 import com.jbraddockm.link.testing.FakeDevice;
+import com.jbraddockm.link.transport.tunnel.TunnelBinding;
+import com.jbraddockm.link.transport.tunnel.TunnelConnector;
 import java.io.IOException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

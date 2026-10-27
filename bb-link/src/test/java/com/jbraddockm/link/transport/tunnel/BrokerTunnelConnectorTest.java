@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.tunnel;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;

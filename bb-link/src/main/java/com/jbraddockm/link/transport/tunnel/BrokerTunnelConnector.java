@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.tunnel;
 
 import com.jbraddockm.core.tunnel.BrokerLease;
 import com.jbraddockm.core.tunnel.TunnelBrokerClient;

@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.tunnel;
 
 import java.io.IOException;
 
@@ -10,7 +10,7 @@ import java.io.IOException;
  * BrokerTunnelConnector}.
  */
 @FunctionalInterface
-interface TunnelConnector {
+public interface TunnelConnector {
 
   /**
    * Brings up or joins the tunnel.

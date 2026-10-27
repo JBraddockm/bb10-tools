@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.tunnel;
 
 /**
  * A hold on a device's Wi-Fi tunnel for the lifetime of a {@link DeviceSession}. The session
@@ -7,7 +7,7 @@ package com.jbraddockm.link.transport.session;
  * a clear "tunnel down" rather than hang. Closing it releases the hold (the broker brings the
  * shared tunnel down when the last consumer releases).
  */
-interface TunnelBinding extends AutoCloseable {
+public interface TunnelBinding extends AutoCloseable {
 
   /** The device's tunnel ULA — the host the session actually connects to. */
   String ula();
