@@ -9,7 +9,7 @@ import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.LinkErrorCode;
 import com.jbraddockm.link.endpoint.actions.ConfirmedByPin;
 import com.jbraddockm.link.endpoint.actions.GetPin;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import java.util.Locale;
 import java.util.Map;

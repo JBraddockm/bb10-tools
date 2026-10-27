@@ -3,7 +3,7 @@ package com.jbraddockm.link.endpoint.update;
 import com.jbraddockm.core.bar.BarInfo;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.transport.cgi.Conversation;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;

@@ -19,7 +19,7 @@ import com.jbraddockm.link.endpoint.pimsync.PimFilters;
 import com.jbraddockm.link.endpoint.pimsync.PimService;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.transport.session.Authentication;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import com.jbraddockm.link.transport.session.DeviceTarget;
 import com.jbraddockm.link.transport.session.TransportScheme;

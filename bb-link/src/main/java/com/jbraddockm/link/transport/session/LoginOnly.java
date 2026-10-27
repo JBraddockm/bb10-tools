@@ -3,6 +3,7 @@ package com.jbraddockm.link.transport.session;
 import com.jbraddockm.core.command.NoData;
 import com.jbraddockm.link.transport.cgi.CgiResponse;
 import com.jbraddockm.link.transport.cgi.Conversation;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.Step;
 

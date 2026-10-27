@@ -8,6 +8,8 @@ import com.jbraddockm.core.daemon.ServiceSession;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.link.transport.cgi.CgiResponse;
+import com.jbraddockm.link.transport.cgi.ConnectionPath;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.tunnel.TunnelBinding;
 import com.jbraddockm.link.transport.tunnel.TunnelConnector;
 import java.io.IOException;

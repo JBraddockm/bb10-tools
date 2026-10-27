@@ -5,7 +5,7 @@ import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.Conversation;
 import com.jbraddockm.link.transport.cgi.Endpoint;
 import com.jbraddockm.link.transport.cgi.QueryParameter;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 
 /**
  * Asks the device to sign a certificate request: a POST to {@code

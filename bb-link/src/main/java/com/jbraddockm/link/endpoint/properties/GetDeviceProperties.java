@@ -11,7 +11,7 @@ import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.ResponseFailures;
 import com.jbraddockm.link.transport.cgi.Step;
 import com.jbraddockm.link.transport.cgi.XmlConversation;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 
 /** Reads the device's identity and installed packages. One request, one answer. */
 public record GetDeviceProperties() implements DeviceCommand<DeviceProperties> {

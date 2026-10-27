@@ -18,7 +18,7 @@ import com.jbraddockm.link.transport.cgi.ResponseElement;
 import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.ResponseFailures;
 import com.jbraddockm.link.transport.cgi.Step;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.testing.TestResult;
 import org.junit.jupiter.api.DisplayName;

@@ -9,7 +9,7 @@ import com.jbraddockm.link.transport.cgi.Conversation;
 import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.ResponseFailures;
 import com.jbraddockm.link.transport.cgi.Step;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import java.util.Locale;
 import java.util.Objects;
 

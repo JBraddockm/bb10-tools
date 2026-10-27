@@ -3,7 +3,7 @@ package com.jbraddockm.link.daemon;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.core.error.CoreErrorCode;
-import com.jbraddockm.link.transport.session.ConnectionPath;
+import com.jbraddockm.link.transport.cgi.ConnectionPath;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

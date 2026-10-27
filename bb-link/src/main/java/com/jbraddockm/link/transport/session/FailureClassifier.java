@@ -6,6 +6,7 @@ import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.LinkErrorCode;
+import com.jbraddockm.link.transport.cgi.ConnectionPath;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.MalformedURLException;

@@ -1,6 +1,7 @@
 package com.jbraddockm.link.transport.session;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
+import com.jbraddockm.link.transport.cgi.ConnectionPath;
 import java.util.Objects;
 
 /**

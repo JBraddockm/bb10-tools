@@ -12,6 +12,7 @@ import com.jbraddockm.link.endpoint.actions.GetPin;
 import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.CgiResponse;
 import com.jbraddockm.link.transport.cgi.Conversation;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.cgi.Endpoint;
 import com.jbraddockm.link.transport.cgi.FormField;
 import com.jbraddockm.link.transport.cgi.ResponseEnvelope;

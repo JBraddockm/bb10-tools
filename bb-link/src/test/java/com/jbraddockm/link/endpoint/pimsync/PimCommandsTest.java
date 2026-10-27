@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.link.transport.cgi.CgiRequest;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

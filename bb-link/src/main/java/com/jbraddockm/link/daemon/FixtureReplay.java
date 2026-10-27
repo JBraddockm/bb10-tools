@@ -3,7 +3,7 @@ package com.jbraddockm.link.daemon;
 import com.jbraddockm.core.command.CommandResult;
 import com.jbraddockm.core.daemon.Reply;
 import com.jbraddockm.core.error.InvalidArgumentException;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;

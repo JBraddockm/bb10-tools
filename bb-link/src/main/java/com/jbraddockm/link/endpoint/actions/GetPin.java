@@ -7,7 +7,7 @@ import com.jbraddockm.link.transport.cgi.FormField;
 import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.Step;
 import com.jbraddockm.link.transport.cgi.XmlConversation;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 
 /**
  * Reads the device PIN. The device answers {@code <DevicePIN><PIN>…X&lt;pin&gt;</PIN></DevicePIN>};

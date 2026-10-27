@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.cgi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -12,7 +12,7 @@ class ConnectionPathTest {
 
   @ParameterizedTest(name = "{0} is {1}")
   @CsvFileSource(
-      resources = "/com/jbraddockm/link/transport/session/connection-path--addresses.csv",
+      resources = "/com/jbraddockm/link/transport/cgi/connection-path--addresses.csv",
       delimiter = '|',
       useHeadersInDisplayName = true)
   @DisplayName("classifies USB link-local, tunnel ULAs, private LAN ranges and everything else")

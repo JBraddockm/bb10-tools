@@ -1,7 +1,6 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.cgi;
 
 import com.jbraddockm.core.command.CommandResult;
-import com.jbraddockm.link.transport.cgi.Conversation;
 
 /**
  * A command a session can run against the device.

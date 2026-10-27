@@ -3,7 +3,7 @@ package com.jbraddockm.link.daemon;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.link.transport.cgi.Endpoint;
-import com.jbraddockm.link.transport.session.ConnectionPath;
+import com.jbraddockm.link.transport.cgi.ConnectionPath;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;

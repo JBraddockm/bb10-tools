@@ -1,7 +1,7 @@
 package com.jbraddockm.link.endpoint.pimsync;
 
 import com.jbraddockm.link.transport.cgi.Conversation;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import java.util.function.UnaryOperator;
 
 /** Lists the accounts known to the device. Only reads. */

@@ -6,7 +6,7 @@ import com.jbraddockm.link.transport.cgi.Conversation;
 import com.jbraddockm.link.transport.cgi.Endpoint;
 import com.jbraddockm.link.transport.cgi.FormField;
 import com.jbraddockm.link.endpoint.pairing.store.DeviceId;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 
 /**
  * Pairs this computer with the device: sends the authority that the computer made to {@code

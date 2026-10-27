@@ -27,7 +27,7 @@ import com.jbraddockm.link.endpoint.pimsync.ListPimAccounts;
 import com.jbraddockm.link.endpoint.pimsync.PimFilters;
 import com.jbraddockm.link.endpoint.pimsync.PimService;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
-import com.jbraddockm.link.transport.session.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import com.jbraddockm.link.endpoint.update.BarSelection;
 import com.jbraddockm.link.endpoint.update.InspectPackage;
