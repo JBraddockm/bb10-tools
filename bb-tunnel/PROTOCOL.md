@@ -108,8 +108,8 @@ via its SHA-1 — the tunnel identity.
 **The certificate alone is not sufficient for access.** The device only completes the handshake and
 routes for a peer whose certificate is in its bp2p trust store — which is written **by pairing** (Link
 via `pairing.cgi`, Blend via the `/pairing/pair` exchange), where the cert is inserted into
-`/var/bp2p/trustedpeers` + `certSync.db`. Generating the cert (see the README) produces a valid
-identity; **pairing is what makes the device trust it.** After the tunnel is up, authenticated
+`/var/bp2p/trustedpeers` + `certSync.db`. The identity is `tunnel_cert.pem`, made and enrolled by
+pairing (see the README); **pairing is what makes the device trust it.** After the tunnel is up, authenticated
 device services add their own gates on top (e.g. the device-manager CGIs validate their own client
 identity; Blend adds a password/`authi` session) — see the `analysis/` docs.
 

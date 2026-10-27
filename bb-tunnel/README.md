@@ -121,41 +121,22 @@ return traffic to us, and the device surface (CGIs, WebDAV, Blend) answers over 
 - BouncyCastle `bcprov-jdk18on` 1.86, `bctls-jdk18on` 1.86.2, `bcutil-jdk18on` 1.86 — the device speaks
   TLS/DTLS 1.0 with the static-ECDH cipher `0xC005` on P-521 (dropped by OpenSSL 1.1+/3.x) and presents
   a malformed v1-with-extensions certificate that stock JSSE/JCA parsers reject (see `LenientCrypto`).
-- A client identity in `src/main/resources/certs/`: `blend_chain.pem` + `blend_key_p8.pem` — a
-  self-signed EC P-521 certificate (`CN=blend_client_9665`; the name is historical, not Blend-specific)
-  and its PKCS#8 key. This one identity does the TLS/DTLS mutual auth **and** (via its SHA-1) the CONNECT
-  tunnel ULA. See [Identity certificate](#identity-certificate) to generate the files — and note it must
-  be enrolled by pairing ([above](#device-pairing-is-required)) to work.
+- A client identity — the device's paired `tunnel_cert.pem` + `tunnel_key.pem`, resolved from the
+  devices folder by `DeviceIdentitySources` (or given with `--cert`/`--key`, `BB_TUNNEL_CERT`/
+  `BB_TUNNEL_KEY`). This one self-signed EC P-521 identity does the TLS/DTLS mutual auth **and** (via
+  its SHA-1) the CONNECT tunnel ULA. See [Identity certificate](#identity-certificate) — it must be
+  enrolled by pairing ([above](#device-pairing-is-required)) to work.
 
 ## Identity certificate
 
-Generate the two files bb-tunnel loads (`blend_chain.pem` + `blend_key_p8.pem`) with OpenSSL. They
-reproduce the working identity: a self-signed EC **P-521** certificate, **ECDSA-SHA256**, `CA:TRUE`,
-`CN=blend_client_9665`, and its key in **PKCS#8**.
+The tunnel identity is produced and enrolled by **bb-link pairing** — nothing is generated or bundled
+here. Pairing makes a self-signed EC **P-521 / ECDSA-SHA1** certificate (`CN=tunnel`, `CA:TRUE`), enrols
+it in the device's bp2p trust, and writes it to `devices/<PIN>/tunnel_cert.pem` + `tunnel_key.pem` (key
+in PKCS#8); `DeviceIdentitySources` reads those.
 
-```sh
-cd bb-tunnel/src/main/resources/certs
-
-# 1. EC P-521 private key
-openssl ecparam -name secp521r1 -genkey -noout -out blend_key.pem
-
-# 2. self-signed cert (ECDSA-SHA256, CA:TRUE, SKI/AKI), 10 years, CN=blend_client_9665
-openssl req -new -x509 -key blend_key.pem -sha256 -days 3650 \
-  -subj "/CN=blend_client_9665" \
-  -addext "basicConstraints=critical,CA:TRUE" \
-  -addext "subjectKeyIdentifier=hash" \
-  -addext "authorityKeyIdentifier=keyid" \
-  -out blend_chain.pem
-
-# 3. convert the key to PKCS#8 — the form bb-tunnel loads
-openssl pkcs8 -topk8 -nocrypt -in blend_key.pem -out blend_key_p8.pem
-
-# 4. drop the intermediate traditional key
-rm blend_key.pem
-```
-
-The 5-byte ULA prefix is free (bb-tunnel uses zero), so the tunnel ULA is fully determined by the
-certificate — any such P-521 self-signed cert works **as long as the device has it enrolled**.
+The 5-byte ULA prefix is zero, so the tunnel ULA is fully determined by the certificate's SHA-1 — any
+such P-521 self-signed cert works **as long as the device has it enrolled** (which pairing does). The
+one identity also serves Blend; see [`../analysis/CERT-MODEL.md`](../analysis/CERT-MODEL.md).
 
 > ⚠ **This is not enough for access.** These files only create the identity. The device will reject it
 > on the handshake until the certificate is **enrolled by pairing** (see

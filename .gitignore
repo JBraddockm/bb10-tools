@@ -48,4 +48,6 @@ fixtures/
 **/certs/**
 !**/certs/README.md
 !**/certs/.gitkeep
-/bb-link/devices/
+
+# Work-in-progress protocol notes — kept locally, not tracked.
+/bb-link/PROTOCOL.md
