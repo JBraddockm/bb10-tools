@@ -20,6 +20,14 @@
     </description>
 
     <dependencies>
+        <!-- BAR archive inspection (core.bar.BarInspector). Optional so it does not leak onto the
+             classpath of consumers that only use the JSON/daemon packages (e.g. bb-tunnel); modules
+             that use core.bar (bb-link) declare it themselves. -->
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarLibrary</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

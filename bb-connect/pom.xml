@@ -19,6 +19,15 @@
         <native.image.name>bb-connect</native.image.name>
     </properties>
 
+    <!-- jqconnDoor: the QConn door client (com.qnx.tools.bbt.qconndoor.*). Version managed by the
+         parent. -->
+    <dependencies>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>jqconnDoor</artifactId>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>

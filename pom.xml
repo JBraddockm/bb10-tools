@@ -54,114 +54,10 @@
         </repository>
     </repositories>
 
-    <dependencies>
-        <!-- BlackBerry / QNX tools -->
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>jqconnDoor</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>BarDeploy</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>BarLibrary</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>BarAir</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>BarChecker</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>BarPackager</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>BarSigner</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>DebugTokenRequest</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>KeyTool</artifactId>
-            <version>1.0</version>
-        </dependency>
-
-        <!-- Crypto providers -->
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>EccpressoAll</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>EccpressoJDK15ECC</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>TrustpointAll</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>TrustpointJDK15</artifactId>
-            <version>1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>TrustpointProviders</artifactId>
-            <version>1.0</version>
-        </dependency>
-
-        <!-- Apache HTTP stack -->
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.0.3</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>httpcore</artifactId>
-            <version>4.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>httpmime</artifactId>
-            <version>4.0.3</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>apache-mime4j</artifactId>
-            <version>0.6</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>commons-codec</artifactId>
-            <version>1.4</version>
-        </dependency>
-        <dependency>
-            <groupId>local.qconn</groupId>
-            <artifactId>commons-logging</artifactId>
-            <version>1.1.1</version>
-        </dependency>
-    </dependencies>
-
+    <!-- The BlackBerry / QNX jars (local.qconn) are version-managed here but NOT inherited: each
+         module declares only the ones it actually uses (no version). bb-tunnel and bb-smb use none.
+         These are the original Java tooling the project once wrapped wholesale; most modules now need
+         only a small subset, so inheriting them all just bloated every classpath and native image. -->
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -177,6 +73,112 @@
                 <version>${assertj.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- BlackBerry / QNX tools -->
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>jqconnDoor</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>BarDeploy</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>BarLibrary</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>BarAir</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>BarChecker</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>BarPackager</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>BarSigner</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>DebugTokenRequest</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>KeyTool</artifactId>
+                <version>1.0</version>
+            </dependency>
+
+            <!-- Crypto providers (BAR signing) -->
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>EccpressoAll</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>EccpressoJDK15ECC</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>TrustpointAll</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>TrustpointJDK15</artifactId>
+                <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>TrustpointProviders</artifactId>
+                <version>1.0</version>
+            </dependency>
+
+            <!-- Apache HTTP stack -->
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>4.0.3</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>httpcore</artifactId>
+                <version>4.0.1</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>httpmime</artifactId>
+                <version>4.0.3</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>apache-mime4j</artifactId>
+                <version>0.6</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>1.4</version>
+            </dependency>
+            <dependency>
+                <groupId>local.qconn</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>1.1.1</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

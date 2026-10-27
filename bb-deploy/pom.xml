@@ -19,6 +19,31 @@
         <native.image.name>bb-deploy</native.image.name>
     </properties>
 
+    <!-- BarDeploy (com.qnx.bbt.deploy.Deploy) plus the Apache HTTP stack it runs the device
+         conversation over. Versions are managed by the parent. -->
+    <dependencies>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarDeploy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>httpclient</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>httpcore</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>commons-codec</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>commons-logging</artifactId>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>

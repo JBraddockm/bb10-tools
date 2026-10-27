@@ -23,6 +23,86 @@
             <version>25.0.1</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- The full BAR packaging/signing toolchain (versions managed by the parent). bb-packager
+             builds, signs and deploys BAR archives, so it spans the packager jars, the net.rim signing
+             tools and their Eccpresso/Trustpoint crypto providers. Only jqconnDoor is not used here. -->
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarAir</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarChecker</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarPackager</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarLibrary</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarDeploy</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>BarSigner</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>DebugTokenRequest</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>KeyTool</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>EccpressoAll</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>EccpressoJDK15ECC</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>TrustpointAll</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>TrustpointJDK15</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>TrustpointProviders</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>httpclient</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>httpcore</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>httpmime</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>apache-mime4j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>commons-codec</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>local.qconn</groupId>
+            <artifactId>commons-logging</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
