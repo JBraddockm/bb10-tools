@@ -136,7 +136,7 @@ in PKCS#8); `DeviceIdentitySources` reads those.
 
 The 5-byte ULA prefix is zero, so the tunnel ULA is fully determined by the certificate's SHA-1 — any
 such P-521 self-signed cert works **as long as the device has it enrolled** (which pairing does). The
-one identity also serves Blend; see [`../analysis/CERT-MODEL.md`](../analysis/CERT-MODEL.md).
+one identity also serves Blend.
 
 > ⚠ **This is not enough for access.** These files only create the identity. The device will reject it
 > on the handshake until the certificate is **enrolled by pairing** (see
@@ -254,25 +254,25 @@ close();     // idempotent; AutoCloseable
 
 ## Source layout
 
-| File                   | Role                                                                                                                                      |
-|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| `TunnelManager`        | **Entry point.** Opens and shares one tunnel per device, ref-counted, each with a pool-allocated inner IPv4; implements `Tunnels`.      |
-| `Tunnels`              | The small service a consumer (the broker) depends on: `acquire` / `isOpen` / `onDrop`, returning a `Lease`.                             |
-| `Cli`                  | The command line: the `[hosts]` demo and `serve` (the broker daemon).                                                                  |
-| `broker.Tunneld`       | Broker daemon entry (`serve`): wires a real `TunnelManager` into the broker and serves it on a socket.                                 |
-| `broker.TunnelBroker`  | The shared broker core: tokens, connection-scoped leases, identity (`GUID↔host`), and drop/identity events over `Tunnels`.             |
-| `broker.BrokerServer`  | Serves the broker to many clients over a Unix-domain socket (the client is `TunnelBrokerClient` in bb-core).                           |
-| `Tunnel`               | End-to-end bring-up, then the data plane (utun ↔ DTLS, keepalive, NDP); exposes the device/our ULA.                                    |
-| `TunnelConfig`         | The inputs: device IP + client cert chain/key (`fromClasspath` / `fromFiles`). Everything else is resolved.                            |
-| `TunnelIdentity`       | Derives our tunnel ULA from the leaf certificate (`0xfd ‖ prefix ‖ SHA1(prefix ‖ SHA1(certDER))[10:20]`).                              |
-| `TunnelTlsClient`      | The BouncyCastle TLS/DTLS 1.0 mutual-auth client: cipher `0xC005`, curve P-521, static-ECDH credential.                               |
-| `LenientCrypto`        | Re-encodes the device's malformed v1-with-extensions certificate as v3 so strict parsers accept it.                                    |
-| `ControlChannel`       | The `[00 cmd len len payload]` command framing; skips async NOTIFY (0x05), throws on ERROR (0x04).                                     |
-| `RimPacket`            | Builds the 24-byte RimPacket keepalive (PING) reply that holds the data gate open.                                                     |
-| `TunDevice`            | macOS `utun` via Panama FFM (no JNI). Strips/adds the 4-byte AF header.                                                                |
-| `UdpDatagramTransport` | BouncyCastle `DatagramTransport` over a connected UDP socket (long timeout; ignores stale ICMP).                                       |
-| `internal.Hex`         | Byte/hex and IPv4/IPv6 string↔bytes helpers, plus the internet checksum.                                                               |
-| `internal.PemUtil`     | Loads DER blocks (cert chain, PKCS#8 key) of a given PEM type from the classpath or a file.                                            |
+| File                   | Role                                                                                                                               |
+|------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `TunnelManager`        | **Entry point.** Opens and shares one tunnel per device, ref-counted, each with a pool-allocated inner IPv4; implements `Tunnels`. |
+| `Tunnels`              | The small service a consumer (the broker) depends on: `acquire` / `isOpen` / `onDrop`, returning a `Lease`.                        |
+| `Cli`                  | The command line: the `[hosts]` demo and `serve` (the broker daemon).                                                              |
+| `broker.Tunneld`       | Broker daemon entry (`serve`): wires a real `TunnelManager` into the broker and serves it on a socket.                             |
+| `broker.TunnelBroker`  | The shared broker core: tokens, connection-scoped leases, identity (`GUID↔host`), and drop/identity events over `Tunnels`.         |
+| `broker.BrokerServer`  | Serves the broker to many clients over a Unix-domain socket (the client is `TunnelBrokerClient` in bb-core).                       |
+| `Tunnel`               | End-to-end bring-up, then the data plane (utun ↔ DTLS, keepalive, NDP); exposes the device/our ULA.                                |
+| `TunnelConfig`         | The inputs: device IP + client cert chain/key (`fromClasspath` / `fromFiles`). Everything else is resolved.                        |
+| `TunnelIdentity`       | Derives our tunnel ULA from the leaf certificate (`0xfd ‖ prefix ‖ SHA1(prefix ‖ SHA1(certDER))[10:20]`).                          |
+| `TunnelTlsClient`      | The BouncyCastle TLS/DTLS 1.0 mutual-auth client: cipher `0xC005`, curve P-521, static-ECDH credential.                            |
+| `LenientCrypto`        | Re-encodes the device's malformed v1-with-extensions certificate as v3 so strict parsers accept it.                                |
+| `ControlChannel`       | The `[00 cmd len len payload]` command framing; skips async NOTIFY (0x05), throws on ERROR (0x04).                                 |
+| `RimPacket`            | Builds the 24-byte RimPacket keepalive (PING) reply that holds the data gate open.                                                 |
+| `TunDevice`            | macOS `utun` via Panama FFM (no JNI). Strips/adds the 4-byte AF header.                                                            |
+| `UdpDatagramTransport` | BouncyCastle `DatagramTransport` over a connected UDP socket (long timeout; ignores stale ICMP).                                   |
+| `internal.Hex`         | Byte/hex and IPv4/IPv6 string↔bytes helpers, plus the internet checksum.                                                           |
+| `internal.PemUtil`     | Loads DER blocks (cert chain, PKCS#8 key) of a given PEM type from the classpath or a file.                                        |
 
 Only `TunnelManager` (with `Tunnels`), the `Cli` / `broker.Tunneld` entry points, and the `internal`
 utilities are public; everything else is package-private.
