@@ -30,7 +30,7 @@ class DerTest {
 
     @ParameterizedTest(name = "{0} is {1}")
     @CsvFileSource(
-        resources = "/com/jbraddockm/link/pairing/pki/der--integer.csv",
+        resources = "/com/jbraddockm/link/endpoint/pairing/pki/der--integer.csv",
         numLinesToSkip = 1)
     @DisplayName("integer(long) writes the shortest two's complement")
     void integerOfALong(long value, String expected) {
@@ -39,7 +39,7 @@ class DerTest {
 
     @ParameterizedTest(name = "{0} is {1}")
     @CsvFileSource(
-        resources = "/com/jbraddockm/link/pairing/pki/der--integer.csv",
+        resources = "/com/jbraddockm/link/endpoint/pairing/pki/der--integer.csv",
         numLinesToSkip = 1)
     @DisplayName("integer(BigInteger) writes the same as integer(long) for the same number")
     void integerOfABigIntegerAgrees(BigInteger value, String expected) {
@@ -48,7 +48,7 @@ class DerTest {
 
     @ParameterizedTest(name = "{0} is {1}")
     @CsvFileSource(
-        resources = "/com/jbraddockm/link/pairing/pki/der--big-integer.csv",
+        resources = "/com/jbraddockm/link/endpoint/pairing/pki/der--big-integer.csv",
         numLinesToSkip = 1)
     @DisplayName("integer(BigInteger) writes numbers that a long cannot hold")
     void integerBeyondALong(BigInteger value, String expected) {
@@ -62,7 +62,7 @@ class DerTest {
 
     @ParameterizedTest(name = "{0} bytes: header {1}")
     @CsvFileSource(
-        resources = "/com/jbraddockm/link/pairing/pki/der--length.csv",
+        resources = "/com/jbraddockm/link/endpoint/pairing/pki/der--length.csv",
         numLinesToSkip = 1)
     @DisplayName(
         "a length under 128 is one byte, a longer one is 0x80 plus the count of its bytes, then the"
@@ -91,7 +91,7 @@ class DerTest {
 
     @ParameterizedTest(name = "{0} is {1}")
     @CsvFileSource(
-        resources = "/com/jbraddockm/link/pairing/pki/der--object-identifier.csv",
+        resources = "/com/jbraddockm/link/endpoint/pairing/pki/der--object-identifier.csv",
         numLinesToSkip = 1)
     @DisplayName(
         "objectIdentifier writes the first two arcs as one number, and each arc in base 128")
@@ -114,7 +114,7 @@ class DerTest {
   class Times {
 
     @ParameterizedTest(name = "{0} is {1}")
-    @CsvFileSource(resources = "/com/jbraddockm/link/pairing/pki/der--time.csv", numLinesToSkip = 1)
+    @CsvFileSource(resources = "/com/jbraddockm/link/endpoint/pairing/pki/der--time.csv", numLinesToSkip = 1)
     @DisplayName(
         "time is a UTCTime from 1950 to 2049, as the standard says, and a GeneralizedTime outside"
             + " them")
