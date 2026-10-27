@@ -23,6 +23,7 @@ class FormFieldTest {
     "SIZE, size",
     "TYPE, type",
     "DEVICE_ID, deviceid",
+    "ECOID, ecoid",
     "CERT_DATA, certdata",
     "PACKAGE_ID, packageid",
     "STATUS, status"
@@ -34,9 +35,9 @@ class FormFieldTest {
 
   @Test
   @DisplayName("no two fields have the same name, and there are no others than these")
-  void thereAreTwelveDistinctFields() {
+  void thereAreThirteenDistinctFields() {
     assertThat(Arrays.stream(FormField.values()).map(FormField::wireName))
         .doesNotHaveDuplicates()
-        .hasSize(12);
+        .hasSize(13);
   }
 }

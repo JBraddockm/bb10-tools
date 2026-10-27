@@ -25,6 +25,7 @@ import com.jbraddockm.link.endpoint.pairing.store.StoredPairing;
 import com.jbraddockm.link.endpoint.properties.DeviceProperties;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.transport.tunnel.BrokerTunnelConnector;
+import com.jbraddockm.link.transport.cgi.Authentication;
 import com.jbraddockm.link.transport.cgi.ConnectionPath;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import com.jbraddockm.link.transport.cgi.DeviceTarget;
@@ -136,6 +137,9 @@ public final class LinkService implements Service<DeviceSession> {
     describesDevice(params); // refuses a malformed option while no session exists yet
     var session =
         DeviceSession.forTarget(target, observer, params.optionalString("smbHost").orElse(null));
+    // The pairing that names us to the device sits beside the certificate the connect uses: the client
+    // certificate the login offers, or the tunnel certificate on a tunnel connect (set below).
+    var pairingCertificate = clientCertificate(target.authentication());
     // `tunnel` opts a Wi-Fi LAN connect into a broker-managed tunnel: bb-link brings the tunnel up
     // (through the daemon) and reaches the device over its ULA, so the user connects with the LAN
     // address and never handles the ULA. USB and a direct ULA connect need no tunnel; login/pairing
@@ -159,19 +163,40 @@ public final class LinkService implements Service<DeviceSession> {
               "bb-link",
               tunnelCert,
               tunnelKey));
-      advertiseFriendlyName(session, tunnelCert);
+      if (tunnelCert != null) {
+        pairingCertificate = tunnelCert;
+      }
     }
+    // Advertise our friendly name on every connect, not only tunnel connects: the device learns the
+    // name over Wi-Fi mDNS independently of how the command channel reaches it, so it populates the
+    // name whichever way we connect. A login with no pairing beside its certificate advertises
+    // nothing.
+    advertiseFriendlyName(session, pairingCertificate);
     return session;
   }
 
   /**
-   * Advertises this workstation's friendly name over mDNS for the device this tunnel connect pairs
-   * with, so the device shows it in Device Connections instead of the {@code Desktop-XXXX} fallback.
-   * Best-effort, and attached to the session so the advert is withdrawn when the connection ends. A
-   * connect without a pairing beside the tunnel certificate advertises nothing.
+   * The client certificate a certificate login offers, or {@code null} for a password or no-password
+   * login. The {@code pairing.json} beside it holds the identifier the device folds to match our
+   * Friendly advert.
    */
-  private static void advertiseFriendlyName(DeviceSession session, Path tunnelCertificate) {
-    pairedDeviceId(tunnelCertificate).ifPresent(id -> advertiseFriendlyName(session, id));
+  private static Path clientCertificate(Authentication authentication) {
+    return switch (authentication) {
+      case Authentication.Certificate certificate -> certificate.certificate().certificateFile();
+      case Authentication.CertificateAndPassword certificate ->
+          certificate.certificate().certificateFile();
+      case Authentication.NoPassword _, Authentication.Password _ -> null;
+    };
+  }
+
+  /**
+   * Advertises this workstation's friendly name over mDNS for the device this connect pairs with, so
+   * the device shows it in Device Connections instead of the {@code Desktop-XXXX} fallback.
+   * Best-effort, and attached to the session so the advert is withdrawn when the connection ends. A
+   * connect with no pairing beside its certificate advertises nothing.
+   */
+  private static void advertiseFriendlyName(DeviceSession session, Path pairingCertificate) {
+    pairedDeviceId(pairingCertificate).ifPresent(id -> advertiseFriendlyName(session, id));
   }
 
   /**
@@ -192,17 +217,18 @@ public final class LinkService implements Service<DeviceSession> {
 
   /**
    * The identifier the device stored for this computer, read from the {@code pairing.json} beside
-   * the tunnel certificate: the {@code deviceId} the pairing gave itself, which the device folds to
-   * match our Friendly advert. Empty when there is no certificate or no readable pairing beside it.
+   * the certificate the connect uses (the tunnel certificate, or the client certificate of the
+   * login): the {@code deviceId} the pairing gave itself, which the device folds to match our
+   * Friendly advert. Empty when there is no certificate or no readable pairing beside it.
    *
-   * @param tunnelCertificate the path the connect passed, or {@code null}
+   * @param pairingCertificate the certificate path the connect uses, or {@code null}
    * @return the identifier, or empty
    */
-  static Optional<String> pairedDeviceId(Path tunnelCertificate) {
-    if (tunnelCertificate == null) {
+  static Optional<String> pairedDeviceId(Path pairingCertificate) {
+    if (pairingCertificate == null) {
       return Optional.empty();
     }
-    var pairingFile = tunnelCertificate.resolveSibling(PairingDirectory.METADATA_FILE);
+    var pairingFile = pairingCertificate.resolveSibling(PairingDirectory.METADATA_FILE);
     try {
       return Optional.of(StoredPairing.fromJsonText(Files.readString(pairingFile)).deviceId());
     } catch (IOException | RuntimeException noPairing) {

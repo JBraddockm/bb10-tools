@@ -37,8 +37,20 @@ import java.util.HexFormat;
  */
 final class FriendlyIdentity {
 
-  /** DNS-SD type (with the {@code _friendly} subtype) that the device browses for. */
-  static final String SERVICE_TYPE = "_friendly._sub._bp2p._tcp.local.";
+  /**
+   * The DNS-SD service type to register the Friendly service under. This is the <b>base</b> type; the
+   * {@code _friendly} subtype (below) is passed separately to JmDNS so the {@code _friendly._sub} PTR
+   * is actually published. Registering the inline {@code _friendly._sub._bp2p._tcp.local.} form
+   * instead advertises only the base type and the device's subtype browse never sees it
+   * (verified on the wire).
+   */
+  static final String SERVICE_TYPE = "_bp2p._tcp.local.";
+
+  /**
+   * The DNS-SD subtype the device browses ({@code _bp2p._tcp,_friendly}), passed to JmDNS as its own
+   * argument. JmDNS prepends the {@code _} and the {@code _sub} label.
+   */
+  static final String SUBTYPE = "friendly";
 
   /** The first instance-name token. */
   static final String INSTANCE_PREFIX = "Friendly";

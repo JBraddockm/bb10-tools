@@ -32,15 +32,17 @@ class PairWithDeviceTest {
 
   @Test
   @DisplayName(
-      "is a form to pairing.cgi with the deviceid and the certdata, in this order, and nothing"
-          + " else")
-  void sendsTheTwoFields() {
+      "is a form to pairing.cgi with the deviceid, the ecoid (= deviceid) and the certdata, in this"
+          + " order, and nothing else")
+  void sendsTheThreeFields() {
     var form = requestOf(new PairWithDevice("01AB", AUTHORITY));
 
     assertThat(form.endpoint()).isEqualTo(Endpoint.PAIRING);
     assertThat(form.fields())
         .containsExactly(
-            Map.entry(FormField.DEVICE_ID, "01AB"), Map.entry(FormField.CERT_DATA, AUTHORITY));
+            Map.entry(FormField.DEVICE_ID, "01AB"),
+            Map.entry(FormField.ECOID, "01AB"),
+            Map.entry(FormField.CERT_DATA, AUTHORITY));
   }
 
   @Test

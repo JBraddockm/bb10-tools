@@ -12,8 +12,12 @@ import com.jbraddockm.link.transport.cgi.DeviceCommand;
  * Pairs this computer with the device: sends the authority that the computer made to {@code
  * pairing.cgi}, with the identifier that the computer gives itself, over a session. The device
  * keeps the authority, lists the computer in Device Connections, and answers with its own authority
- * **[verified]**. Nothing else is sent: the binary of the device reads these two fields and no
- * others.
+ * **[verified]**.
+ *
+ * <p>It also sends {@link FormField#ECOID} equal to {@code deviceId}: {@code pairing.cgi} reads an
+ * {@code ecoid} field and the device folds the stored ecoid when matching our mDNS Friendly advert,
+ * so an empty ecoid (what earlier pairings sent) leaves the name blank. Sending it is what lets the
+ * device populate {@code devicename} from our advert.
  *
  * <p>This changes the device. It is never repeated after a dropped connection.
  *
@@ -44,6 +48,7 @@ public record PairWithDevice(String deviceId, String authorityPem)
     var form =
         CgiRequest.Form.to(Endpoint.PAIRING)
             .withText(FormField.DEVICE_ID, deviceId)
+            .withText(FormField.ECOID, deviceId)
             .withText(FormField.CERT_DATA, authorityPem);
     return new PairingExchange(form.describedAs("Pairing with the device"));
   }

@@ -30,6 +30,13 @@ public enum FormField implements WireValue {
   /** The identifier that the computer gave itself, to pair with a device. */
   DEVICE_ID("deviceid"),
 
+  /**
+   * The computer's ecoid, sent at pairing (equal to {@link #DEVICE_ID}). The device folds the stored
+   * ecoid into the mDNS Friendly-name match, so setting it here is what lets the device map our advert
+   * to this pairing and show our name instead of the {@code Desktop-XXXX} fallback.
+   */
+  ECOID("ecoid"),
+
   /** The certificate of the computer's authority, as text. */
   CERT_DATA("certdata"),
 

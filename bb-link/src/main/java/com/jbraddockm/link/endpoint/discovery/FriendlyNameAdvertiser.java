@@ -67,7 +67,15 @@ public final class FriendlyNameAdvertiser implements AutoCloseable {
 
     jmdns = JmDNS.create(InetAddress.getLocalHost());
     service =
-        ServiceInfo.create(FriendlyIdentity.SERVICE_TYPE, instance, NOMINAL_PORT, 0, 0, true, txt);
+        ServiceInfo.create(
+            FriendlyIdentity.SERVICE_TYPE,
+            instance,
+            FriendlyIdentity.SUBTYPE,
+            NOMINAL_PORT,
+            0,
+            0,
+            true,
+            txt);
     jmdns.registerService(service);
     LOG.log(System.Logger.Level.INFO, () -> "Advertising bp2p Friendly service " + instance
         + " (" + FriendlyIdentity.TXT_FNAME + "=" + friendlyName + ")");

@@ -198,8 +198,9 @@ class PairingTest {
 
       assertThat(bodies).hasSize(2);
       var authority = FormBodies.parse(bodies.getFirst());
-      assertThat(List.copyOf(authority.keySet())).containsExactly("deviceid", "certdata");
+      assertThat(List.copyOf(authority.keySet())).containsExactly("deviceid", "ecoid", "certdata");
       assertThat(authority.get("deviceid")).isEqualTo(expected.get("deviceId"));
+      assertThat(authority.get("ecoid")).isEqualTo(expected.get("deviceId"));
       assertThat(authority.get("certdata")).isEqualTo(Files.readString(directory.authorityFile()));
 
       var tunnel = FormBodies.parse(bodies.get(1));
