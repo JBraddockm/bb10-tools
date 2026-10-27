@@ -6,7 +6,7 @@ import com.jbraddockm.link.cgi.WireValue;
  * What an update conversation is about. The device's own names are misleading: {@code bar} installs
  * applications, {@code os} installs firmware, and {@code app} <em>un</em>installs applications.
  */
-public enum UpdateMode implements WireValue {
+enum UpdateMode implements WireValue {
 
   /** Install applications. */
   INSTALL_APPLICATIONS("bar"),

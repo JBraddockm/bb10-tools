@@ -3,7 +3,7 @@ package com.jbraddockm.link.update;
 import com.jbraddockm.link.cgi.WireValue;
 
 /** The kind of package in an upload; applications and the operating system are both {@code bar}. */
-public enum UploadKind implements WireValue {
+enum UploadKind implements WireValue {
 
   /** An application, or an operating system image. */
   BAR("bar"),

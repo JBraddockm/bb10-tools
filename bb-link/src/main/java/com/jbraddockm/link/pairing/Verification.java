@@ -10,7 +10,7 @@ import java.util.Map;
  * @param state what happened
  * @param error why it failed, for {@link State#FAILED}
  */
-public record Verification(State state, ServiceError error) {
+record Verification(State state, ServiceError error) {
 
   /** The outcome of the trial. */
   public enum State {

@@ -3,7 +3,7 @@ package com.jbraddockm.link.pimsync;
 import com.jbraddockm.link.cgi.WireValue;
 
 /** The reading commands of {@code pimsync.cgi} that bb-link sends. */
-public enum PimCommand implements WireValue {
+enum PimCommand implements WireValue {
 
   /** Lists the accounts known to the device. */
   LIST_ACCOUNTS("list_accounts", "listAccounts"),

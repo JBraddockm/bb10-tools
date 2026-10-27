@@ -12,7 +12,7 @@ import com.jbraddockm.link.session.TransportScheme;
 
 /** Tries a new identity against the device that issued its certificate. */
 @FunctionalInterface
-public interface IdentityVerifier {
+interface IdentityVerifier {
 
   /**
    * Tries the identity.

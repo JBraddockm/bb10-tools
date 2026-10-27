@@ -3,7 +3,7 @@ package com.jbraddockm.link.session;
 import java.io.Serial;
 
 /** The device answered {@code Denied} and says how many attempts were used. */
-public final class PasswordRejectedException extends LoginException {
+final class PasswordRejectedException extends LoginException {
 
   @Serial private static final long serialVersionUID = 1L;
 

@@ -26,7 +26,7 @@ import java.util.Optional;
  * @param errorDescription the description of the error; {@code null} if there is none
  * @param body the whole answer
  */
-public record PairingReply(
+record PairingReply(
     String contentType,
     String statusText,
     ResponseStatus status,

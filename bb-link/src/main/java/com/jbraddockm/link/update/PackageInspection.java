@@ -14,7 +14,7 @@ import java.util.Objects;
  * @param info what the manifest says about the package
  * @param validation what the rules found; {@code null} if the check was not asked for
  */
-public record PackageInspection(BarInfo info, BarValidation validation) implements CommandResult {
+record PackageInspection(BarInfo info, BarValidation validation) implements CommandResult {
 
   /**
    * Validates the components that cannot be absent.

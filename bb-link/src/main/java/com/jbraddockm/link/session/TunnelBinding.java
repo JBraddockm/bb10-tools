@@ -7,7 +7,7 @@ package com.jbraddockm.link.session;
  * a clear "tunnel down" rather than hang. Closing it releases the hold (the broker brings the
  * shared tunnel down when the last consumer releases).
  */
-public interface TunnelBinding extends AutoCloseable {
+interface TunnelBinding extends AutoCloseable {
 
   /** The device's tunnel ULA — the host the session actually connects to. */
   String ula();

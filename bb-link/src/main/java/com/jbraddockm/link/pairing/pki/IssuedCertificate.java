@@ -21,7 +21,7 @@ import java.time.Instant;
  * <b>issuer's</b> key identifier; and a critical key usage of digital signature and key encipherment
  * (a TLS client leaf). The in-process form of {@code openssl x509 -req -CA … -CAkey …}.
  */
-public final class IssuedCertificate {
+final class IssuedCertificate {
 
   private static final String COMMON_NAME = "2.5.4.3";
   private static final String KEY_USAGE = "2.5.29.15";

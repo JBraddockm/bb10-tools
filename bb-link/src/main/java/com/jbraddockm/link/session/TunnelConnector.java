@@ -10,7 +10,7 @@ import java.io.IOException;
  * BrokerTunnelConnector}.
  */
 @FunctionalInterface
-public interface TunnelConnector {
+interface TunnelConnector {
 
   /**
    * Brings up or joins the tunnel.

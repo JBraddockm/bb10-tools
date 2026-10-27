@@ -4,7 +4,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 /** The kind of a perimeter, a separated area of the device with its own owner. */
-public enum PerimeterKind {
+enum PerimeterKind {
 
   /** The owner's personal area, which is also the default perimeter of a device without another. */
   PERSONAL("personal"),

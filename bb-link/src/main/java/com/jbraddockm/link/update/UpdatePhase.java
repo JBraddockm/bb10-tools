@@ -3,7 +3,7 @@ package com.jbraddockm.link.update;
 import com.jbraddockm.core.command.ProgressPhase;
 
 /** The phases that the progress of installing and removing packages names. */
-public enum UpdatePhase implements ProgressPhase {
+enum UpdatePhase implements ProgressPhase {
 
   /** Looking at the device before anything is sent. */
   CHECKING("checking"),

@@ -10,7 +10,7 @@ import java.util.Map;
  * @param bbid the BlackBerry ID bound to the perimeter; may be {@code null}. Identifies the owner,
  *     and is the key a backup manifest carries.
  */
-public record Perimeter(PerimeterKind kind, String bbid) {
+record Perimeter(PerimeterKind kind, String bbid) {
 
   /**
    * Returns the wire representation.

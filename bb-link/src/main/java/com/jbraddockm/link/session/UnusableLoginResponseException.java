@@ -3,7 +3,7 @@ package com.jbraddockm.link.session;
 import java.io.Serial;
 
 /** The device answered the login in a way that cannot be interpreted. */
-public final class UnusableLoginResponseException extends LoginException {
+final class UnusableLoginResponseException extends LoginException {
 
   @Serial private static final long serialVersionUID = 1L;
 

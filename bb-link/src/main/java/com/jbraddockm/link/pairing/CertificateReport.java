@@ -15,7 +15,7 @@ import java.util.Map;
  * @param details what the certificate says
  * @param checkedAt the moment that the days left are counted from
  */
-public record CertificateReport(Path file, CertificateDetails details, Instant checkedAt)
+record CertificateReport(Path file, CertificateDetails details, Instant checkedAt)
     implements CommandResult {
 
   @Override

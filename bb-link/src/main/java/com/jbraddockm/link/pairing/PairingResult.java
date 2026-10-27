@@ -21,7 +21,7 @@ import java.util.Map;
  * @param deviceAuthority what the device's authority says none
  * @param pairedAt the moment that the days left are counted from
  */
-public record PairingResult(
+record PairingResult(
     String pin,
     String deviceId,
     String commonName,

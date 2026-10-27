@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 /** What the {@code Status} of an answer of an update conversation says. */
-public enum UpdateStatus {
+enum UpdateStatus {
 
   /** The device is ready. */
   READY("Ready"),

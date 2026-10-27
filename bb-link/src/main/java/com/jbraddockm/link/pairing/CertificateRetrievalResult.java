@@ -19,7 +19,7 @@ import java.util.Map;
  * @param verification whether the device took it for a login
  * @param issuedAt the moment that the days left are counted from
  */
-public record CertificateRetrievalResult(
+record CertificateRetrievalResult(
     String pin,
     String commonName,
     Path directory,

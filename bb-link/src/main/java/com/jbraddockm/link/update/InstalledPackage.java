@@ -13,7 +13,7 @@ import java.util.Map;
  * @param packageVersion the package's version; may be {@code null}
  * @param sizeBytes the size of the bar
  */
-public record InstalledPackage(
+record InstalledPackage(
     String file, String packageId, String packageName, String packageVersion, long sizeBytes) {
 
   /**

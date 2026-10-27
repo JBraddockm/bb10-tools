@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets;
  * Percent-encoding for {@code application/x-www-form-urlencoded} bodies. A space becomes {@code
  * %20}, as the device's own clients send it, not {@code +}.
  */
-public final class FormEncoding {
+final class FormEncoding {
 
   private static final String HEX = "0123456789ABCDEF";
 
