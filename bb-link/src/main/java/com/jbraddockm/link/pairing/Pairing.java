@@ -19,6 +19,7 @@ import com.jbraddockm.link.session.DeviceSession;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
+import java.security.KeyPair;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.time.Clock;
@@ -102,6 +103,25 @@ public final class Pairing {
             LogLevel.INFO,
             "The device returned its own authority: " + returned.details().subject());
         pending.commit(authority.pem(), returned.pem(), stored);
+
+        // The tunnel is part of BlackBerry Link — the Wi-Fi endpoints do not work without it. Make a
+        // self-signed identity for the tunnel and enrol it through the same pairing the authority
+        // used, so the device trusts the certificate the tunnel will present. Then make a Blend
+        // identity and leave it in the folder, ready, until Blend is wired.
+        var tunnel = serviceIdentity("tunnel", now);
+        listener.onLog(LogLevel.INFO, "Enrolling the Wi-Fi tunnel identity with the device");
+        // Enrol under the same workstation identifier: the device keeps one peer per computer, so this
+        // updates its trusted peer cert to the one the tunnel presents.
+        steps.run(new PairWithDevice(deviceId, tunnel.certificate().pem()));
+        directory.writeServiceIdentity(
+            "tunnel", tunnel.certificate().pem(), tunnel.keys().getPrivate());
+        var blend = serviceIdentity("blend", now);
+        directory.writeServiceIdentity("blend", blend.certificate().pem(), blend.keys().getPrivate());
+        listener.onLog(
+            LogLevel.INFO,
+            "Paired. The Wi-Fi tunnel identity is enrolled and the Blend identity is ready in "
+                + directory.directory());
+
         return CommandOutcome.succeeded(
             new PairingResult(
                 pin,
@@ -157,6 +177,24 @@ public final class Pairing {
           "The device returned an authority that is not X.509",
           Map.of());
     }
+  }
+
+  /** A self-signed service identity (tunnel or Blend), the same shape as the pairing authority. */
+  private record ServiceIdentity(KeyPair keys, AuthorityCertificate certificate) {}
+
+  /** Makes a self-signed P-521 identity named {@code commonName}, valid like the authority. */
+  private ServiceIdentity serviceIdentity(String commonName, java.time.Instant now)
+      throws GeneralSecurityException {
+    var keys = EcKeys.generateP521();
+    var certificate =
+        AuthorityCertificate.create(
+            keys,
+            SignatureScheme.SHA1_WITH_ECDSA,
+            commonName,
+            new BigInteger(SERIAL_BITS, random).add(BigInteger.ONE),
+            now.minus(Duration.ofDays(BACKDATED_DAYS)),
+            now.plus(Duration.ofDays(AUTHORITY_VALIDITY_DAYS)));
+    return new ServiceIdentity(keys, certificate);
   }
 
   private byte[] randomBytes() {

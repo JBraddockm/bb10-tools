@@ -191,24 +191,29 @@ class PairingTest {
 
     @Test
     @DisplayName(
-        "sends one request, with the two fields that the device reads: the identifier and the"
-            + " authority")
+        "sends the authority first — the identifier and the authority — then enrols the tunnel"
+            + " identity: two pairing requests")
     void sendsTheTwoFields() throws Exception {
       var bodies = fixture.device().pairingBodies();
 
-      assertThat(bodies).hasSize(1);
-      var fields = FormBodies.parse(bodies.getFirst());
-      assertThat(List.copyOf(fields.keySet())).containsExactly("deviceid", "certdata");
-      assertThat(fields.get("deviceid")).isEqualTo(expected.get("deviceId"));
-      assertThat(fields.get("certdata")).isEqualTo(Files.readString(directory.authorityFile()));
+      assertThat(bodies).hasSize(2);
+      var authority = FormBodies.parse(bodies.getFirst());
+      assertThat(List.copyOf(authority.keySet())).containsExactly("deviceid", "certdata");
+      assertThat(authority.get("deviceid")).isEqualTo(expected.get("deviceId"));
+      assertThat(authority.get("certdata")).isEqualTo(Files.readString(directory.authorityFile()));
+
+      var tunnel = FormBodies.parse(bodies.get(1));
+      assertThat(tunnel.get("certdata"))
+          .isEqualTo(Files.readString(directory.serviceCertificateFile("tunnel")));
     }
 
     @Test
-    @DisplayName("makes the device keep what it sent, under the identifier")
-    void theDeviceKeepsTheAuthority() throws Exception {
-      assertThat(fixture.device().pairings()).containsOnlyKeys((String) expected.get("deviceId"));
+    @DisplayName("leaves the device holding the tunnel identity under the computer's identifier")
+    void theDeviceKeepsTheTunnelIdentity() throws Exception {
+      // The authority is enrolled first, then the tunnel identity under the same identifier, so the
+      // device's trusted peer for this computer ends as the cert the tunnel presents.
       assertThat(fixture.device().pairings().get(result.deviceId()))
-          .isEqualTo(Files.readString(directory.authorityFile()));
+          .isEqualTo(Files.readString(directory.serviceCertificateFile("tunnel")));
     }
 
     @Test

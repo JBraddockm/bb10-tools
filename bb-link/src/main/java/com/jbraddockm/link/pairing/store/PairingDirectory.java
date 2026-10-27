@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
+import java.security.PrivateKey;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -96,6 +97,37 @@ public final class PairingDirectory {
    */
   public Path metadataFile() {
     return directory.resolve(METADATA_FILE);
+  }
+
+  /**
+   * Writes a per-service identity into the device folder: {@code <name>_cert.pem} (the certificate,
+   * or a chain) and {@code <name>_key.pem} (its private key, owner-only), both moved into place
+   * atomically. Used for the tunnel and Blend identities made at pairing.
+   *
+   * @param name the file base name, e.g. {@code tunnel} or {@code blend}
+   * @param certificatePem the certificate (or chain), as PEM
+   * @param key the private key
+   * @throws IOException if a file cannot be written or moved
+   */
+  public void writeServiceIdentity(String name, String certificatePem, PrivateKey key)
+      throws IOException {
+    var certificateFile = directory.resolve(name + "_cert.pem");
+    var keyFile = directory.resolve(name + "_key.pem");
+    var certificateTemporary = SecureFiles.withSuffix(certificateFile);
+    SecureFiles.writePrivateKey(SecureFiles.withSuffix(keyFile), key);
+    Files.writeString(certificateTemporary, certificatePem, StandardCharsets.UTF_8);
+    SecureFiles.move(SecureFiles.withSuffix(keyFile), keyFile);
+    SecureFiles.move(certificateTemporary, certificateFile);
+  }
+
+  /**
+   * The file of a service identity's certificate, e.g. {@code tunnel_cert.pem}.
+   *
+   * @param name the base name
+   * @return its path
+   */
+  public Path serviceCertificateFile(String name) {
+    return directory.resolve(name + "_cert.pem");
   }
 
   /**

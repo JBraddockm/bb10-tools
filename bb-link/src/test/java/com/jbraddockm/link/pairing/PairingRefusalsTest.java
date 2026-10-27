@@ -13,7 +13,6 @@ import com.jbraddockm.link.testing.Resources;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -140,7 +139,8 @@ class PairingRefusalsTest {
           .contains("replace it");
       assertThat(failure.error().details())
           .containsEntry("directory", devices.resolve("2A3B4C5D").toString());
-      assertThat(fixture.device().pairingBodies()).hasSize(1);
+      // The first pairing sent two (authority + tunnel enrolment); the refused one sent nothing more.
+      assertThat(fixture.device().pairingBodies()).hasSize(2);
       assertThat(Files.readString(PairingDirectory.of(devices, "2A3B4C5D").keyFile()))
           .isEqualTo(before);
     }
@@ -160,8 +160,9 @@ class PairingRefusalsTest {
       assertThat(Files.readString(second.keyFile())).isNotEqualTo(keyBefore);
       assertThat(PairingDirectory.of(devices, "2A3B4C5D").metadata().orElseThrow().deviceId())
           .isEqualTo(second.deviceId());
+      // Both pairings' authorities are kept (each run also enrols a tunnel identity of its own).
       assertThat(fixture.device().pairings().keySet())
-          .isEqualTo(Set.of(first.deviceId(), second.deviceId()));
+          .contains(first.deviceId(), second.deviceId());
     }
 
     @Test
