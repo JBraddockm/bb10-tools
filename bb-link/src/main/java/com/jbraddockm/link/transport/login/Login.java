@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.login;
 
 import com.jbraddockm.link.transport.cgi.CgiResponse;
 import com.jbraddockm.link.transport.cgi.CgiTransport;
@@ -22,7 +22,7 @@ import org.apache.http.message.BasicHeader;
  */
 @SuppressWarnings(
     "deprecation") // deprecated only in newer HttpClient versions; the build pins 4.0.3
-final class Login {
+public final class Login {
 
   private static final String LOGIN_PATH = "/cgi-bin/login.cgi";
   private static final String COOKIE_NAME = "dtmauth";
@@ -34,7 +34,7 @@ final class Login {
    *
    * @return the file share credentials of this login, if the device handed them out
    */
-  static Optional<SmbCredentials> perform(CgiTransport transport)
+  public static Optional<SmbCredentials> perform(CgiTransport transport)
       throws LoginException, IOException {
     var first = transport.get(LOGIN_PATH + "?request_version=1");
     var document = LoginDocument.of(first);

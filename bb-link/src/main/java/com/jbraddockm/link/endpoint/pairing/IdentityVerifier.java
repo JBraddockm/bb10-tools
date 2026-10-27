@@ -7,7 +7,7 @@ import com.jbraddockm.link.endpoint.actions.ConfirmedByPin;
 import com.jbraddockm.link.transport.cgi.Authentication;
 import com.jbraddockm.link.transport.tls.ClientCertificate;
 import com.jbraddockm.link.transport.session.DeviceSession;
-import com.jbraddockm.link.transport.session.LoginOnly;
+import com.jbraddockm.link.transport.login.LoginOnly;
 import com.jbraddockm.link.transport.cgi.TransportScheme;
 
 /** Tries a new identity against the device that issued its certificate. */

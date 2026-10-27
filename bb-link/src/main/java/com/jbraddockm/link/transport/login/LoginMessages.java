@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.login;
 
 import com.qnx.bbt.deploy.Messages;
 

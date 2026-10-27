@@ -17,6 +17,7 @@ import com.jbraddockm.link.testing.TlsTestDevice;
 import com.jbraddockm.link.transport.cgi.Authentication;
 import com.jbraddockm.link.transport.cgi.DeviceTarget;
 import com.jbraddockm.link.transport.cgi.TransportScheme;
+import com.jbraddockm.link.transport.login.FailureClassifier;
 import com.jbraddockm.link.transport.tls.ClientCertificate;
 import java.nio.file.Path;
 import java.util.List;

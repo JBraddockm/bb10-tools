@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.login;
 
 import com.jbraddockm.core.command.NoData;
 import com.jbraddockm.link.transport.cgi.CgiResponse;

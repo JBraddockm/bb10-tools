@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.login;
 
 import com.jbraddockm.core.json.Json;
 import java.util.Map;

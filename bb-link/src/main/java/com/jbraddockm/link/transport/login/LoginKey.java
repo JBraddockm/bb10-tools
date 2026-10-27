@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.login;
 
 /**
  * The elements of a login answer. Old devices answer inside a {@code RIM_tablet_response} root and

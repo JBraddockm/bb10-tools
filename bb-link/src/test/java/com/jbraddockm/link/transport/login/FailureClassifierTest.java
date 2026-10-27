@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.login;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -95,7 +95,7 @@ class FailureClassifierTest {
   class Connection {
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("com.jbraddockm.link.transport.session.FailureClassifierTest#connections")
+    @MethodSource("com.jbraddockm.link.transport.login.FailureClassifierTest#connections")
     @DisplayName("is failed or lost, with the cause, and the words of the exception")
     void aConnectionThatFailedOrWasLost(Throwable failure, ErrorCode code, String cause) {
       var error = FailureClassifier.classify(failure);
@@ -220,7 +220,7 @@ class FailureClassifierTest {
   class Else {
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("com.jbraddockm.link.transport.session.FailureClassifierTest#others")
+    @MethodSource("com.jbraddockm.link.transport.login.FailureClassifierTest#others")
     @DisplayName("is an error of the caller or of input and output, by what it is")
     void byWhatItIs(Throwable failure, ErrorCode code) {
       assertThat(FailureClassifier.classify(failure).code()).isEqualTo(code);

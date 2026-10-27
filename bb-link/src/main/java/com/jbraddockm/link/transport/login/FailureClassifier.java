@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.login;
 
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.ErrorCode;
@@ -18,11 +18,11 @@ import org.apache.http.NoHttpResponseException;
 import org.apache.http.conn.ConnectTimeoutException;
 
 /** Maps failures to errors and decides what may be retried. */
-final class FailureClassifier {
+public final class FailureClassifier {
 
   private FailureClassifier() {}
 
-  static ServiceError classify(Throwable failure) {
+  public static ServiceError classify(Throwable failure) {
     return classify(failure, false);
   }
 
@@ -33,7 +33,7 @@ final class FailureClassifier {
    * @param certificateOffered whether a client certificate was offered to the device; a failed
    *     handshake is then explained with that in mind
    */
-  static ServiceError classify(Throwable failure, boolean certificateOffered) {
+  public static ServiceError classify(Throwable failure, boolean certificateOffered) {
     return classify(failure, certificateOffered, ConnectionPath.OTHER);
   }
 
@@ -45,7 +45,7 @@ final class FailureClassifier {
    * @param path the path the session was reached over
    * @return the error
    */
-  static ServiceError classify(Throwable failure, boolean certificateOffered, ConnectionPath path) {
+  public static ServiceError classify(Throwable failure, boolean certificateOffered, ConnectionPath path) {
     return switch (failure) {
       case InvalidArgumentException invalid -> invalid.toServiceError();
       case PasswordRejectedException rejected when rejected.isLocked() ->
@@ -111,7 +111,7 @@ final class FailureClassifier {
    * Tells whether a failure looks like a dead pooled connection, which is worth one retry, as
    * opposed to a device that cannot be reached at all.
    */
-  static boolean isStaleConnection(Throwable failure) {
+  public static boolean isStaleConnection(Throwable failure) {
     return switch (failure) {
       case ConnectTimeoutException _, ConnectException _, UnknownHostException _ -> false;
       case SocketException _, NoHttpResponseException _ -> true;
@@ -123,7 +123,7 @@ final class FailureClassifier {
    * Tells whether the connection stays usable after a failure. A bad argument does not damage it;
    * anything else may have left a half-finished exchange behind.
    */
-  static boolean leavesSessionUsable(Throwable failure) {
+  public static boolean leavesSessionUsable(Throwable failure) {
     return failure instanceof IllegalArgumentException;
   }
 
