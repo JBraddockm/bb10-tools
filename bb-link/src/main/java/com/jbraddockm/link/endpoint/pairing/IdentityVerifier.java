@@ -4,11 +4,11 @@ import com.jbraddockm.core.command.CommandListener;
 import com.jbraddockm.core.command.CommandOutcome;
 import com.jbraddockm.core.command.NoData;
 import com.jbraddockm.link.endpoint.actions.ConfirmedByPin;
-import com.jbraddockm.link.transport.session.Authentication;
+import com.jbraddockm.link.transport.cgi.Authentication;
 import com.jbraddockm.link.transport.tls.ClientCertificate;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import com.jbraddockm.link.transport.session.LoginOnly;
-import com.jbraddockm.link.transport.session.TransportScheme;
+import com.jbraddockm.link.transport.cgi.TransportScheme;
 
 /** Tries a new identity against the device that issued its certificate. */
 @FunctionalInterface

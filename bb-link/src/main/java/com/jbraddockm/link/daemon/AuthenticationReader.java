@@ -2,8 +2,8 @@ package com.jbraddockm.link.daemon;
 
 import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.error.InvalidArgumentException;
-import com.jbraddockm.link.transport.session.Authentication;
-import com.jbraddockm.link.transport.session.AuthenticationType;
+import com.jbraddockm.link.transport.cgi.Authentication;
+import com.jbraddockm.link.transport.cgi.AuthenticationType;
 import com.jbraddockm.link.transport.tls.ClientCertificate;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;

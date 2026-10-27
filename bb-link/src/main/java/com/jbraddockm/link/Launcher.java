@@ -3,7 +3,7 @@ package com.jbraddockm.link;
 import com.jbraddockm.core.daemon.DaemonServer;
 import com.jbraddockm.link.daemon.FixtureReplay;
 import com.jbraddockm.link.daemon.LinkService;
-import com.jbraddockm.link.transport.session.ExchangeObserver;
+import com.jbraddockm.link.transport.cgi.ExchangeObserver;
 import com.jbraddockm.link.transport.trace.TraceRecorder;
 import java.io.IOException;
 import java.nio.file.Path;

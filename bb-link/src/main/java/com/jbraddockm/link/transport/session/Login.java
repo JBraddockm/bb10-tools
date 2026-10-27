@@ -1,6 +1,7 @@
 package com.jbraddockm.link.transport.session;
 
 import com.jbraddockm.link.transport.cgi.CgiResponse;
+import com.jbraddockm.link.transport.cgi.CgiTransport;
 import com.jbraddockm.link.transport.internal.Impossible;
 import com.qnx.bbt.deploy.PwCrypto;
 import java.io.IOException;

@@ -2,7 +2,7 @@ package com.jbraddockm.link.transport.trace;
 
 import com.jbraddockm.link.transport.cgi.CgiResponse;
 import com.jbraddockm.link.transport.internal.Scrub;
-import com.jbraddockm.link.transport.session.ExchangeObserver;
+import com.jbraddockm.link.transport.cgi.ExchangeObserver;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

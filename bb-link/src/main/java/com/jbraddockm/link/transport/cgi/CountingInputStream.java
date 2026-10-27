@@ -1,6 +1,5 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.cgi;
 
-import com.jbraddockm.link.transport.cgi.UploadObserver;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;

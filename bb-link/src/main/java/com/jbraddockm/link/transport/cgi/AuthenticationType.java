@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.cgi;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
 import java.util.Arrays;

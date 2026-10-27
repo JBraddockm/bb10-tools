@@ -1,15 +1,9 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.cgi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
-import com.jbraddockm.link.transport.cgi.CgiRequest;
-import com.jbraddockm.link.transport.cgi.CgiResponse;
-import com.jbraddockm.link.transport.cgi.Endpoint;
-import com.jbraddockm.link.transport.cgi.FormField;
-import com.jbraddockm.link.transport.cgi.QueryParameter;
-import com.jbraddockm.link.transport.cgi.UploadObserver;
 import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.testing.ScriptedServer;
 import com.jbraddockm.link.testing.TestPhase;

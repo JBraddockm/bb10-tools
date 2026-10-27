@@ -1,6 +1,5 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.cgi;
 
-import com.jbraddockm.link.transport.cgi.CgiResponse;
 import java.io.IOException;
 import java.util.List;
 

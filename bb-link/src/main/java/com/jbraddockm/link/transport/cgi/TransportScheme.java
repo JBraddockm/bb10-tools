@@ -1,4 +1,4 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.cgi;
 
 /** The URL scheme used to reach the device. */
 public enum TransportScheme {

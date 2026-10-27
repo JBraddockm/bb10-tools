@@ -8,8 +8,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.link.endpoint.pairing.CertificateRetrieval;
 import com.jbraddockm.link.endpoint.pairing.Pairing;
-import com.jbraddockm.link.transport.session.ExchangeObserver;
-import com.jbraddockm.link.transport.session.TransportScheme;
+import com.jbraddockm.link.transport.cgi.ExchangeObserver;
+import com.jbraddockm.link.transport.cgi.TransportScheme;
 import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
 import java.nio.file.Files;

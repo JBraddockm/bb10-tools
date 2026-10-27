@@ -1,9 +1,6 @@
-package com.jbraddockm.link.transport.session;
+package com.jbraddockm.link.transport.cgi;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
-import com.jbraddockm.link.transport.cgi.CgiRequest;
-import com.jbraddockm.link.transport.cgi.CgiResponse;
-import com.jbraddockm.link.transport.cgi.UploadObserver;
 import com.jbraddockm.link.transport.tls.ClientCertificate;
 import com.jbraddockm.link.transport.tls.FixedClientKeyManager;
 import com.jbraddockm.link.transport.tls.PemIdentity;
@@ -37,7 +34,7 @@ import org.apache.http.util.EntityUtils;
  */
 @SuppressWarnings(
     "deprecation") // deprecated only in newer HttpClient versions; the build pins 4.0.3
-final class CgiTransport implements AutoCloseable {
+public final class CgiTransport implements AutoCloseable {
 
   private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
   private static final String USER_AGENT = "QNXWebClient/1.0";
@@ -48,7 +45,7 @@ final class CgiTransport implements AutoCloseable {
   private final BasicHttpContext context = new BasicHttpContext();
   private final BasicCookieStore cookies = new BasicCookieStore();
 
-  CgiTransport(DeviceTarget target, ExchangeObserver observer) throws IOException {
+  public CgiTransport(DeviceTarget target, ExchangeObserver observer) throws IOException {
     this.target = target;
     this.observer = observer;
     client.getParams().setParameter("http.protocol.version", HttpVersion.HTTP_1_1);
@@ -74,15 +71,15 @@ final class CgiTransport implements AutoCloseable {
     return header == null ? null : header.getValue();
   }
 
-  DeviceTarget target() {
+  public DeviceTarget target() {
     return target;
   }
 
-  BasicCookieStore cookies() {
+  public BasicCookieStore cookies() {
     return cookies;
   }
 
-  CgiResponse get(String pathAndQuery) throws IOException {
+  public CgiResponse get(String pathAndQuery) throws IOException {
     return execute(new HttpGet(checkedUrl(pathAndQuery)), "GET " + pathAndQuery, "");
   }
 
@@ -90,7 +87,7 @@ final class CgiTransport implements AutoCloseable {
     return send(request, UploadObserver.NONE);
   }
 
-  CgiResponse send(CgiRequest request, UploadObserver observer) throws IOException {
+  public CgiResponse send(CgiRequest request, UploadObserver observer) throws IOException {
     return switch (request) {
       case CgiRequest.Get get -> get(get.pathAndQuery());
       case CgiRequest.Form form -> {
