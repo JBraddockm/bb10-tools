@@ -6,10 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.tunnel.Tunnels;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,8 +21,12 @@ import org.junit.jupiter.api.Test;
 @DisplayName("TunnelBroker: leases, identity and events over the tunnel service")
 class TunnelBrokerTest {
 
+  /** A fixed identity so acquires that carry no certificate of their own still resolve in tests. */
+  private static final TunnelBroker.IdentityResolver FALLBACK =
+      _ -> Optional.of(new Tunnels.Identity(Path.of("cert.pem"), Path.of("key.pem")));
+
   private final FakeTunnels tunnels = new FakeTunnels();
-  private final TunnelBroker broker = new TunnelBroker(tunnels);
+  private final TunnelBroker broker = new TunnelBroker(tunnels, FALLBACK);
 
   private static RequestParams params(Object... keysAndValues) {
     return new RequestParams(Json.object(keysAndValues));
@@ -39,7 +45,7 @@ class TunnelBrokerTest {
     private BiConsumer<String, Throwable> onDrop;
 
     @Override
-    public synchronized Lease acquire(String host, boolean stable) {
+    public synchronized Lease acquire(String host, boolean stable, Identity identity) {
       var info =
           up.computeIfAbsent(
               host, h -> new Info("fd00::" + h, stable ? "169.254.1.1" : "169.254.9.1"));
@@ -268,6 +274,45 @@ class TunnelBrokerTest {
                 assertThat(e.get("host")).isEqualTo("192.168.1.118");
               });
       assertThat(((List<?>) broker.status(params()).get("tunnels"))).isEmpty();
+    }
+  }
+
+  @Nested
+  @DisplayName("identity resolution")
+  class IdentityResolution {
+
+    @Test
+    @DisplayName("a missing tunnel certificate is a typed cert error, not a crash")
+    void missingCertificate() {
+      // A real TunnelManager so the identity is actually loaded; the failure is at the file, before
+      // any device I/O, so no device or sudo is needed.
+      var real = new TunnelBroker(new com.jbraddockm.tunnel.TunnelManager());
+      var request =
+          params(
+              "host", "192.168.1.118",
+              "certificate", "/no/such/cert.pem",
+              "key", "/no/such/key.pem");
+      assertThatThrownBy(() -> real.acquire("c1", request))
+          .isInstanceOf(BrokerException.class)
+          .satisfies(e -> assertThat(((BrokerException) e).code()).isEqualTo("cert_not_found"));
+    }
+
+    @Test
+    @DisplayName("an acquire with no identity and no daemon fallback is refused clearly")
+    void noIdentity() {
+      var real = new TunnelBroker(new com.jbraddockm.tunnel.TunnelManager());
+      assertThatThrownBy(() -> real.acquire("c1", params("host", "192.168.1.118")))
+          .isInstanceOf(BrokerException.class)
+          .satisfies(e -> assertThat(((BrokerException) e).code()).isEqualTo("identity_missing"));
+    }
+
+    @Test
+    @DisplayName("passing only one of certificate/key is refused")
+    void incompleteIdentity() {
+      assertThatThrownBy(
+              () -> broker.acquire("c1", params("host", "192.168.1.118", "certificate", "/c.pem")))
+          .isInstanceOf(BrokerException.class)
+          .satisfies(e -> assertThat(((BrokerException) e).code()).isEqualTo("cert_incomplete"));
     }
   }
 }

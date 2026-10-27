@@ -1,8 +1,14 @@
 package com.jbraddockm.tunnel;
 
 import com.jbraddockm.tunnel.internal.PemUtil;
+import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.List;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.asn1.sec.ECPrivateKey;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
 
 /**
  * The inputs to {@link Tunnel#open}: the device's LAN address and our client identity (a
@@ -50,6 +56,9 @@ record TunnelConfig(
   /**
    * The bundled client identity ({@code /certs/blend_chain.pem} + {@code /certs/blend_key_p8.pem})
    * with the default stable inner-IPv4 ({@code 169.254.1.1/.2}).
+   *
+   * <p><b>Demo/test only.</b> These resources are <i>not</i> embedded in the native binary (it must
+   * stay portable); production always loads a device's own identity from disk via {@link #fromFiles}.
    */
   static TunnelConfig fromClasspath(String host) {
     return fromClasspath(host, PC_IPV4, DEVICE_IPV4);
@@ -77,25 +86,93 @@ record TunnelConfig(
    * A client identity read from PEM files on disk (cert chain leaf-first + PKCS#8 key) with the
    * default stable inner-IPv4 ({@code 169.254.1.1/.2}).
    */
-  static TunnelConfig fromFiles(String host, Path chainPem, Path keyPem) {
+  static TunnelConfig fromFiles(String host, Path chainPem, Path keyPem)
+      throws TunnelCertificateException {
     return fromFiles(host, chainPem, keyPem, PC_IPV4, DEVICE_IPV4);
   }
 
-  /** A client identity read from PEM files on disk with an explicit inner-IPv4 pair. */
+  /**
+   * A client identity read from PEM files on disk with an explicit inner-IPv4 pair. This is the
+   * portable path — the identity is a device's own cert on disk, never embedded in the binary — so a
+   * missing or malformed file is reported as a typed {@link TunnelCertificateException} (with a
+   * machine {@code code}) rather than crashing the daemon.
+   */
   static TunnelConfig fromFiles(
-      String host, Path chainPem, Path keyPem, String pcIpv4, String deviceIpv4) {
+      String host, Path chainPem, Path keyPem, String pcIpv4, String deviceIpv4)
+      throws TunnelCertificateException {
+    var chain = loadBlocks(chainPem, "CERTIFICATE", "cert");
+    var keyDer = loadPrivateKeyDer(keyPem);
+    return new TunnelConfig(host, CONTROL_PORT, chain, keyDer, pcIpv4, deviceIpv4);
+  }
+
+  /**
+   * The private key as PKCS#8 DER — the form {@code PrivateKeyFactory} wants. Accepts both PKCS#8
+   * ({@code BEGIN PRIVATE KEY}) and the SEC1/OpenSSL-traditional EC form ({@code BEGIN EC PRIVATE
+   * KEY}), wrapping the latter as PKCS#8, because a device's own {@code *key.pem} on disk may be
+   * either (e.g. {@code myleafkey.pem} is SEC1).
+   */
+  private static byte[] loadPrivateKeyDer(Path keyPem) throws TunnelCertificateException {
+    List<PemUtil.Block> blocks;
     try {
-      return new TunnelConfig(
-          host,
-          CONTROL_PORT,
-          PemUtil.readBlocksFromFile(chainPem, "CERTIFICATE"),
-          PemUtil.readBlocksFromFile(keyPem, "PRIVATE KEY").getFirst(),
-          pcIpv4,
-          deviceIpv4);
-    } catch (Exception e) {
-      throw new IllegalStateException(
-          "could not read client identity from " + chainPem + " / " + keyPem, e);
+      blocks = PemUtil.readAllFromFile(keyPem);
+    } catch (NoSuchFileException missing) {
+      throw new TunnelCertificateException(
+          "key_not_found", "the key file was not found: " + keyPem, missing);
+    } catch (IOException unreadable) {
+      throw new TunnelCertificateException(
+          "key_unreadable",
+          "the key file could not be read: " + keyPem + " (" + unreadable.getMessage() + ")",
+          unreadable);
     }
+    for (var block : blocks) {
+      if ("PRIVATE KEY".equals(block.type())) {
+        return block.der(); // already PKCS#8
+      }
+      if ("EC PRIVATE KEY".equals(block.type())) {
+        try {
+          return sec1ToPkcs8(block.der());
+        } catch (RuntimeException | IOException malformed) {
+          throw new TunnelCertificateException(
+              "key_malformed", "the EC private key in " + keyPem + " could not be parsed", malformed);
+        }
+      }
+    }
+    throw new TunnelCertificateException(
+        "key_malformed",
+        "no private key (a BEGIN PRIVATE KEY or BEGIN EC PRIVATE KEY block) in " + keyPem);
+  }
+
+  /** Wraps a SEC1 EC private key (OpenSSL's traditional form) as a PKCS#8 {@code PrivateKeyInfo}. */
+  private static byte[] sec1ToPkcs8(byte[] sec1Der) throws IOException {
+    var ec = ECPrivateKey.getInstance(sec1Der);
+    var algorithm =
+        new AlgorithmIdentifier(X9ObjectIdentifiers.id_ecPublicKey, ec.getParametersObject());
+    return new PrivateKeyInfo(algorithm, ec).getEncoded("DER");
+  }
+
+  /** Reads PEM blocks of {@code type} from {@code pem}, mapping each failure to a typed cert code. */
+  private static List<byte[]> loadBlocks(Path pem, String type, String which)
+      throws TunnelCertificateException {
+    List<byte[]> blocks;
+    try {
+      blocks = PemUtil.readBlocksFromFile(pem, type);
+    } catch (NoSuchFileException missing) {
+      throw new TunnelCertificateException(
+          which + "_not_found", "the " + which + " file was not found: " + pem, missing);
+    } catch (IOException unreadable) {
+      throw new TunnelCertificateException(
+          which + "_unreadable",
+          "the " + which + " file could not be read: " + pem + " (" + unreadable.getMessage() + ")",
+          unreadable);
+    } catch (Exception malformed) {
+      throw new TunnelCertificateException(
+          which + "_malformed", "the " + which + " file is not valid PEM: " + pem, malformed);
+    }
+    if ("CERTIFICATE".equals(type) && blocks.isEmpty()) {
+      throw new TunnelCertificateException(
+          "cert_malformed", "no certificate (a BEGIN CERTIFICATE block) in " + pem);
+    }
+    return blocks;
   }
 
   /** The leaf certificate DER (first chain element) — our bp2p identity. */

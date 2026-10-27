@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -49,7 +50,10 @@ class BrokerServerRoundTripTest {
   void startServer() throws Exception {
     // A short path: macOS caps a Unix-domain socket path near 104 bytes.
     socket = Path.of("/tmp", "bb-tunneld-test-" + System.nanoTime() + ".sock");
-    server = new BrokerServer(new TunnelBroker(tunnels), socket, "test");
+    var fallback =
+        (TunnelBroker.IdentityResolver)
+            _ -> Optional.of(new Tunnels.Identity(Path.of("cert.pem"), Path.of("key.pem")));
+    server = new BrokerServer(new TunnelBroker(tunnels, fallback), socket, "test");
     serving =
         new Thread(
             () -> {
@@ -148,7 +152,7 @@ class BrokerServerRoundTripTest {
     private BiConsumer<String, Throwable> onDrop;
 
     @Override
-    public synchronized Lease acquire(String host, boolean stable) {
+    public synchronized Lease acquire(String host, boolean stable, Identity identity) {
       var info =
           up.computeIfAbsent(
               host, h -> new Info("fd00::" + h, stable ? "169.254.1.1" : "169.254.9.1"));

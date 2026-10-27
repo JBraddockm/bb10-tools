@@ -101,11 +101,28 @@ public final class TunnelBrokerClient implements AutoCloseable {
 
   /**
    * Opens or joins a device's tunnel by its transport {@code host} (USB host−1 or the Wi-Fi LAN
-   * address). {@code stable} pins the constant {@code 169.254.1.1} SMB address.
+   * address). {@code stable} pins the constant {@code 169.254.1.1} SMB address. The tunnel's client
+   * identity comes from the daemon's own resolution (CLI args / env / {@code devices/<PIN>/}).
    */
   public BrokerLease acquire(String host, boolean stable, String consumer) throws IOException {
-    return lease(
-        request("acquire", Json.object("host", host, "stable", stable, "consumer", consumer)));
+    return acquire(host, stable, consumer, null, null);
+  }
+
+  /**
+   * As {@link #acquire(String, boolean, String)}, but tells the daemon which client identity to
+   * present: the absolute paths of the device's certificate chain (leaf first) and PKCS#8 key on
+   * disk. Passing them keeps the daemon's binary portable — it loads the device's own cert rather
+   * than an embedded one. A {@code null} path leaves identity to the daemon's fallback resolution.
+   */
+  public BrokerLease acquire(
+      String host, boolean stable, String consumer, Path certChainPem, Path keyPem)
+      throws IOException {
+    var params = Json.object("host", host, "stable", stable, "consumer", consumer);
+    if (certChainPem != null && keyPem != null) {
+      params.put("certificate", certChainPem.toString());
+      params.put("key", keyPem.toString());
+    }
+    return lease(request("acquire", params));
   }
 
   /** Rejoins a device whose GUID the broker already recorded (via an earlier {@link #identify}). */

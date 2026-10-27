@@ -20,18 +20,32 @@ public final class BrokerTunnelConnector implements TunnelConnector {
   private final String host;
   private final boolean stableSmb;
   private final String consumer;
+  private final Path tunnelCert;
+  private final Path tunnelKey;
 
   /**
    * @param socket the broker's Unix-domain socket
    * @param host the device's transport address to open the tunnel to (the Wi-Fi LAN address)
    * @param stableSmb whether to pin the constant {@code 169.254.1.1} SMB address
    * @param consumer a label for this consumer in the broker's status/logs
+   * @param tunnelCert the device's tunnel certificate chain (leaf first) on disk, passed to the
+   *     daemon so its binary need not embed any device's identity; {@code null} leaves the choice to
+   *     the daemon's own resolution
+   * @param tunnelKey the PKCS#8 private key for {@code tunnelCert}; {@code null} with the same effect
    */
-  public BrokerTunnelConnector(Path socket, String host, boolean stableSmb, String consumer) {
+  public BrokerTunnelConnector(
+      Path socket,
+      String host,
+      boolean stableSmb,
+      String consumer,
+      Path tunnelCert,
+      Path tunnelKey) {
     this.socket = socket;
     this.host = host;
     this.stableSmb = stableSmb;
     this.consumer = consumer;
+    this.tunnelCert = tunnelCert;
+    this.tunnelKey = tunnelKey;
   }
 
   @Override
@@ -46,7 +60,7 @@ public final class BrokerTunnelConnector implements TunnelConnector {
               down.set(true);
             }
           });
-      var lease = client.acquire(host, stableSmb, consumer);
+      var lease = client.acquire(host, stableSmb, consumer, tunnelCert, tunnelKey);
       return new Binding(client, lease, down);
     } catch (IOException | RuntimeException failure) {
       client.close();

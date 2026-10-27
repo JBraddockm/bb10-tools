@@ -2,13 +2,16 @@ package com.jbraddockm.tunnel.broker;
 
 import com.jbraddockm.core.daemon.RequestParams;
 import com.jbraddockm.core.json.Json;
+import com.jbraddockm.tunnel.TunnelCertificateException;
 import com.jbraddockm.tunnel.Tunnels;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -39,6 +42,7 @@ import java.util.concurrent.atomic.AtomicLong;
 final class TunnelBroker {
 
   private final Tunnels tunnels;
+  private final IdentityResolver fallbackIdentity;
   private final Object lock = new Object();
   private final AtomicLong tokens = new AtomicLong();
   private final Map<String, Hold> byToken = new HashMap<>();
@@ -46,9 +50,20 @@ final class TunnelBroker {
   private final Map<String, String> hostByGuid = new HashMap<>();
   private final Map<String, EventSink> connections = new HashMap<>();
 
-  /** Wraps the tunnel service and subscribes to its drop notifications. */
+  /** Wraps the tunnel service with no daemon-side identity fallback (every acquire must carry one). */
   TunnelBroker(Tunnels tunnels) {
+    this(tunnels, _ -> Optional.empty());
+  }
+
+  /**
+   * Wraps the tunnel service and subscribes to its drop notifications. {@code fallbackIdentity}
+   * supplies the client identity for an {@code acquire} that does not carry {@code certificate}/{@code
+   * key} paths of its own — the daemon's own resolution (CLI args, env, or the {@code devices/<PIN>/}
+   * convention beside the binary); it may yield nothing, in which case such an acquire is refused.
+   */
+  TunnelBroker(Tunnels tunnels, IdentityResolver fallbackIdentity) {
     this.tunnels = Objects.requireNonNull(tunnels, "tunnels");
+    this.fallbackIdentity = Objects.requireNonNull(fallbackIdentity, "fallbackIdentity");
     tunnels.onDrop(this::dropped);
   }
 
@@ -106,7 +121,14 @@ final class TunnelBroker {
       host = params.requireString("host");
     }
 
-    var lease = tunnels.acquire(host, stable); // may block on bring-up; no broker lock held
+    var identity = resolveIdentity(params);
+    Tunnels.Lease lease;
+    try {
+      // may block on bring-up; no broker lock held
+      lease = tunnels.acquire(host, stable, identity);
+    } catch (TunnelCertificateException certFailure) {
+      throw new BrokerException(certFailure.code(), certFailure.getMessage());
+    }
 
     synchronized (lock) {
       var info = byHost.computeIfAbsent(host, _ -> new DeviceInfo());
@@ -116,6 +138,32 @@ final class TunnelBroker {
       byToken.put(token, new Hold(token, host, connection, consumer, lease));
       return describe(token, host, info);
     }
+  }
+
+  /**
+   * The client identity an {@code acquire} opens the tunnel with: the request's {@code
+   * certificate}/{@code key} paths when it carries them (the consumer resolved the device's identity
+   * and points the daemon at it), otherwise the daemon's own {@link IdentityResolver} fallback.
+   */
+  private Tunnels.Identity resolveIdentity(RequestParams params) {
+    var cert = params.optionalString("certificate");
+    var key = params.optionalString("key");
+    if (cert.isPresent() && key.isPresent()) {
+      return new Tunnels.Identity(Path.of(cert.get()), Path.of(key.get()));
+    }
+    if (cert.isPresent() != key.isPresent()) {
+      throw new BrokerException(
+          "cert_incomplete", "pass both 'certificate' and 'key' paths, or neither");
+    }
+    return fallbackIdentity
+        .resolve(params)
+        .orElseThrow(
+            () ->
+                new BrokerException(
+                    "identity_missing",
+                    "no client certificate for the tunnel: pass 'certificate' and 'key' paths, or"
+                        + " give the daemon a device identity (--cert/--key, BB_DEVICE, or a"
+                        + " devices/<PIN>/ folder beside the binary)"));
   }
 
   /** Releases one lease by token. Idempotent; reports the references remaining for the device. */
@@ -267,6 +315,16 @@ final class TunnelBroker {
   @FunctionalInterface
   interface EventSink {
     void event(Map<String, Object> event);
+  }
+
+  /**
+   * The daemon's own resolution of a client identity for an {@code acquire} that carries no {@code
+   * certificate}/{@code key} of its own: CLI args, an env-named device, or the {@code devices/<PIN>/}
+   * convention beside the binary. Returns empty when the daemon has no identity configured.
+   */
+  @FunctionalInterface
+  interface IdentityResolver {
+    Optional<Tunnels.Identity> resolve(RequestParams request);
   }
 
   /** One consumer hold on a device's tunnel. */

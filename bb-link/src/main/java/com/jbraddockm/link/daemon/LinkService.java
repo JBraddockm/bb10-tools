@@ -141,8 +141,18 @@ public final class LinkService implements Service<DeviceSession> {
               .optionalString("brokerSocket")
               .map(Path::of)
               .orElse(TunnelBrokerClient.DEFAULT_SOCKET);
+      // The tunnel's client identity (the device's enrolled cert) is passed by path to the daemon, so
+      // its binary embeds no device cert. Absent, the daemon falls back to its own resolution.
+      var tunnelCert = params.optionalString("tunnelCertificate").map(Path::of).orElse(null);
+      var tunnelKey = params.optionalString("tunnelKey").map(Path::of).orElse(null);
       session.useTunnel(
-          new BrokerTunnelConnector(socket, target.host(), params.flag("stableSmb"), "bb-link"));
+          new BrokerTunnelConnector(
+              socket,
+              target.host(),
+              params.flag("stableSmb"),
+              "bb-link",
+              tunnelCert,
+              tunnelKey));
     }
     return session;
   }

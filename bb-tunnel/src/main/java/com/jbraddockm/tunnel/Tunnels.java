@@ -1,5 +1,6 @@
 package com.jbraddockm.tunnel;
 
+import java.nio.file.Path;
 import java.util.function.BiConsumer;
 
 /**
@@ -14,10 +15,23 @@ public interface Tunnels {
    * existing one with its reference count raised. {@code stable} pins the constant {@code
    * 169.254.1.1} SMB address; otherwise a free inner-IPv4 pair is allocated.
    *
+   * <p>{@code identity} is the client certificate the tunnel presents — a device's own cert loaded
+   * from disk, never embedded in the binary. It is used only when the tunnel is <b>opened</b>; a
+   * later acquire that joins an already-open tunnel keeps the identity the opener presented (the
+   * device's ULA is fixed at open time), so a joiner's identity is not re-applied.
+   *
    * @return a hold on the tunnel, carrying the coordinates to connect with
+   * @throws TunnelCertificateException if {@code identity} cannot be loaded (missing/malformed PEM)
    * @throws Exception if the tunnel cannot be opened
    */
-  Lease acquire(String host, boolean stable) throws Exception;
+  Lease acquire(String host, boolean stable, Identity identity) throws Exception;
+
+  /**
+   * The client identity a tunnel presents: a certificate chain (leaf first) and its PKCS#8 private
+   * key, as PEM files on disk. Kept as file paths — not embedded resources — so the binary stays
+   * portable across devices.
+   */
+  record Identity(Path certChainPem, Path keyPem) {}
 
   /** Whether a tunnel is currently held for {@code host}. */
   boolean isOpen(String host);

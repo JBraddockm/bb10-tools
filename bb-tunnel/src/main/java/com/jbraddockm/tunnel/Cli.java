@@ -24,7 +24,16 @@ public final class Cli {
 
   static void main(String[] args) throws Throwable {
     if (args.length > 0 && args[0].equals("serve")) {
-      Tunneld.run(args.length > 1 ? Path.of(args[1]) : Path.of(Tunneld.DEFAULT_SOCKET));
+      serve(args);
+      return;
+    }
+    // The demo opens a tunnel for one identity, resolved from the environment and the devices/
+    // convention (BB_TUNNEL_CERT/KEY, BB_DEVICE, BB_DEVICES_DIR). No cert is embedded in the binary.
+    var identity = DeviceIdentitySources.fromEnvironment().resolve(java.util.Optional.empty());
+    if (identity.isEmpty()) {
+      IO.println(
+          "no tunnel identity found: set BB_TUNNEL_CERT and BB_TUNNEL_KEY, or BB_DEVICE with a"
+              + " devices/<PIN>/ folder (tunnel_cert.pem + tunnel_key.pem), then retry.");
       return;
     }
     String[] hosts = args.length > 0 ? args : new String[] {"192.168.1.118"};
@@ -35,7 +44,7 @@ public final class Cli {
         TunnelManager.Lease lease;
         try {
           // The first device that opens takes the stable pair; the rest get pooled pairs.
-          lease = manager.acquire(host, leases.isEmpty());
+          lease = manager.acquire(host, leases.isEmpty(), identity.get());
         } catch (Throwable failure) {
           IO.println();
           IO.println("could not open a tunnel to " + host + ": " + rootCause(failure));
@@ -71,6 +80,43 @@ public final class Cli {
         }
       }
     }
+  }
+
+  /**
+   * {@code bb-tunnel serve [socket] [--cert P --key P] [--device PIN] [--devices DIR]} — run the
+   * broker daemon. The identity options set the fallback the daemon presents when an acquire carries
+   * no {@code certificate}/{@code key} of its own (the environment and the {@code devices/}
+   * convention fill the rest).
+   */
+  private static void serve(String[] args) throws Throwable {
+    Path socket = Path.of(Tunneld.DEFAULT_SOCKET);
+    Path cert = null;
+    Path key = null;
+    Path devices = null;
+    String device = null;
+    for (int i = 1; i < args.length; i++) {
+      switch (args[i]) {
+        case "--cert" -> cert = Path.of(value(args, ++i, "--cert"));
+        case "--key" -> key = Path.of(value(args, ++i, "--key"));
+        case "--device" -> device = value(args, ++i, "--device");
+        case "--devices" -> devices = Path.of(value(args, ++i, "--devices"));
+        default -> {
+          if (args[i].startsWith("--")) {
+            throw new IllegalArgumentException("unknown option " + args[i]);
+          }
+          socket = Path.of(args[i]); // the one positional argument is the socket path
+        }
+      }
+    }
+    Tunneld.run(socket, cert, key, device, devices);
+  }
+
+  /** The value after a flag, or a clear error if it is missing. */
+  private static String value(String[] args, int index, String option) {
+    if (index >= args.length) {
+      throw new IllegalArgumentException(option + " needs a value");
+    }
+    return args[index];
   }
 
   /** The short root-cause text of a failure, for a one-line message rather than a stack trace. */

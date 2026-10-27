@@ -132,8 +132,6 @@
                     <buildArgs combine.children="append">
                         <buildArg>--no-fallback</buildArg>
 
-                        <buildArg>-H:IncludeResources=certs/.*\.pem</buildArg>
-
                         <!-- Register TunDevice's Panama FFM (utun) downcalls — native image does not
                              auto-discover them. See ForeignRegistrationFeature. -->
                         <buildArg>--features=com.jbraddockm.tunnel.ForeignRegistrationFeature</buildArg>
@@ -145,7 +143,7 @@
 
                         <!-- TunDevice reads and writes the utun fd from several daemon threads, so it
                              holds the FFM memory in a shared Arena. Closing a shared arena in a native
-                             image needs this flag; without it teardown throws UnsupportedFeatureError
+                             image needs this flag; without it, the teardown throws UnsupportedFeatureError
                              ("Support for Arena.ofShared is not active") on every tunnel close. -->
                         <buildArg>-H:+UnlockExperimentalVMOptions</buildArg>
                         <buildArg>-H:+SharedArenaSupport</buildArg>

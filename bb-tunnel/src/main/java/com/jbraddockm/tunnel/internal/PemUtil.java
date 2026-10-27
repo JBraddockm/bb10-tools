@@ -34,6 +34,22 @@ public final class PemUtil {
     }
   }
 
+  /** A decoded PEM object: its exact {@code type} line (e.g. {@code EC PRIVATE KEY}) and raw DER. */
+  public record Block(String type, byte[] der) {}
+
+  /** Reads every PEM object in {@code pem} as (exact type, DER), in file order. */
+  public static List<Block> readAllFromFile(Path pem) throws IOException {
+    try (Reader r = Files.newBufferedReader(pem, StandardCharsets.US_ASCII);
+        PemReader pr = new PemReader(r)) {
+      var out = new ArrayList<Block>();
+      org.bouncycastle.util.io.pem.PemObject o;
+      while ((o = pr.readPemObject()) != null) {
+        out.add(new Block(o.getType(), o.getContent()));
+      }
+      return out;
+    }
+  }
+
   /** Core: pull every PEM object whose type contains {@code type} from {@code src} as raw DER. */
   private static List<byte[]> read(Reader src, String type) throws IOException {
     List<byte[]> out = new ArrayList<>();

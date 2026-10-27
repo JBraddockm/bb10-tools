@@ -63,14 +63,15 @@ public final class TunnelManager implements Tunnels {
    * @throws Exception if the tunnel cannot be opened; the allocated pair is returned to the pool
    */
   @Override
-  public synchronized Lease acquire(String host, boolean stable) throws Exception {
+  public synchronized Lease acquire(String host, boolean stable, Identity identity) throws Exception {
     Objects.requireNonNull(host, "host");
+    Objects.requireNonNull(identity, "identity");
     var entry = byHost.get(host);
     if (entry == null) {
       var inner = stable ? pool.allocateStable() : pool.allocate();
       Connection connection;
       try {
-        connection = opener.open(host, inner, cause -> evict(host, cause));
+        connection = opener.open(host, inner, identity, cause -> evict(host, cause));
       } catch (Exception e) {
         pool.release(inner);
         throw e;
@@ -127,9 +128,12 @@ public final class TunnelManager implements Tunnels {
     }
   }
 
-  private Connection liveOpen(String host, InnerIpv4 inner, Consumer<Throwable> onDrop)
+  private Connection liveOpen(
+      String host, InnerIpv4 inner, Identity identity, Consumer<Throwable> onDrop)
       throws Exception {
-    var cfg = TunnelConfig.fromClasspath(host, inner.pcIpv4(), inner.deviceIpv4());
+    var cfg =
+        TunnelConfig.fromFiles(
+            host, identity.certChainPem(), identity.keyPem(), inner.pcIpv4(), inner.deviceIpv4());
     Tunnel tunnel;
     try {
       tunnel = Tunnel.open(cfg, onDrop);
@@ -158,11 +162,13 @@ public final class TunnelManager implements Tunnels {
   @FunctionalInterface
   interface Opener {
     /**
-     * Opens the transport to {@code host} with {@code inner}. The opener wires the connection's
-     * <b>spontaneous</b> drop (the link failing on its own, not a {@link Connection#close}) to call
-     * {@code onDrop}, so the manager can evict the tunnel and tell its consumers.
+     * Opens the transport to {@code host} with {@code inner}, presenting {@code identity} as the
+     * client certificate. The opener wires the connection's <b>spontaneous</b> drop (the link
+     * failing on its own, not a {@link Connection#close}) to call {@code onDrop}, so the manager can
+     * evict the tunnel and tell its consumers.
      */
-    Connection open(String host, InnerIpv4 inner, Consumer<Throwable> onDrop) throws Exception;
+    Connection open(String host, InnerIpv4 inner, Identity identity, Consumer<Throwable> onDrop)
+        throws Exception;
   }
 
   /**
