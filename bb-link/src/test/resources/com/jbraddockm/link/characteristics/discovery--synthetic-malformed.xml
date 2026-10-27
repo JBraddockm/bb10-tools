@@ -1,0 +1,12 @@
+<RimTabletResponse>
+    <DeviceCharacteristics>
+        <BbPin>not-a-number</BbPin>
+        <ModelName>STR100-1</ModelName>
+        <OsType>BlackBerry 10</OsType>
+        <Power>full</Power>
+        <ScreenWidth>wide</ScreenWidth>
+        <FlashSize>lots</FlashSize>
+        <SDCard>x</SDCard>
+        <BlendPolicy>y</BlendPolicy>
+    </DeviceCharacteristics>
+</RimTabletResponse>

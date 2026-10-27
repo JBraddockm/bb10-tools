@@ -1,0 +1,7 @@
+<RimTabletResponse>
+    <DeviceCharacteristics>
+        <Status>Error</Status>
+        <ErrorDescription>discovery is not available</ErrorDescription>
+        <ErrorIdentifier>42</ErrorIdentifier>
+    </DeviceCharacteristics>
+</RimTabletResponse>
