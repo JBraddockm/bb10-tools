@@ -58,6 +58,9 @@ final class EndpointReachability {
           Map.entry(LinkMethod.FIND_PIM_ACCOUNT, Endpoint.PIM_SYNC),
           Map.entry(LinkMethod.GET_PIM_ITEMS, Endpoint.PIM_SYNC),
           Map.entry(LinkMethod.PAIR_DEVICE, Endpoint.PAIRING),
+          // Renew re-enrols the pairing authority as well as refreshing the login certificate, so it
+          // needs pairing.cgi — the stricter of the two, reachable only over USB and the tunnel.
+          Map.entry(LinkMethod.RENEW_PAIRING, Endpoint.PAIRING),
           Map.entry(LinkMethod.GET_AUTHENTICATION_CERTIFICATE, Endpoint.LOGIN),
           Map.entry(LinkMethod.INSTALL_PACKAGES, Endpoint.UPDATE),
           Map.entry(LinkMethod.UNINSTALL_PACKAGES, Endpoint.UPDATE));

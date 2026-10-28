@@ -37,8 +37,8 @@ class PairingRefusalsTest {
     return new Pairing();
   }
 
-  private PairingRequest request(Path folder, boolean replace) {
-    return new PairingRequest("2A3B4C5D", folder, replace);
+  private PairingRequest request(Path folder, boolean renew) {
+    return new PairingRequest("2A3B4C5D", folder, renew);
   }
 
   private void assertNothingKept() throws IOException {
@@ -125,7 +125,8 @@ class PairingRefusalsTest {
 
     @Test
     @DisplayName(
-        "a pairing that is there is not replaced unless that is asked, and nothing is sent")
+        "a pairing that is there is not paired over: a plain pairing is refused and points to renew,"
+            + " and nothing is sent")
     void aPairingThatIsThere() throws Exception {
       fixture = DeviceFixture.withAuthority();
       succeeded(pairing().run(fixture.session(), request(devices, false), new Logs()));
@@ -134,9 +135,7 @@ class PairingRefusalsTest {
       var failure = failed(pairing().run(fixture.session(), request(devices, false), new Logs()));
 
       assertThat(failure.error().code()).isEqualTo(LinkErrorCode.PAIRING_EXISTS);
-      assertThat(failure.error().message())
-          .contains("a pairing with this device")
-          .contains("replace it");
+      assertThat(failure.error().message()).contains("already paired").contains("renew");
       assertThat(failure.error().details())
           .containsEntry("directory", devices.resolve("2A3B4C5D").toString());
       // The first pairing sent two (authority + tunnel enrolment); the refused one sent nothing more.
@@ -147,23 +146,52 @@ class PairingRefusalsTest {
 
     @Test
     @DisplayName(
-        "a pairing that is there is replaced when that is asked: the same identifier is reused with a"
-            + " new key, so the device keeps one entry (no duplicate)")
-    void replacingAPairing() throws Exception {
+        "renewing a pairing whose certificates are still there reaffirms it: the same identifier and"
+            + " the same key are kept, and the device keeps one entry (no duplicate)")
+    void renewingReaffirms() throws Exception {
       fixture = DeviceFixture.withAuthority();
       var first = succeeded(pairing().run(fixture.session(), request(devices, false), new Logs()));
       var keyBefore = Files.readString(first.keyFile());
 
       var second = succeeded(pairing().run(fixture.session(), request(devices, true), new Logs()));
 
-      // The identifier kept in pairing.json is reused, so re-pairing does not change it; only the key
-      // and certificates are new.
+      // Reaffirm re-sends the stored certificate under the kept identifier: nothing on disk changes.
       assertThat(second.deviceId()).isEqualTo(first.deviceId());
-      assertThat(Files.readString(second.keyFile())).isNotEqualTo(keyBefore);
+      assertThat(Files.readString(second.keyFile())).isEqualTo(keyBefore);
       assertThat(PairingDirectory.of(devices, "2A3B4C5D").metadata().orElseThrow().deviceId())
           .isEqualTo(first.deviceId());
-      // One identifier, so the device keeps a single entry (updated), not a duplicate.
+      // One identifier, so the device keeps a single entry, not a duplicate.
       assertThat(fixture.device().pairings().keySet()).containsExactly(first.deviceId());
+    }
+
+    @Test
+    @DisplayName(
+        "renewing a pairing whose certificates were removed re-mints them under the kept identifier,"
+            + " with a new key, and keeps one device entry")
+    void renewingReMintsWhenCertificatesAreGone() throws Exception {
+      fixture = DeviceFixture.withAuthority();
+      var first = succeeded(pairing().run(fixture.session(), request(devices, false), new Logs()));
+      var keyBefore = Files.readString(first.keyFile());
+      // Forget the certificates locally but keep the identifier, as `remove` does.
+      RemovePairing.remove(devices, "2A3B4C5D");
+
+      var second = succeeded(pairing().run(fixture.session(), request(devices, true), new Logs()));
+
+      assertThat(second.deviceId()).isEqualTo(first.deviceId());
+      assertThat(Files.readString(second.keyFile())).isNotEqualTo(keyBefore);
+      assertThat(fixture.device().pairings().keySet()).containsExactly(first.deviceId());
+    }
+
+    @Test
+    @DisplayName("renewing when nothing is paired is refused, and nothing is sent")
+    void renewingWithoutAPairing() throws Exception {
+      fixture = DeviceFixture.withAuthority();
+
+      var failure = failed(pairing().run(fixture.session(), request(devices, true), new Logs()));
+
+      assertThat(failure.error().code()).isEqualTo(CoreErrorCode.INVALID_ARGUMENT);
+      assertThat(failure.error().message()).contains("no pairing to renew").contains("pair");
+      assertThat(fixture.device().pairingBodies()).isEmpty();
     }
 
     @Test

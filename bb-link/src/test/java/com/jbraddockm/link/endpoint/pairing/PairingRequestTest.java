@@ -19,13 +19,13 @@ class PairingRequestTest {
   private static final Path DEVICES = Path.of("devices");
 
   @Test
-  @DisplayName("holds the PIN to confirm, the folder of the devices, and whether to replace")
+  @DisplayName("holds the PIN to confirm, the folder of the devices, and whether it is a renewal")
   void holdsWhatItWasGiven() {
     var request = new PairingRequest("2A3B4C5D", DEVICES, true);
 
     assertThat(request.confirmPin()).isEqualTo("2A3B4C5D");
     assertThat(request.devicesDirectory()).isEqualTo(DEVICES);
-    assertThat(request.replace()).isTrue();
+    assertThat(request.renew()).isTrue();
   }
 
   @ParameterizedTest(name = "\"{0}\" is not a PIN to confirm")

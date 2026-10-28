@@ -8,6 +8,7 @@ import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.ResponseFailures;
 import com.jbraddockm.link.transport.cgi.ResponseStatus;
 import com.jbraddockm.link.transport.xml.XmlElement;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -58,6 +59,14 @@ record PairingReply(
     var status = ResponseStatus.of(statusText);
     if (statusText == null && authority.isPresent() && identifier == null) {
       // what the device really answers to an insert that it takes: a certificate, and no status
+      status = ResponseStatus.SUCCESS;
+    }
+    if (status == ResponseStatus.UNKNOWN
+        && statusText != null
+        && statusText.toLowerCase(Locale.ROOT).contains("already paired")) {
+      // A renew is an idempotent re-insert: the device recognises the pairing as already present and
+      // updates its one trusted-peer entry rather than rejecting it, so "Device already paired" is a
+      // success, not an error. **[verified: pairing.cgi FUN_00017810 treats it as a result status]**
       status = ResponseStatus.SUCCESS;
     }
     return new PairingReply(

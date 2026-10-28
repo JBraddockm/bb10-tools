@@ -22,6 +22,8 @@ import com.jbraddockm.link.endpoint.pairing.PairWithDevice;
 import com.jbraddockm.link.endpoint.pairing.Pairing;
 import com.jbraddockm.link.endpoint.pairing.PairingRequest;
 import com.jbraddockm.link.endpoint.pairing.RemovePairing;
+import com.jbraddockm.link.endpoint.pairing.RenewPairing;
+import com.jbraddockm.link.endpoint.pairing.RenewRequest;
 import com.jbraddockm.link.endpoint.pimsync.FindPimAccount;
 import com.jbraddockm.link.endpoint.pimsync.GetPimItems;
 import com.jbraddockm.link.endpoint.pimsync.ListPimAccounts;
@@ -92,6 +94,14 @@ enum LinkMethod {
    * 8443, and keeps it with its key. Changes the device, so it runs behind the PIN guard.
    */
   GET_AUTHENTICATION_CERTIFICATE("getAuthenticationCertificate"),
+
+  /**
+   * Renews everything kept for a paired device: re-enrols the pairing authority under the known
+   * identifier (reaffirming it, or re-minting it when the certificates are gone) and refreshes the
+   * port 8443 login certificate. Needs a pairing already on disk. Changes the device, so it runs
+   * behind the PIN guard, and it reaches {@code pairing.cgi}, so only over USB or the tunnel.
+   */
+  RENEW_PAIRING("renewPairing"),
 
   /** Scans for devices; needs no session. */
   LIST_DEVICES("listDevices"),
@@ -227,7 +237,12 @@ enum LinkMethod {
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
               : Optional.empty();
       case UNINSTALL_PACKAGES -> replayedRemoval(argument);
-      case GET_SMB_CREDENTIALS, LIST_DEVICES, INSPECT_PACKAGE, INSPECT_CERTIFICATE, REMOVE_PAIRING ->
+      case GET_SMB_CREDENTIALS,
+              LIST_DEVICES,
+              INSPECT_PACKAGE,
+              INSPECT_CERTIFICATE,
+              REMOVE_PAIRING,
+              RENEW_PAIRING ->
           Optional.empty();
     };
   }
@@ -272,6 +287,9 @@ enum LinkMethod {
       case GET_AUTHENTICATION_CERTIFICATE ->
           new CommandSpec.SessionScoped<>(
               wireName, params -> getAuthenticationCertificate(params, retrieval));
+      case RENEW_PAIRING ->
+          new CommandSpec.SessionScoped<>(
+              wireName, params -> renewPairing(params, new RenewPairing(pairing, retrieval)));
       case INSPECT_CERTIFICATE ->
           new CommandSpec.Standalone<>(
               wireName,
@@ -363,10 +381,25 @@ enum LinkMethod {
             params
                 .optionalPath("devicesDirectory")
                 .orElseThrow(() -> new InvalidArgumentException("devicesDirectory", "is required")),
-            params.flag("replace"));
+            params.flag("renew"));
     var includeRaw = params.flag("raw");
     return (session, reply) ->
         reply.complete(wireName, pairing.run(session, request, reply), includeRaw);
+  }
+
+  private SessionCommand<DeviceSession> renewPairing(RequestParams params, RenewPairing renew) {
+    var request =
+        new RenewRequest(
+            params.optionalString("confirmPin").orElse(null),
+            params
+                .optionalPath("devicesDirectory")
+                .orElseThrow(() -> new InvalidArgumentException("devicesDirectory", "is required")),
+            params.optionalString("hostName").orElse(null),
+            params.flag("verify", true),
+            params.integer("verifyPort", CERTIFICATE_PORT, 1, 65_535));
+    var includeRaw = params.flag("raw");
+    return (session, reply) ->
+        reply.complete(wireName, renew.run(session, request, reply), includeRaw);
   }
 
   private SessionCommand<DeviceSession> getAuthenticationCertificate(

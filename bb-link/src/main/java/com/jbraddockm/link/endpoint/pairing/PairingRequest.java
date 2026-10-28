@@ -11,9 +11,12 @@ import java.util.Objects;
  *     says another
  * @param devicesDirectory the folder that holds one folder for each device; the pairing goes in
  *     {@code <devicesDirectory>/<PIN>/}
- * @param replace whether to replace a pairing that is on disk
+ * @param renew whether this is a renewal of an existing pairing: it requires a pairing to be on
+ *     disk, reuses that pairing's identifier, and refreshes the enrollment (reaffirming the stored
+ *     certificate when it is still there, re-minting it when it is not). A plain pairing ({@code
+ *     false}) is for a device that is not paired yet and refuses when one is already on disk.
  */
-public record PairingRequest(String confirmPin, Path devicesDirectory, boolean replace) {
+public record PairingRequest(String confirmPin, Path devicesDirectory, boolean renew) {
 
   /**
    * Checks the components.

@@ -105,6 +105,19 @@ class PairingReplyTest {
       assertThat(reply.status()).isEqualTo(ResponseStatus.SUCCESS);
       assertThat(reply.deviceAuthority()).isEmpty();
     }
+
+    @Test
+    @DisplayName(
+        "is a success when the device reports the pairing already present: a renewal is an idempotent"
+            + " re-insert, not an error")
+    void aDeviceAlreadyPairedIsASuccess() {
+      var reply = read("pairing-reply--already-paired.xml");
+
+      assertThat(reply.status()).isEqualTo(ResponseStatus.SUCCESS);
+      assertThat(reply.statusText()).isEqualTo("Device already paired");
+      assertThat(reply.deviceAuthority()).isEmpty();
+      assertThat(reply.errorIdentifier()).isNull();
+    }
   }
 
   @Nested

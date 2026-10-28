@@ -11,6 +11,7 @@ getPimItems
 pairDevice
 removePairing
 getAuthenticationCertificate
+renewPairing
 listDevices
 inspectPackage
 installPackages

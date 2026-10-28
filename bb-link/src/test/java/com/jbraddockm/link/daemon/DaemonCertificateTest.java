@@ -185,13 +185,32 @@ class DaemonCertificateTest {
 
     @Test
     @DisplayName(
-        "does not replace a pairing that is there unless it is asked to: PAIRING_EXISTS, and then"
-            + " it does")
-    void doesNotReplaceUnlessAsked() throws Exception {
+        "does not pair over a pairing that is there: PAIRING_EXISTS; renewing it instead reaffirms"
+            + " it")
+    void refusesToPairOverThenRenews() throws Exception {
       ask(380, "request--pair-device.json");
 
       assertThat(errorCode(ask(382, "request--pair-device.json"))).isEqualTo("PAIRING_EXISTS");
-      assertThat(ask(383, "request--pair-device-replace.json").get("ok")).isEqualTo(true);
+      assertThat(ask(383, "request--pair-device-renew.json").get("ok")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName(
+        "renewPairing re-establishes a paired device: re-enrols the pairing and refreshes the login"
+            + " certificate in one call")
+    void renewPairingReEnrollsAndRefreshes() throws Exception {
+      ask(384, "request--pair-device.json");
+
+      assertThat(ask(385, "request--renew-pairing.json").get("ok")).isEqualTo(true);
+      var data = daemon.data(385);
+      assertThat(data).containsKey("pairing").containsKey("certificate").containsKey("deviceId");
+    }
+
+    @Test
+    @DisplayName("renewPairing on a device that is not paired is refused")
+    void renewPairingNeedsAPairing() throws Exception {
+      assertThat(errorCode(ask(386, "request--renew-pairing.json")))
+          .isEqualTo("INVALID_ARGUMENT");
     }
   }
 
