@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Pairs this computer with a device, as BlackBerry Link does: the computer makes an authority of
@@ -83,7 +84,11 @@ public final class Pairing {
     try {
       var pin = steps.confirmPin(request.confirmPin());
       var directory = PairingDirectory.of(request.devicesDirectory(), pin);
-      var deviceId = DeviceId.generate(random);
+      // Reuse the identifier a previous pairing with this device gave itself (kept in pairing.json),
+      // so re-pairing — or pairing again after `remove`, which keeps pairing.json — keeps the same
+      // identity: the device updates its one trusted-peer entry (deviceid is UNIQUE there) instead of
+      // adding a duplicate. A first pairing, with no pairing.json yet, makes a fresh identifier.
+      var deviceId = existingDeviceId(directory).orElseGet(() -> DeviceId.generate(random));
       var commonName = "PC issuer " + HexFormat.of().withUpperCase().formatHex(randomBytes());
       var keys = EcKeys.generateP521();
       var now = clock.instant().truncatedTo(ChronoUnit.SECONDS);
@@ -197,6 +202,18 @@ public final class Pairing {
     var bytes = new byte[NAME_BYTES];
     random.nextBytes(bytes);
     return bytes;
+  }
+
+  /**
+   * The identifier a previous pairing with this device kept in its {@code pairing.json}, to reuse so
+   * the identity stays the same across re-pairings. Empty when there is no readable pairing yet.
+   */
+  private static Optional<String> existingDeviceId(PairingDirectory directory) {
+    try {
+      return directory.metadata().map(StoredPairing::deviceId);
+    } catch (IOException | RuntimeException noPairing) {
+      return Optional.empty();
+    }
   }
 
   private static CommandOutcome<PairingResult> failure(

@@ -9,6 +9,7 @@ listPimAccounts
 findPimAccount
 getPimItems
 pairDevice
+removePairing
 getAuthenticationCertificate
 listDevices
 inspectPackage

@@ -147,8 +147,8 @@ class PairingRefusalsTest {
 
     @Test
     @DisplayName(
-        "a pairing that is there is replaced when that is asked: a new identifier and a new key,"
-            + " and the device keeps both")
+        "a pairing that is there is replaced when that is asked: the same identifier is reused with a"
+            + " new key, so the device keeps one entry (no duplicate)")
     void replacingAPairing() throws Exception {
       fixture = DeviceFixture.withAuthority();
       var first = succeeded(pairing().run(fixture.session(), request(devices, false), new Logs()));
@@ -156,13 +156,14 @@ class PairingRefusalsTest {
 
       var second = succeeded(pairing().run(fixture.session(), request(devices, true), new Logs()));
 
-      assertThat(second.deviceId()).isNotEqualTo(first.deviceId());
+      // The identifier kept in pairing.json is reused, so re-pairing does not change it; only the key
+      // and certificates are new.
+      assertThat(second.deviceId()).isEqualTo(first.deviceId());
       assertThat(Files.readString(second.keyFile())).isNotEqualTo(keyBefore);
       assertThat(PairingDirectory.of(devices, "2A3B4C5D").metadata().orElseThrow().deviceId())
-          .isEqualTo(second.deviceId());
-      // Both pairings' authorities are kept (each run also enrols a tunnel identity of its own).
-      assertThat(fixture.device().pairings().keySet())
-          .contains(first.deviceId(), second.deviceId());
+          .isEqualTo(first.deviceId());
+      // One identifier, so the device keeps a single entry (updated), not a duplicate.
+      assertThat(fixture.device().pairings().keySet()).containsExactly(first.deviceId());
     }
 
     @Test

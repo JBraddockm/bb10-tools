@@ -21,6 +21,7 @@ import com.jbraddockm.link.endpoint.pairing.InspectCertificate;
 import com.jbraddockm.link.endpoint.pairing.PairWithDevice;
 import com.jbraddockm.link.endpoint.pairing.Pairing;
 import com.jbraddockm.link.endpoint.pairing.PairingRequest;
+import com.jbraddockm.link.endpoint.pairing.RemovePairing;
 import com.jbraddockm.link.endpoint.pimsync.FindPimAccount;
 import com.jbraddockm.link.endpoint.pimsync.GetPimItems;
 import com.jbraddockm.link.endpoint.pimsync.ListPimAccounts;
@@ -78,6 +79,13 @@ enum LinkMethod {
    * Connections. Changes the device, so it runs behind the PIN guard.
    */
   PAIR_DEVICE("pairDevice"),
+
+  /**
+   * Forgets a device pairing on this computer by deleting its folder (keys, certificates and
+   * metadata). Purely local — it sends nothing to the device, which keeps the pairing until it is
+   * removed there. Needs no session or device.
+   */
+  REMOVE_PAIRING("removePairing"),
 
   /**
    * Asks the device to sign a certificate for this computer, for the certificate login on port
@@ -219,7 +227,7 @@ enum LinkMethod {
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
               : Optional.empty();
       case UNINSTALL_PACKAGES -> replayedRemoval(argument);
-      case GET_SMB_CREDENTIALS, LIST_DEVICES, INSPECT_PACKAGE, INSPECT_CERTIFICATE ->
+      case GET_SMB_CREDENTIALS, LIST_DEVICES, INSPECT_PACKAGE, INSPECT_CERTIFICATE, REMOVE_PAIRING ->
           Optional.empty();
     };
   }
@@ -272,6 +280,14 @@ enum LinkMethod {
                 return reply ->
                     reply.complete(
                         wireName, InspectCertificate.inspect(file, Clock.systemUTC()), false);
+              });
+      case REMOVE_PAIRING ->
+          new CommandSpec.Standalone<>(
+              wireName,
+              params -> {
+                var devices = params.requirePath("devicesDirectory");
+                var pin = params.requireString("pin");
+                return reply -> reply.complete(wireName, RemovePairing.remove(devices, pin), false);
               });
       case INSTALL_PACKAGES ->
           new CommandSpec.SessionScoped<>(

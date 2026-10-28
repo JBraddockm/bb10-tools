@@ -165,6 +165,41 @@ class PairingDirectoryTest {
         assertThat(directory.directory().resolve("client_cert.pem")).hasContent("identity");
       }
     }
+
+    @Test
+    @DisplayName("is not stopped by a kept pairing.json alone (after remove), without --replace")
+    void aKeptIdentifierDoesNotStopIt() throws IOException {
+      Files.createDirectories(directory.directory());
+      Files.writeString(directory.metadataFile(), PAIRING.toJsonText());
+
+      try (var _ = directory.prepare(keys, false)) {
+        // The kept identifier stays; a re-pair reuses it, so no --replace is needed.
+        assertThat(directory.metadataFile()).hasContent(PAIRING.toJsonText());
+      }
+    }
+  }
+
+  @Nested
+  @DisplayName("forget")
+  class Forgetting {
+
+    @Test
+    @DisplayName("deletes the keys and certificates but keeps pairing.json and the folder")
+    void keepsOnlyTheIdentifier() throws IOException {
+      try (var pending = directory.prepare(keys, false)) {
+        pending.commit(authority, deviceAuthority, PAIRING);
+      }
+      directory.writeServiceIdentity("tunnel", authority, keys.getPrivate());
+
+      directory.forget();
+
+      assertThat(directory.exists()).isTrue();
+      assertThat(directory.metadataFile()).hasContent(PAIRING.toJsonText());
+      assertThat(directory.authorityFile()).doesNotExist();
+      assertThat(directory.keyFile()).doesNotExist();
+      assertThat(directory.deviceAuthorityFile()).doesNotExist();
+      assertThat(directory.serviceCertificateFile("tunnel")).doesNotExist();
+    }
   }
 
   @Nested

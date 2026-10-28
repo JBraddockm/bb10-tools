@@ -1,11 +1,13 @@
 package com.jbraddockm.link.endpoint.pairing.store;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.PrivateKey;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -156,6 +158,42 @@ public final class PairingDirectory {
         StoredPairing.fromJsonText(Files.readString(metadataFile(), StandardCharsets.UTF_8)));
   }
 
+  /** Whether the folder of this pairing exists on disk. */
+  public boolean exists() {
+    return Files.isDirectory(directory);
+  }
+
+  /**
+   * Forgets the pairing locally: deletes the keys and certificates (and anything else in the folder)
+   * but <b>keeps {@code pairing.json}</b>, so the identifier this computer gave itself is preserved.
+   * A later re-pair reuses that identifier, so the device updates its one trusted-peer entry rather
+   * than adding a duplicate (and it is also what renewal needs). Local only — it tells the device
+   * nothing; the device keeps the pairing until it is removed there. Leaves the folder in place.
+   *
+   * @throws IOException if a file cannot be deleted
+   */
+  public void forget() throws IOException {
+    if (!Files.exists(directory)) {
+      return;
+    }
+    var metadata = metadataFile();
+    try (var paths = Files.walk(directory)) {
+      paths
+          .sorted(Comparator.reverseOrder())
+          .filter(path -> !path.equals(directory) && !path.equals(metadata))
+          .forEach(
+              path -> {
+                try {
+                  Files.delete(path);
+                } catch (IOException failure) {
+                  throw new UncheckedIOException(failure);
+                }
+              });
+    } catch (UncheckedIOException wrapped) {
+      throw wrapped.getCause();
+    }
+  }
+
   /**
    * Starts a pairing: makes the folder, for its owner only, and writes the private key under a
    * temporary name, with permissions for its owner only from the first moment.
@@ -167,9 +205,13 @@ public final class PairingDirectory {
    * @throws IOException if the key cannot be written
    */
   public Pending prepare(KeyPair keys, boolean replace) throws IOException {
-    var existing = existingFiles();
-    if (!existing.isEmpty() && !replace) {
-      throw new FilesExistException("a pairing with this device", directory, existing);
+    // Only the keys and certificates are a pairing worth protecting; a lone pairing.json (kept by
+    // `remove`, which preserves the identifier) is not. So require --replace only when that material is
+    // present — pairing again after a remove then reuses the kept identifier without needing --replace.
+    var material =
+        Stream.of(authorityFile(), keyFile(), deviceAuthorityFile()).filter(Files::exists).toList();
+    if (!material.isEmpty() && !replace) {
+      throw new FilesExistException("a pairing with this device", directory, material);
     }
     SecureFiles.createPrivateDirectory(directory);
     SecureFiles.writePrivateKey(SecureFiles.withSuffix(keyFile()), keys.getPrivate());

@@ -107,10 +107,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 14, and distinct")
-    void areFourteenAndDistinct() {
+    @DisplayName("are 15, and distinct")
+    void areFifteenAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(14)
+          .hasSize(15)
           .doesNotHaveDuplicates();
     }
 
