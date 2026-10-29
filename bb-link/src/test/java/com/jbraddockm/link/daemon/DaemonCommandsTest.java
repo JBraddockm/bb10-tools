@@ -222,7 +222,7 @@ class DaemonCommandsTest {
     }
 
     @Test
-    @DisplayName("putPimItem posts the item it is given as the json field, verbatim")
+    @DisplayName("putPimItem posts the item it is given as the data field, verbatim")
     void putPimItem() throws Exception {
       var id = ask("request--put-pim-item.json", Map.of());
 
@@ -234,7 +234,7 @@ class DaemonCommandsTest {
           .contains("command=put")
           .contains("service=contacts")
           .contains("workstation_id=W1")
-          .contains("json=");
+          .contains("data=");
     }
 
     @Test

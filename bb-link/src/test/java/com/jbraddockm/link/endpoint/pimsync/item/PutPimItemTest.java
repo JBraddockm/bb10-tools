@@ -32,7 +32,7 @@ class PutPimItemTest {
 
   @ParameterizedTest(name = "{0}")
   @CsvSource({"CONTACTS, contacts", "EVENTS, events", "CALENDARS, calendars"})
-  @DisplayName("posts put with the workstation, the service and the item as the json field")
+  @DisplayName("posts put with the workstation, the service and the item as the data field")
   void postsTheItem(PimService service, String name) {
     Map<String, Object> item = Map.of("title", "Lunch");
 
@@ -42,7 +42,7 @@ class PutPimItemTest {
         .containsEntry(FormField.COMMAND, "put")
         .containsEntry(FormField.SERVICE, name)
         .containsEntry(FormField.WORKSTATION_ID, "WS1")
-        .containsEntry(FormField.JSON, Json.write(item));
+        .containsEntry(FormField.DATA, Json.write(item));
     assertThat(request.describe()).isEqualTo("Writing one " + name + " item");
   }
 
@@ -53,9 +53,9 @@ class PutPimItemTest {
 
     var request = requestOf(new PutPimItem("WS1", PimService.CONTACTS, item));
 
-    assertThat(request.fields().get(FormField.JSON)).isEqualTo(Json.write(item));
+    assertThat(request.fields().get(FormField.DATA)).isEqualTo(Json.write(item));
     assertThat(request.encodedBody())
-        .startsWith("command=put&service=contacts&workstation_id=WS1&json=");
+        .startsWith("command=put&service=contacts&workstation_id=WS1&data=");
   }
 
   @Test

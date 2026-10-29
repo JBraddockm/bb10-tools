@@ -53,7 +53,7 @@ public record PutPimItem(String workstationId, PimService service, Map<String, O
             .with(FormField.COMMAND, PimCommand.PUT)
             .with(FormField.SERVICE, service)
             .withText(FormField.WORKSTATION_ID, workstationId)
-            .withText(FormField.JSON, Json.write(item))
+            .withText(FormField.DATA, Json.write(item))
             .describedAs("Writing one " + service.wireName() + " item");
     return new PimSyncConversation(PimCommand.PUT, service, request);
   }

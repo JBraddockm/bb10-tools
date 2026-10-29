@@ -67,8 +67,11 @@ public enum FormField implements WireValue {
   /** The client the PIM write is for. */
   WORKSTATION_ID("workstation_id"),
 
-  /** A PIM item as its own JSON, forwarded to the device verbatim. */
-  JSON("json");
+  /**
+   * A PIM item as its own JSON, forwarded to the device verbatim. The CGI reads it from this {@code
+   * data} field and wraps it as the backend's {@code json=} body itself.
+   */
+  DATA("data");
 
   private final String wireName;
 

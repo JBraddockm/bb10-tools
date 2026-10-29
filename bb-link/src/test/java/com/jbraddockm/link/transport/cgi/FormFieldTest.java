@@ -34,7 +34,7 @@ class FormFieldTest {
     "COMMAND, command",
     "SERVICE, service",
     "WORKSTATION_ID, workstation_id",
-    "JSON, json"
+    "DATA, data"
   })
   @DisplayName("each field is written with the name that the device reads")
   void eachFieldHasItsWireName(FormField field, String wireName) {
