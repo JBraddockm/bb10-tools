@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.bar.BarInspector;
 import com.jbraddockm.core.json.Json;
-import com.jbraddockm.link.transport.cgi.ResponseBody;
 import com.jbraddockm.link.testing.Resources;
+import com.jbraddockm.link.transport.cgi.ResponseBody;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,6 +44,40 @@ class UpdateResultsTest {
     assertThat(installed.packageName()).isEqualTo("Test App");
     assertThat(installed.packageVersion()).isEqualTo("1.0.0.1");
     assertThat(installed.sizeBytes()).isEqualTo(Files.size(bar.file()));
+  }
+
+  @Test
+  @DisplayName(
+      "an installed package from a bar without a proper id passes through whatever the bar says")
+  void anInstalledPackageWithoutAProperIdentifier() throws Exception {
+    var bar = BarResources.inspect("application--without-id.bar", folder);
+
+    var installed = InstalledPackage.of(bar);
+
+    assertThat(installed.packageId()).isEqualTo(bar.packageId());
+    assertThat(installed.packageName()).isEqualTo(bar.packageName());
+    assertThat(installed.file()).isEqualTo(bar.file().toString());
+    assertThat(installed.sizeBytes()).isEqualTo(Files.size(bar.file()));
+  }
+
+  @Test
+  @DisplayName(
+      "an installed package gives its fields as an ordered map with the keys file, packageId,"
+          + " packageName, packageVersion, sizeBytes")
+  void theJsonShapeOfAnInstalledPackage() throws Exception {
+    var bar = BarResources.inspect("application--first.bar", folder);
+    var installed = InstalledPackage.of(bar);
+
+    var json = installed.toJson();
+
+    assertThat(json.keySet())
+        .containsExactly("file", "packageId", "packageName", "packageVersion", "sizeBytes");
+    assertThat(json)
+        .containsEntry("file", bar.file().toString())
+        .containsEntry("packageId", "idFirst")
+        .containsEntry("packageName", "Test App")
+        .containsEntry("packageVersion", "1.0.0.1")
+        .containsEntry("sizeBytes", Files.size(bar.file()));
   }
 
   @Test

@@ -10,6 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.jbraddockm.core.command.Progress;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.link.LinkErrorCode;
+import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
+import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.CgiResponse;
 import com.jbraddockm.link.transport.cgi.ResponseElement;
@@ -17,8 +19,6 @@ import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.ResponseFailures;
 import com.jbraddockm.link.transport.cgi.Step;
 import com.jbraddockm.link.transport.cgi.StepEffect;
-import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
-import com.jbraddockm.link.testing.Resources;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -137,6 +137,35 @@ class UninstallConversationTest {
       var other = checking("idFirst");
       other.start();
       notExpected("update--wrong-element.xml", ResponseElement.DYNAMIC_PROPERTIES, other);
+    }
+
+    @Test
+    @DisplayName(
+        "refuses radio firmware the same as the system, naming its position and saying that it is"
+            + " not an application")
+    void refusesRadioFirmware() {
+      var dialogue = checking("idRadio");
+      dialogue.start();
+
+      var error = failed(dialogue.answer("update--properties-with-packages.xml", Map.of()));
+
+      assertThat(error.code()).isEqualTo(CoreErrorCode.INVALID_ARGUMENT);
+      assertThat(error.message())
+          .contains("is not an application; removing firmware is not supported");
+      assertThat(error.details()).containsEntry("param", "packageIds[0]");
+    }
+
+    @Test
+    @DisplayName(
+        "fails with UNEXPECTED_RESPONSE when the device answers the properties with something that"
+            + " is not XML")
+    void notXmlDuringCheck() {
+      var dialogue = checking("idFirst");
+      dialogue.start();
+
+      var step = dialogue.answerWithText("update--not-xml.txt");
+
+      assertThat(failed(step).code()).isEqualTo(LinkErrorCode.UNEXPECTED_RESPONSE);
     }
 
     @Test
@@ -301,6 +330,20 @@ class UninstallConversationTest {
     @DisplayName("an answer about something else is not what was expected")
     void anotherElement() {
       notExpected("update--wrong-element.xml", ResponseElement.DELETE_REQUEST, removing("idFirst"));
+    }
+
+    @Test
+    @DisplayName(
+        "an answer that is not XML during a removal fails it, with what had been removed kept")
+    void notXmlDuringRemoval() {
+      var dialogue = removing("idFirst", "idOther");
+      dialogue.answer("DeleteRequest", "Success");
+
+      var step = dialogue.answerWithText("update--not-xml.txt");
+
+      assertThat(failed(step).code()).isEqualTo(LinkErrorCode.UNEXPECTED_RESPONSE);
+      assertThat(partial(step))
+          .hasValueSatisfying(result -> assertThat(result.removed()).containsExactly("idFirst"));
     }
   }
 

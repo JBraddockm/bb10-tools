@@ -12,6 +12,8 @@ import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.command.Progress;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.link.LinkErrorCode;
+import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
+import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.transport.cgi.BodyFormat;
 import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.CgiResponse;
@@ -21,8 +23,6 @@ import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.ResponseFailures;
 import com.jbraddockm.link.transport.cgi.Step;
 import com.jbraddockm.link.transport.cgi.StepEffect;
-import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
-import com.jbraddockm.link.testing.Resources;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -51,6 +51,18 @@ class InstallConversationTest {
   private long firstSize;
   private long secondSize;
 
+  private static CgiRequest.Form form(Step<InstallResult> step) {
+    return (CgiRequest.Form) sent(step);
+  }
+
+  private static List<String> itemsReportedBy(Step<InstallResult> step) {
+    return effects(step).stream()
+        .filter(StepEffect.Report.class::isInstance)
+        .map(StepEffect.Report.class::cast)
+        .map(report -> report.progress().item())
+        .toList();
+  }
+
   @BeforeEach
   void readTheBars() throws Exception {
     first = BarResources.inspect("application--first.bar", folder);
@@ -72,10 +84,6 @@ class InstallConversationTest {
     dialogue.answerWithFreeSpace(total * 2);
     dialogue.answer("UpdateStart", "Success");
     return dialogue;
-  }
-
-  private static CgiRequest.Form form(Step<InstallResult> step) {
-    return (CgiRequest.Form) sent(step);
   }
 
   @Nested
@@ -265,6 +273,20 @@ class InstallConversationTest {
     }
 
     @Test
+    @DisplayName(
+        "an answer that is not XML when the package was sent fails the installation, which has"
+            + " installed nothing")
+    void notXmlWhenSent() {
+      var dialogue = afterStart(installing(first), firstSize);
+
+      var step = dialogue.answerWithText("update--not-xml.txt");
+
+      assertThat(failed(step).code()).isEqualTo(LinkErrorCode.UNEXPECTED_RESPONSE);
+      assertThat(partial(step))
+          .hasValueSatisfying(result -> assertThat(result.installed()).isEmpty());
+    }
+
+    @Test
     @DisplayName("an error or another element when the package was sent fails the installation")
     void anErrorWhenSent() {
       var dialogue = afterStart(installing(first), firstSize);
@@ -405,6 +427,17 @@ class InstallConversationTest {
 
     @Test
     @DisplayName(
+        "an answer that is not XML while waiting fails the installation, which has installed nothing")
+    void notXmlWhileWaiting() {
+      var step = waiting(first).answerWithText("update--not-xml.txt");
+
+      assertThat(failed(step).code()).isEqualTo(LinkErrorCode.UNEXPECTED_RESPONSE);
+      assertThat(partial(step))
+          .hasValueSatisfying(result -> assertThat(result.installed()).isEmpty());
+    }
+
+    @Test
+    @DisplayName(
         "an answer about something else while waiting is not what was expected: a progress")
     void anotherElementWhileWaiting() {
       var body = Resources.text(InstallConversationTest.class, "update--wrong-element.xml");
@@ -484,14 +517,6 @@ class InstallConversationTest {
             .isInstanceOf(CgiRequest.Form.class);
       }
     }
-  }
-
-  private static List<String> itemsReportedBy(Step<InstallResult> step) {
-    return effects(step).stream()
-        .filter(StepEffect.Report.class::isInstance)
-        .map(StepEffect.Report.class::cast)
-        .map(report -> report.progress().item())
-        .toList();
   }
 
   @Nested

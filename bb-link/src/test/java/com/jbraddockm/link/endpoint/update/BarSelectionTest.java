@@ -1,6 +1,7 @@
 package com.jbraddockm.link.endpoint.update;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -10,6 +11,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,13 +26,13 @@ class BarSelectionTest {
 
   @TempDir private Path folder;
 
-  private String path(String resource) {
-    return BarResources.copy(resource, folder).toString();
-  }
-
   private static BarSelection.Refused refused(BarSelection selection) {
     assertThat(selection).isInstanceOf(BarSelection.Refused.class);
     return (BarSelection.Refused) selection;
+  }
+
+  private String path(String resource) {
+    return BarResources.copy(resource, folder).toString();
   }
 
   @Test
@@ -104,6 +106,25 @@ class BarSelectionTest {
 
     assertThat(error.code()).isEqualTo(CoreErrorCode.IO_ERROR);
     assertThat(error.message()).isEqualTo("The file cannot be read: access is denied");
+  }
+
+  @Test
+  @DisplayName(
+      "keeps its own copy of the bars: mutating the original list does not change the selection, and"
+          + " the selected list is not modifiable")
+  void keepsItsOwnCopy() {
+    var original = new ArrayList<>(List.of(path("application--first.bar")));
+    var selection = BarSelection.of(original);
+    original.add(path("application--second.bar"));
+
+    assertThat(selection)
+        .isInstanceOfSatisfying(
+            BarSelection.Selected.class,
+            selected -> {
+              assertThat(selected.bars()).hasSize(1);
+              assertThatThrownBy(() -> selected.bars().add(null))
+                  .isInstanceOf(UnsupportedOperationException.class);
+            });
   }
 
   @Test
