@@ -110,7 +110,54 @@ public final class CgiTransport implements AutoCloseable {
       }
       case CgiRequest.Upload upload -> upload(upload, observer);
       case CgiRequest.Download download -> download(download, observer);
+      case CgiRequest.Multipart multipart -> multipart(multipart, observer);
     };
+  }
+
+  /**
+   * Sends one file as the single part of a {@code multipart/form-data} POST, with the rest of the
+   * request in the query string: a contact photo put. The file is read into memory (photos are
+   * small) and the trace gets the name and size of the file, never its content.
+   */
+  private CgiResponse multipart(CgiRequest.Multipart request, UploadObserver observer)
+      throws IOException {
+    var fileBytes = Files.readAllBytes(request.file());
+    var fileName = request.file().getFileName().toString();
+    var boundary = "----bblinkPhotoBoundary";
+    var preamble =
+        ("--"
+                + boundary
+                + "\r\nContent-Disposition: form-data; name=\""
+                + request.fileField()
+                + "\"; filename=\""
+                + fileName
+                + "\"\r\nContent-Type: "
+                + request.fileContentType()
+                + "\r\n\r\n")
+            .getBytes(StandardCharsets.UTF_8);
+    var epilogue = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
+    var body = new byte[preamble.length + fileBytes.length + epilogue.length];
+    System.arraycopy(preamble, 0, body, 0, preamble.length);
+    System.arraycopy(fileBytes, 0, body, preamble.length, fileBytes.length);
+    System.arraycopy(epilogue, 0, body, preamble.length + fileBytes.length, epilogue.length);
+
+    var post = new HttpPost(checkedUrl(request.pathAndQuery()));
+    post.getParams().setBooleanParameter("http.protocol.expect-continue", false);
+    var entity = new ByteArrayEntity(body);
+    entity.setContentType("multipart/form-data; boundary=" + boundary);
+    post.setEntity(entity);
+    observer.sent(fileBytes.length);
+    return execute(
+        post,
+        "POST " + request.pathAndQuery(),
+        "(multipart/form-data, "
+            + fileBytes.length
+            + " bytes: "
+            + fileName
+            + " as "
+            + request.fileField()
+            + ")",
+        request.readTimeout());
   }
 
   /**
@@ -162,7 +209,7 @@ public final class CgiTransport implements AutoCloseable {
       var status = response.getStatusLine().getStatusCode();
       HttpEntity httpEntity = response.getEntity();
       CgiResponse result;
-      if (isOctetStream(contentType)) {
+      if (isStreamedAnswer(contentType)) {
         var written = streamToFile(httpEntity, download, observer);
         result =
             new CgiResponse(
@@ -175,7 +222,9 @@ public final class CgiTransport implements AutoCloseable {
         // Not the data stream: an error envelope the device sent as XML. Keep it so the
         // conversation can read the error, exactly as an ordinary answer would be kept.
         var bytes = httpEntity == null ? new byte[0] : EntityUtils.toByteArray(httpEntity);
-        result = new CgiResponse(status, contentType, new String(bytes, StandardCharsets.UTF_8), setCookie);
+        result =
+            new CgiResponse(
+                status, contentType, new String(bytes, StandardCharsets.UTF_8), setCookie);
       }
       this.observer.onExchange(requestLine, body, cookieNames, result);
       return result;
@@ -185,9 +234,18 @@ public final class CgiTransport implements AutoCloseable {
     }
   }
 
-  private static boolean isOctetStream(String contentType) {
-    return contentType != null
-        && contentType.toLowerCase(java.util.Locale.ROOT).contains("octet-stream");
+  /**
+   * Whether a download's answer is the data stream (written to the file) rather than an error
+   * envelope (kept in the body). The backup archive comes as {@code octet-stream}; a contact photo
+   * comes as an {@code image/…} type, while an error — "not modified", "unauthorised" — comes as
+   * JSON or XML and must stay in the body so the conversation can read it.
+   */
+  private static boolean isStreamedAnswer(String contentType) {
+    if (contentType == null) {
+      return false;
+    }
+    var lower = contentType.toLowerCase(java.util.Locale.ROOT);
+    return lower.contains("octet-stream") || lower.contains("image/");
   }
 
   /** Copies the answer to the download's file, reporting bytes the way an upload reports them. */

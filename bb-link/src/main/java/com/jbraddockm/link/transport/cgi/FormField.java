@@ -71,7 +71,13 @@ public enum FormField implements WireValue {
    * A PIM item as its own JSON, forwarded to the device verbatim. The CGI reads it from this {@code
    * data} field and wraps it as the backend's {@code json=} body itself.
    */
-  DATA("data");
+  DATA("data"),
+
+  /** The device path of a contact photo to fetch. */
+  PATH("path"),
+
+  /** A time that bounds a photo fetch: unchanged since it means "not modified". */
+  UPDATED_TIME("updated_time");
 
   private final String wireName;
 

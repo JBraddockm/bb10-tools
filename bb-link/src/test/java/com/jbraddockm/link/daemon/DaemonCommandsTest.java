@@ -14,6 +14,8 @@ import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.transport.cgi.ExchangeObserver;
 import com.jbraddockm.link.transport.cgi.TransportScheme;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -35,6 +38,8 @@ class DaemonCommandsTest {
   private DaemonRun daemon;
   private String session;
   private long nextId = 100;
+
+  @TempDir private Path tempDir;
 
   @BeforeEach
   void connect() throws Exception {
@@ -264,6 +269,40 @@ class DaemonCommandsTest {
       assertThat(device.pimRequests().getLast())
           .contains("command=done")
           .contains("service=events")
+          .contains("workstation_id=W1")
+          .contains("data=");
+    }
+
+    @Test
+    @DisplayName("getPimPhoto streams the device's image to the destination and reports it")
+    void getPimPhoto() throws Exception {
+      var destination = tempDir.resolve("photo.jpg");
+      var id = ask("request--get-pim-photo.json", Map.of("destination", destination.toString()));
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id))
+          .containsEntry("contentType", "image/jpeg")
+          .containsEntry("file", destination.toString());
+      assertThat(Files.readString(destination)).isEqualTo("FAKEJPEG");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=get")
+          .contains("service=photos")
+          .contains("workstation_id=W1")
+          .contains("path=");
+    }
+
+    @Test
+    @DisplayName("putPimPhoto uploads the file and names the contact in the data query field")
+    void putPimPhoto() throws Exception {
+      var file = tempDir.resolve("in.jpg");
+      Files.writeString(file, "MYPHOTO");
+      var id = ask("request--put-pim-photo.json", Map.of("file", file.toString()));
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(((Number) daemon.data(id).get("code")).intValue()).isZero();
+      assertThat(device.pimRequests().getLast())
+          .contains("command=put")
+          .contains("service=photos")
           .contains("workstation_id=W1")
           .contains("data=");
     }

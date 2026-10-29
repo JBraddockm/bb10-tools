@@ -25,6 +25,8 @@ import com.jbraddockm.link.endpoint.pimsync.item.FinishPimSync;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.pimsync.item.PutPimItem;
 import com.jbraddockm.link.endpoint.pimsync.item.SummarizePimSync;
+import com.jbraddockm.link.endpoint.pimsync.photo.GetPimPhoto;
+import com.jbraddockm.link.endpoint.pimsync.photo.PutPimPhoto;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
 import com.jbraddockm.link.endpoint.update.UninstallPackages;
@@ -36,6 +38,7 @@ import com.jbraddockm.link.transport.session.DeviceSession;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -109,6 +112,8 @@ class LinkMethodTest {
       "PUT_PIM_ITEM, putPimItem",
       "SUMMARIZE_PIM_SYNC, summarizePimSync",
       "FINISH_PIM_SYNC, finishPimSync",
+      "GET_PIM_PHOTO, getPimPhoto",
+      "PUT_PIM_PHOTO, putPimPhoto",
       "PAIR_DEVICE, pairDevice",
       "GET_AUTHENTICATION_CERTIFICATE, getAuthenticationCertificate",
       "LIST_DEVICES, listDevices",
@@ -126,10 +131,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 26, and distinct")
-    void areTwentySixAndDistinct() {
+    @DisplayName("are 28, and distinct")
+    void areTwentyEightAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(26)
+          .hasSize(28)
           .doesNotHaveDuplicates();
     }
 
@@ -200,6 +205,19 @@ class LinkMethodTest {
       assertThat(replay(LinkMethod.FINISH_PIM_SYNC, service))
           .contains(new FinishPimSync("replay", PimService.of(service), Map.of("replay", "item")));
       assertThat(replay(LinkMethod.FINISH_PIM_SYNC)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a photo is replayed with made-up identifiers, and takes no argument")
+    void photos() {
+      assertThat(replay(LinkMethod.GET_PIM_PHOTO))
+          .contains(
+              new GetPimPhoto("replay", "replay.path", Path.of("replay.jpg"), Optional.empty()));
+      assertThat(replay(LinkMethod.GET_PIM_PHOTO, "x")).isEmpty();
+      assertThat(replay(LinkMethod.PUT_PIM_PHOTO))
+          .contains(
+              new PutPimPhoto("replay", "replay.account", "replay.object", Path.of("replay.jpg")));
+      assertThat(replay(LinkMethod.PUT_PIM_PHOTO, "x")).isEmpty();
     }
 
     @Test

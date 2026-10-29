@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"putPimPhoto","params":{"session":"{{session}}","workstationId":"W1","accountId":"ACC1","objectId":"OBJ1","file":"{{file}}"}}

@@ -106,6 +106,10 @@ final class ConversationRunner {
                   total == 0 ? null : total,
                   download.item()));
     }
+    if (request instanceof CgiRequest.Multipart multipart) {
+      return bytes ->
+          listener.onProgress(new Progress(100, multipart.phase(), bytes, bytes, multipart.item()));
+    }
     return UploadObserver.NONE;
   }
 

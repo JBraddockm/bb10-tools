@@ -43,6 +43,8 @@ import com.jbraddockm.link.endpoint.pimsync.item.FinishPimSync;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.pimsync.item.PutPimItem;
 import com.jbraddockm.link.endpoint.pimsync.item.SummarizePimSync;
+import com.jbraddockm.link.endpoint.pimsync.photo.GetPimPhoto;
+import com.jbraddockm.link.endpoint.pimsync.photo.PutPimPhoto;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.BarSelection;
 import com.jbraddockm.link.endpoint.update.InspectPackage;
@@ -115,6 +117,12 @@ enum LinkMethod {
 
   /** Closes a sync round, submitting the reconciled result. Changes the device. */
   FINISH_PIM_SYNC("finishPimSync"),
+
+  /** Fetches one contact photo from the device and streams it to a file. */
+  GET_PIM_PHOTO("getPimPhoto"),
+
+  /** Sends one contact photo to the device. Changes the device. */
+  PUT_PIM_PHOTO("putPimPhoto"),
 
   /**
    * Pairs this computer with the device, as BlackBerry Link does: the device lists it in Device
@@ -322,6 +330,18 @@ enum LinkMethod {
                   new FinishPimSync(
                       REPLAY_WORKSTATION, PimService.of(argument), Map.of("replay", "item")))
               : Optional.empty();
+      case GET_PIM_PHOTO ->
+          argument == null
+              ? Optional.of(
+                  new GetPimPhoto(
+                      REPLAY_WORKSTATION, "replay.path", Path.of("replay.jpg"), Optional.empty()))
+              : Optional.empty();
+      case PUT_PIM_PHOTO ->
+          argument == null
+              ? Optional.of(
+                  new PutPimPhoto(
+                      REPLAY_WORKSTATION, "replay.account", "replay.object", Path.of("replay.jpg")))
+              : Optional.empty();
       case INSTALL_PACKAGES ->
           argument == null
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
@@ -421,6 +441,22 @@ enum LinkMethod {
                       params.requireString("workstationId"),
                       PimService.of(params.requireString("service")),
                       params.requireObjectMap("payload")));
+      case GET_PIM_PHOTO ->
+          onSession(
+              params ->
+                  new GetPimPhoto(
+                      params.requireString("workstationId"),
+                      params.requireString("path"),
+                      params.requirePath("destination"),
+                      params.optionalString("updatedTime")));
+      case PUT_PIM_PHOTO ->
+          onSession(
+              params ->
+                  new PutPimPhoto(
+                      params.requireString("workstationId"),
+                      params.requireString("accountId"),
+                      params.requireString("objectId"),
+                      params.requirePath("file")));
       case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
       case PAIR_DEVICE ->
           new CommandSpec.SessionScoped<>(wireName, params -> pairDevice(params, pairing));

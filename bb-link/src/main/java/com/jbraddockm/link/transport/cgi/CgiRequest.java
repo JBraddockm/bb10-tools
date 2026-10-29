@@ -500,10 +500,10 @@ public sealed interface CgiRequest {
 
   /**
    * A form post whose answer is a data stream, written straight to a file rather than held in
-   * memory: the device's answer to a backup {@code type=<category>} step is the archive itself, tens
-   * to hundreds of megabytes of {@code application/octet-stream}. When the device answers with XML
-   * instead — an error envelope — the transport keeps that in {@link CgiResponse#body()} as usual,
-   * so the conversation can read the error.
+   * memory: the device's answer to a backup {@code type=<category>} step is the archive itself,
+   * tens to hundreds of megabytes of {@code application/octet-stream}. When the device answers with
+   * XML instead — an error envelope — the transport keeps that in {@link CgiResponse#body()} as
+   * usual, so the conversation can read the error.
    *
    * @param endpoint the CGI program
    * @param fields the form fields in the order they are sent
@@ -552,7 +552,11 @@ public sealed interface CgiRequest {
      * @return a download without fields
      */
     public static Download to(
-        Endpoint endpoint, Path destination, long expectedLength, ProgressPhase phase, String item) {
+        Endpoint endpoint,
+        Path destination,
+        long expectedLength,
+        ProgressPhase phase,
+        String item) {
       return new Download(
           endpoint,
           new LinkedHashMap<>(),
@@ -637,6 +641,146 @@ public sealed interface CgiRequest {
     @Override
     public String describe() {
       return purpose.isEmpty() ? "Downloading from " + endpoint.fileName() : purpose;
+    }
+  }
+
+  /**
+   * A {@code multipart/form-data} POST that carries one file part, with the rest of the request in
+   * the query string: how a contact photo is put. The CGI reads {@code command}, {@code service},
+   * {@code workstation_id} and {@code data} from the query — a multipart body is not parsed for
+   * them — and takes the file from the one part, named by {@link #fileField}. The file is read into
+   * memory; contact photos are small, and the device refuses anything over its size limit with
+   * status 1004 rather than this program guessing a limit.
+   *
+   * @param endpoint the CGI program
+   * @param query the query parameters in the order they are sent
+   * @param file the file to send as the one part
+   * @param fileField the name of the multipart field the file is sent under
+   * @param fileContentType the content type the part is sent as, for example {@code image/jpeg}
+   * @param phase what progress events of the upload are called
+   * @param item what progress events name, for example the file's name
+   * @param purpose what the request does, in a few words, for log messages; may be empty
+   * @param readTimeout how long the device may stay silent while it takes the file and answers
+   */
+  record Multipart(
+      Endpoint endpoint,
+      SequencedMap<QueryParameter, String> query,
+      Path file,
+      String fileField,
+      String fileContentType,
+      ProgressPhase phase,
+      String item,
+      String purpose,
+      Duration readTimeout)
+      implements CgiRequest {
+
+    /** Takes an immutable copy of the query. */
+    public Multipart {
+      Objects.requireNonNull(endpoint, "endpoint");
+      Objects.requireNonNull(file, "file");
+      Objects.requireNonNull(fileField, "fileField");
+      Objects.requireNonNull(fileContentType, "fileContentType");
+      Objects.requireNonNull(phase, "phase");
+      Objects.requireNonNull(item, "item");
+      Objects.requireNonNull(purpose, "purpose");
+      Objects.requireNonNull(readTimeout, "readTimeout");
+      query = Collections.unmodifiableSequencedMap(new LinkedHashMap<>(query));
+    }
+
+    /**
+     * Starts a multipart upload of one file.
+     *
+     * @param endpoint the CGI program
+     * @param file the file to send
+     * @param fileField the multipart field name the file is sent under
+     * @param fileContentType the content type of the part
+     * @param phase what progress events of the upload are called
+     * @param item what progress events name
+     * @return a multipart request without query parameters
+     */
+    public static Multipart of(
+        Endpoint endpoint,
+        Path file,
+        String fileField,
+        String fileContentType,
+        ProgressPhase phase,
+        String item) {
+      return new Multipart(
+          endpoint,
+          new LinkedHashMap<>(),
+          file,
+          fileField,
+          fileContentType,
+          phase,
+          item,
+          "",
+          DEFAULT_READ_TIMEOUT);
+    }
+
+    /**
+     * Adds a query parameter whose value is one of the device's fixed words.
+     *
+     * @param parameter the parameter
+     * @param value the value
+     * @return the request with the parameter appended
+     */
+    public Multipart with(QueryParameter parameter, WireValue value) {
+      return withText(parameter, value.wireName());
+    }
+
+    /**
+     * Adds a query parameter with free text as value.
+     *
+     * @param parameter the parameter
+     * @param text the value
+     * @return the request with the parameter appended
+     */
+    public Multipart withText(QueryParameter parameter, String text) {
+      var copy = new LinkedHashMap<>(query);
+      copy.put(parameter, text);
+      return new Multipart(
+          endpoint, copy, file, fileField, fileContentType, phase, item, purpose, readTimeout);
+    }
+
+    /**
+     * Says what the request does, for log messages.
+     *
+     * @param what a few words in the present participle
+     * @return the request with the purpose set
+     */
+    public Multipart describedAs(String what) {
+      return new Multipart(
+          endpoint, query, file, fileField, fileContentType, phase, item, what, readTimeout);
+    }
+
+    /**
+     * Returns the path and the query string of the request.
+     *
+     * @return for example {@code /cgi-bin/pimsync.cgi?command=put&service=photos}
+     */
+    public String pathAndQuery() {
+      if (query.isEmpty()) {
+        return endpoint.path();
+      }
+      return endpoint.path()
+          + '?'
+          + query.entrySet().stream()
+              .map(
+                  entry ->
+                      FormEncoding.encode(entry.getKey().wireName())
+                          + '='
+                          + FormEncoding.encode(entry.getValue()))
+              .collect(Collectors.joining("&"));
+    }
+
+    @Override
+    public boolean emptyAnswerIsNormal() {
+      return false;
+    }
+
+    @Override
+    public String describe() {
+      return purpose.isEmpty() ? "POST a file to " + endpoint.fileName() : purpose;
     }
   }
 }

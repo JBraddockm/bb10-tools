@@ -16,14 +16,14 @@ import java.util.regex.Pattern;
  * @param code the status code
  * @param message the status message; may be {@code null}
  */
-record PimStatus(int code, String message) {
+public record PimStatus(int code, String message) {
 
   private static final Pattern STATUS =
       Pattern.compile(
           "\"status\"\\s*:\\s*\\{\\s*\"code\"\\s*:\\s*(-?\\d+)"
               + "(?:\\s*,\\s*\"msg\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\")?");
 
-  static Optional<PimStatus> read(String body) {
+  public static Optional<PimStatus> read(String body) {
     try {
       if (Json.parse(body) instanceof Map<?, ?> object
           && object.get("status") instanceof Map<?, ?> status

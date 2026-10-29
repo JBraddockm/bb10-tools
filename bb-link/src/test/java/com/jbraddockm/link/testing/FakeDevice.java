@@ -87,6 +87,9 @@ public final class FakeDevice implements AutoCloseable {
   /** What pimsync answers to a request with a valid session, by command; the default otherwise. */
   public final Map<String, String> pimResponses = new ConcurrentHashMap<>();
 
+  /** The bytes a photo {@code get} answers with, served as {@code image/jpeg}. */
+  public String photoAnswer = "FAKEJPEG";
+
   /** Counts requests to the login program. */
   public final AtomicInteger loginRequests = new AtomicInteger();
 
@@ -629,12 +632,16 @@ public final class FakeDevice implements AutoCloseable {
   /** Handles pimsync requests. */
   final class PimSyncEndpoint {
     private static String commandOf(String query) {
+      return valueOf(query, "command=");
+    }
+
+    private static String valueOf(String query, String prefix) {
       if (query == null) {
         return null;
       }
       for (var pair : query.split("&")) {
-        if (pair.startsWith("command=")) {
-          return pair.substring("command=".length());
+        if (pair.startsWith(prefix)) {
+          return pair.substring(prefix.length());
         }
       }
       return null;
@@ -669,10 +676,17 @@ public final class FakeDevice implements AutoCloseable {
       if (command == null) {
         command = commandOf(body);
       }
+      var service = valueOf(query, "service=");
+      if (service == null) {
+        service = valueOf(body, "service=");
+      }
       if (command == null) {
         respond(
             exchange, 200, "", null,
             null); // a real device answers a request without a command with nothing
+      } else if ("get".equals(command) && "photos".equals(service)) {
+        // A contact photo comes back as raw image bytes, which the client streams to a file.
+        respond(exchange, 200, photoAnswer, null, "image/jpeg");
       } else {
         respond(
             exchange,

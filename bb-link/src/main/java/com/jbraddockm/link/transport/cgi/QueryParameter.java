@@ -46,7 +46,13 @@ public enum QueryParameter implements WireValue {
   ACTION("action"),
 
   /** The number of bytes of the category uploaded in a restore step. */
-  SIZE("size");
+  SIZE("size"),
+
+  /**
+   * A PIM write's item body as its own JSON, sent in the query when the body carries a multipart
+   * upload — a contact photo put. The CGI re-wraps it as the backend's {@code json=} body.
+   */
+  DATA("data");
 
   private final String wireName;
 

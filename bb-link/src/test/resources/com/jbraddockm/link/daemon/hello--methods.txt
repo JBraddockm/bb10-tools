@@ -16,6 +16,8 @@ deletePimItem
 putPimItem
 summarizePimSync
 finishPimSync
+getPimPhoto
+putPimPhoto
 pairDevice
 removePairing
 getAuthenticationCertificate

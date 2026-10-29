@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"getPimPhoto","params":{"session":"{{session}}","workstationId":"W1","path":"db/contacts/7/photo","destination":"{{destination}}"}}

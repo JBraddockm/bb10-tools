@@ -53,7 +53,7 @@ class DaemonHandshakeTest {
   @Test
   @DisplayName(
       "greets with the name of the tool and the methods that it answers to: the three of the"
-          + " protocol, then the twenty-six of the tool, in order")
+          + " protocol, then the twenty-eight of the tool, in order")
   void greets() throws Exception {
     var hello = daemon.hello();
 
