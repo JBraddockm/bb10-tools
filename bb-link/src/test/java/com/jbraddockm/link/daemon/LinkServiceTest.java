@@ -16,13 +16,13 @@ import com.jbraddockm.link.endpoint.pairing.Pairing;
 import com.jbraddockm.link.endpoint.pairing.store.PairingDirectory;
 import com.jbraddockm.link.endpoint.pairing.store.StoredPairing;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
-import com.jbraddockm.link.transport.cgi.Authentication;
-import com.jbraddockm.link.transport.session.DeviceSession;
-import com.jbraddockm.link.transport.cgi.ExchangeObserver;
-import com.jbraddockm.link.transport.cgi.TransportScheme;
 import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.testing.JsonObjects;
 import com.jbraddockm.link.testing.Resources;
+import com.jbraddockm.link.transport.cgi.Authentication;
+import com.jbraddockm.link.transport.cgi.ExchangeObserver;
+import com.jbraddockm.link.transport.cgi.TransportScheme;
+import com.jbraddockm.link.transport.session.DeviceSession;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -157,7 +157,7 @@ class LinkServiceTest {
     void hasACommandForEachMethod() {
       assertThat(service.commands())
           .extracting(CommandSpec::wireName)
-          .hasSize(18)
+          .hasSize(19)
           .first()
           .isEqualTo("getDeviceProperties");
     }

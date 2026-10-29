@@ -2,8 +2,8 @@ package com.jbraddockm.link.endpoint.pimsync;
 
 import com.jbraddockm.link.transport.cgi.WireValue;
 
-/** The reading commands of {@code pimsync.cgi} that bb-link sends. */
-enum PimCommand implements WireValue {
+/** The commands of {@code pimsync.cgi} that bb-link sends. */
+public enum PimCommand implements WireValue {
 
   /** Lists the accounts known to the device. */
   LIST_ACCOUNTS("list_accounts", "listAccounts"),
@@ -12,7 +12,10 @@ enum PimCommand implements WireValue {
   FIND_ACCOUNT_ID("find_accountId", "findAccount"),
 
   /** Returns the items of one kind. */
-  GET("get", "get");
+  GET("get", "get"),
+
+  /** Registers a workstation as a BlackBerry Link account. Changes the device. */
+  CREATE_ACCOUNT("create_account", "createAccount");
 
   private final String wireName;
   private final String jsonName;

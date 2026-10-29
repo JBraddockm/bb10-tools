@@ -12,19 +12,20 @@ import com.jbraddockm.link.endpoint.pairing.CertificateRetrieval;
 import com.jbraddockm.link.endpoint.pairing.GetAuthenticationCertificate;
 import com.jbraddockm.link.endpoint.pairing.PairWithDevice;
 import com.jbraddockm.link.endpoint.pairing.Pairing;
-import com.jbraddockm.link.endpoint.pimsync.FindPimAccount;
-import com.jbraddockm.link.endpoint.pimsync.GetPimItems;
-import com.jbraddockm.link.endpoint.pimsync.ListPimAccounts;
 import com.jbraddockm.link.endpoint.pimsync.PimFilters;
 import com.jbraddockm.link.endpoint.pimsync.PimService;
+import com.jbraddockm.link.endpoint.pimsync.account.CreatePimAccount;
+import com.jbraddockm.link.endpoint.pimsync.account.FindPimAccount;
+import com.jbraddockm.link.endpoint.pimsync.account.ListPimAccounts;
+import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
-import com.jbraddockm.link.transport.cgi.Authentication;
-import com.jbraddockm.link.transport.cgi.DeviceCommand;
-import com.jbraddockm.link.transport.session.DeviceSession;
-import com.jbraddockm.link.transport.cgi.DeviceTarget;
-import com.jbraddockm.link.transport.cgi.TransportScheme;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
 import com.jbraddockm.link.endpoint.update.UninstallPackages;
+import com.jbraddockm.link.transport.cgi.Authentication;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.DeviceTarget;
+import com.jbraddockm.link.transport.cgi.TransportScheme;
+import com.jbraddockm.link.transport.session.DeviceSession;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -92,6 +93,7 @@ class LinkMethodTest {
       "LIST_PIM_ACCOUNTS, listPimAccounts",
       "FIND_PIM_ACCOUNT, findPimAccount",
       "GET_PIM_ITEMS, getPimItems",
+      "CREATE_PIM_ACCOUNT, createPimAccount",
       "PAIR_DEVICE, pairDevice",
       "GET_AUTHENTICATION_CERTIFICATE, getAuthenticationCertificate",
       "LIST_DEVICES, listDevices",
@@ -109,10 +111,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 18, and distinct")
-    void areEighteenAndDistinct() {
+    @DisplayName("are 19, and distinct")
+    void areNineteenAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(18)
+          .hasSize(19)
           .doesNotHaveDuplicates();
     }
 
@@ -145,6 +147,9 @@ class LinkMethodTest {
     void findingAnAccount() {
       assertThat(replay(LinkMethod.FIND_PIM_ACCOUNT)).contains(new FindPimAccount("replay"));
       assertThat(replay(LinkMethod.FIND_PIM_ACCOUNT, "x")).isEmpty();
+      assertThat(replay(LinkMethod.CREATE_PIM_ACCOUNT))
+          .contains(new CreatePimAccount("replay", "Replay"));
+      assertThat(replay(LinkMethod.CREATE_PIM_ACCOUNT, "x")).isEmpty();
     }
 
     @ParameterizedTest(name = "{0}")

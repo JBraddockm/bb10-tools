@@ -12,6 +12,9 @@ public enum QueryParameter implements WireValue {
   /** The identifier of the client the operation is for. */
   WORKSTATION_ID("workstation_id"),
 
+  /** The human-readable name of the client, sent when an account is created or updated. */
+  WORKSTATION_NAME("workstation_name"),
+
   /** Only items changed since this time. */
   UPDATED_TIME("updated_time"),
 

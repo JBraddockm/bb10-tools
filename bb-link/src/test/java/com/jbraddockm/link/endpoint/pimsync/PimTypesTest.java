@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.json.Json;
-import com.jbraddockm.link.transport.cgi.ResponseBody;
 import com.jbraddockm.link.testing.Resources;
+import com.jbraddockm.link.transport.cgi.ResponseBody;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,7 +53,8 @@ class PimTypesTest {
     @CsvSource({
       "LIST_ACCOUNTS, list_accounts, listAccounts",
       "FIND_ACCOUNT_ID, find_accountId, findAccount",
-      "GET, get, get"
+      "GET, get, get",
+      "CREATE_ACCOUNT, create_account, createAccount"
     })
     @DisplayName(
         "each command has the name that the device is asked with, and the name that the daemon"

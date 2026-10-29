@@ -9,9 +9,9 @@ import com.jbraddockm.link.endpoint.discovery.ConnectionKind;
 import com.jbraddockm.link.endpoint.discovery.DiscoveredDevice;
 import com.jbraddockm.link.endpoint.pairing.CertificateRetrieval;
 import com.jbraddockm.link.endpoint.pairing.Pairing;
+import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.transport.cgi.ExchangeObserver;
 import com.jbraddockm.link.transport.cgi.TransportScheme;
-import com.jbraddockm.link.testing.Resources;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +53,7 @@ class DaemonHandshakeTest {
   @Test
   @DisplayName(
       "greets with the name of the tool and the methods that it answers to: the three of the"
-          + " protocol, then the fourteen of the tool, in order")
+          + " protocol, then the nineteen of the tool, in order")
   void greets() throws Exception {
     var hello = daemon.hello();
 

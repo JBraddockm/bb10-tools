@@ -17,6 +17,7 @@ class QueryParameterTest {
     "COMMAND, command",
     "SERVICE, service",
     "WORKSTATION_ID, workstation_id",
+    "WORKSTATION_NAME, workstation_name",
     "UPDATED_TIME, updated_time",
     "LIMIT, limit",
     "DIRTY_ONLY, dirty_only",
@@ -35,9 +36,9 @@ class QueryParameterTest {
 
   @Test
   @DisplayName("no two parameters have the same name, and there are no others than these")
-  void thereAreThirteenDistinctParameters() {
+  void thereAreFourteenDistinctParameters() {
     assertThat(Arrays.stream(QueryParameter.values()).map(QueryParameter::wireName))
         .doesNotHaveDuplicates()
-        .hasSize(13);
+        .hasSize(14);
   }
 }

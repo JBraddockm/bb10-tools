@@ -8,6 +8,7 @@ getSmbCredentials
 listPimAccounts
 findPimAccount
 getPimItems
+createPimAccount
 pairDevice
 removePairing
 getAuthenticationCertificate

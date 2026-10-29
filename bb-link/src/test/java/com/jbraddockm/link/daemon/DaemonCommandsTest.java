@@ -10,10 +10,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.endpoint.pairing.CertificateRetrieval;
 import com.jbraddockm.link.endpoint.pairing.Pairing;
-import com.jbraddockm.link.transport.cgi.ExchangeObserver;
-import com.jbraddockm.link.transport.cgi.TransportScheme;
 import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.testing.Resources;
+import com.jbraddockm.link.transport.cgi.ExchangeObserver;
+import com.jbraddockm.link.transport.cgi.TransportScheme;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -149,6 +149,21 @@ class DaemonCommandsTest {
 
       assertThat(daemon.done(id).get("ok")).isEqualTo(true);
       assertThat(daemon.data(id)).containsEntry("command", "findAccount");
+    }
+
+    @Test
+    @DisplayName(
+        "createPimAccount sends create_account with the workstation and its name, both encoded, and"
+            + " reports the command that registered it")
+    void createPimAccount() throws Exception {
+      var id = ask("request--create-pim-account.json", Map.of());
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id)).containsEntry("command", "createAccount");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=create_account")
+          .contains("workstation_id=W1")
+          .contains("workstation_name=My%20PC");
     }
 
     @Test

@@ -30,11 +30,12 @@ import com.jbraddockm.link.endpoint.pairing.PairingRequest;
 import com.jbraddockm.link.endpoint.pairing.RemovePairing;
 import com.jbraddockm.link.endpoint.pairing.RenewPairing;
 import com.jbraddockm.link.endpoint.pairing.RenewRequest;
-import com.jbraddockm.link.endpoint.pimsync.FindPimAccount;
-import com.jbraddockm.link.endpoint.pimsync.GetPimItems;
-import com.jbraddockm.link.endpoint.pimsync.ListPimAccounts;
 import com.jbraddockm.link.endpoint.pimsync.PimFilters;
 import com.jbraddockm.link.endpoint.pimsync.PimService;
+import com.jbraddockm.link.endpoint.pimsync.account.CreatePimAccount;
+import com.jbraddockm.link.endpoint.pimsync.account.FindPimAccount;
+import com.jbraddockm.link.endpoint.pimsync.account.ListPimAccounts;
+import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.BarSelection;
 import com.jbraddockm.link.endpoint.update.InspectPackage;
@@ -82,6 +83,9 @@ enum LinkMethod {
 
   /** Reads contacts, events or calendars. */
   GET_PIM_ITEMS("getPimItems"),
+
+  /** Registers a workstation as a PIM account on the device. Changes the device. */
+  CREATE_PIM_ACCOUNT("createPimAccount"),
 
   /**
    * Pairs this computer with the device, as BlackBerry Link does: the device lists it in Device
@@ -252,6 +256,10 @@ enum LinkMethod {
               ? Optional.of(
                   new GetPimItems(REPLAY_WORKSTATION, PimService.of(argument), PimFilters.none()))
               : Optional.empty();
+      case CREATE_PIM_ACCOUNT ->
+          argument == null
+              ? Optional.of(new CreatePimAccount(REPLAY_WORKSTATION, "Replay"))
+              : Optional.empty();
       case INSTALL_PACKAGES ->
           argument == null
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
@@ -305,6 +313,12 @@ enum LinkMethod {
       case FIND_PIM_ACCOUNT ->
           onSession(params -> new FindPimAccount(params.requireString("workstationId")));
       case GET_PIM_ITEMS -> onSession(LinkMethod::getPimItems);
+      case CREATE_PIM_ACCOUNT ->
+          onSession(
+              params ->
+                  new CreatePimAccount(
+                      params.requireString("workstationId"),
+                      params.requireString("workstationName")));
       case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
       case PAIR_DEVICE ->
           new CommandSpec.SessionScoped<>(wireName, params -> pairDevice(params, pairing));

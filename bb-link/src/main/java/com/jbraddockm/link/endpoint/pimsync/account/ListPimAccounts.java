@@ -1,5 +1,8 @@
-package com.jbraddockm.link.endpoint.pimsync;
+package com.jbraddockm.link.endpoint.pimsync.account;
 
+import com.jbraddockm.link.endpoint.pimsync.PimAnswer;
+import com.jbraddockm.link.endpoint.pimsync.PimCommand;
+import com.jbraddockm.link.endpoint.pimsync.PimSyncConversation;
 import com.jbraddockm.link.transport.cgi.Conversation;
 import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import java.util.function.UnaryOperator;

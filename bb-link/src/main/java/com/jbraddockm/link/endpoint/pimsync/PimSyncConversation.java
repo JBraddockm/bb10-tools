@@ -26,7 +26,7 @@ import java.util.function.UnaryOperator;
  * by the text {@code DTM NOT LOGGED IN} and is dealt with by the session, which logs in again. 1001
  * and 1015 are **[RESEARCH]**. Any other answer is a result.
  */
-final class PimSyncConversation implements Conversation<PimAnswer> {
+public final class PimSyncConversation implements Conversation<PimAnswer> {
 
   private static final int INVALID_PARAMETERS = 1001;
   private static final int UNAUTHORIZED = 1013;
@@ -48,7 +48,7 @@ final class PimSyncConversation implements Conversation<PimAnswer> {
    * @param purpose what the request does, for the log
    * @param parameters the parameters after {@code command}, in the order they are sent
    */
-  PimSyncConversation(
+  public PimSyncConversation(
       PimCommand command,
       PimService service,
       String purpose,

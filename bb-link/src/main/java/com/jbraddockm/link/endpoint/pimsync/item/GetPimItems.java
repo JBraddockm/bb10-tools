@@ -1,9 +1,14 @@
-package com.jbraddockm.link.endpoint.pimsync;
+package com.jbraddockm.link.endpoint.pimsync.item;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
+import com.jbraddockm.link.endpoint.pimsync.PimAnswer;
+import com.jbraddockm.link.endpoint.pimsync.PimCommand;
+import com.jbraddockm.link.endpoint.pimsync.PimFilters;
+import com.jbraddockm.link.endpoint.pimsync.PimService;
+import com.jbraddockm.link.endpoint.pimsync.PimSyncConversation;
 import com.jbraddockm.link.transport.cgi.Conversation;
-import com.jbraddockm.link.transport.cgi.QueryParameter;
 import com.jbraddockm.link.transport.cgi.DeviceCommand;
+import com.jbraddockm.link.transport.cgi.QueryParameter;
 import java.util.Objects;
 
 /**
