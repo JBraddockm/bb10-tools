@@ -1,12 +1,15 @@
 package com.jbraddockm.link.endpoint.update;
 
 import com.jbraddockm.core.bar.BarInfo;
+import com.jbraddockm.core.bar.BarKind;
 import com.jbraddockm.core.command.LogLevel;
 import com.jbraddockm.core.command.Progress;
 import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.LinkErrorCode;
+import com.jbraddockm.link.endpoint.properties.DeviceProperties;
+import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.CgiResponse;
 import com.jbraddockm.link.transport.cgi.Conversation;
@@ -19,8 +22,6 @@ import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.ResponseFailures;
 import com.jbraddockm.link.transport.cgi.Step;
 import com.jbraddockm.link.transport.cgi.StepEffect;
-import com.jbraddockm.link.endpoint.properties.DeviceProperties;
-import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,16 +52,8 @@ final class InstallConversation implements Conversation<InstallResult> {
 
   /** How long an installation may take altogether, when it reports progress. */
   private static final Duration LONGEST_WAIT = Duration.ofMinutes(30);
-
-  private enum Stage {
-    CHECKING_SPACE,
-    STARTING,
-    SENDING,
-    WAITING,
-    FINISHING
-  }
-
   private final List<BarInfo> bars;
+  private final boolean firmware;
   private final Duration pollInterval;
   private final long maximumPolls;
   private final List<InstalledPackage> installed = new ArrayList<>();
@@ -68,11 +61,34 @@ final class InstallConversation implements Conversation<InstallResult> {
   private int index;
   private long polls;
   private String lastAnswer = "";
-
-  InstallConversation(List<BarInfo> bars, Duration pollInterval) {
+  InstallConversation(List<BarInfo> bars, boolean firmware, Duration pollInterval) {
     this.bars = List.copyOf(bars);
+    this.firmware = firmware;
     this.pollInterval = pollInterval;
     this.maximumPolls = Math.max(1, LONGEST_WAIT.toMillis() / Math.max(1, pollInterval.toMillis()));
+  }
+
+  /** The question that moves the device on, and that asks how far it is: a form with no fields. */
+  private static CgiRequest poll() {
+    return CgiRequest.Form.to(Endpoint.UPDATE)
+        .describedAs("Waiting for the device to install the package")
+        .waitingUpTo(SLOW_STEP);
+  }
+
+  private static int percentOf(ResponseEnvelope answer) {
+    return answer
+        .payload()
+        .childText("Progress")
+        .flatMap(
+            text -> {
+              try {
+                return Optional.of(Integer.parseInt(text.strip()));
+              } catch (NumberFormatException _) {
+                return Optional.empty();
+              }
+            })
+        .map(value -> Math.clamp(value, 0, 100))
+        .orElse(0);
   }
 
   @Override
@@ -80,23 +96,22 @@ final class InstallConversation implements Conversation<InstallResult> {
     return new Step.Send<>(GetDeviceProperties.request());
   }
 
+  // --- the stages -------------------------------------------------------------------------------
+
   @Override
   public Step<InstallResult> onAnswer(CgiResponse response, ResponseEnvelope envelope) {
     lastAnswer = response.body();
     if (envelope == null) {
       return fail(ResponseFailures.notXml(response));
     }
-    var answer = envelope;
     return switch (stage) {
-      case CHECKING_SPACE -> checkSpace(answer);
-      case STARTING -> started(answer);
-      case SENDING -> received(answer);
-      case WAITING -> progressed(answer);
-      case FINISHING -> finished(answer);
+      case CHECKING_SPACE -> checkSpace(envelope);
+      case STARTING -> started(envelope);
+      case SENDING -> received(envelope);
+      case WAITING -> progressed(envelope);
+      case FINISHING -> finished(envelope);
     };
   }
-
-  // --- the stages -------------------------------------------------------------------------------
 
   private Step<InstallResult> checkSpace(ResponseEnvelope answer) {
     return switch (GetDeviceProperties.interpret(answer)) {
@@ -125,9 +140,10 @@ final class InstallConversation implements Conversation<InstallResult> {
               Json.object("requiredBytes", needed, "freeBytes", free, "packageBytes", total)));
     }
     stage = Stage.STARTING;
+    var mode = firmware ? UpdateMode.INSTALL_OPERATING_SYSTEM : UpdateMode.INSTALL_APPLICATIONS;
     return new Step.Send<>(
         CgiRequest.Form.to(Endpoint.UPDATE)
-            .with(FormField.MODE, UpdateMode.INSTALL_APPLICATIONS)
+            .with(FormField.MODE, mode)
             .withText(FormField.SIZE, Long.toString(total))
             .describedAs("Starting the installation")
             .waitingUpTo(SLOW_STEP),
@@ -189,6 +205,8 @@ final class InstallConversation implements Conversation<InstallResult> {
                         Json.object("status", text))));
   }
 
+  // --- what the stages share --------------------------------------------------------------------
+
   private Step<InstallResult> finished(ResponseEnvelope answer) {
     var refusal = refused(answer, ResponseElement.UPDATE_END);
     if (refusal.isPresent()) {
@@ -210,8 +228,6 @@ final class InstallConversation implements Conversation<InstallResult> {
     }
     return new Step.Finish<>(new InstallResult(installed, ResponseBody.of(lastAnswer)));
   }
-
-  // --- what the stages share --------------------------------------------------------------------
 
   /** Keeps the device waiting for a moment, and asks again how far it is. */
   private Step<InstallResult> waitMore(int percent) {
@@ -280,17 +296,11 @@ final class InstallConversation implements Conversation<InstallResult> {
 
   private CgiRequest uploadRequest() {
     var bar = bars.get(index);
+    var kind = bar.kind() == BarKind.RADIO ? UploadKind.RADIO : UploadKind.BAR;
     return CgiRequest.Upload.of(
             Endpoint.UPDATE, bar.file(), bar.sizeBytes(), UpdatePhase.UPLOADING, nameOfCurrent())
-        .with(QueryParameter.TYPE, UploadKind.BAR)
+        .with(QueryParameter.TYPE, kind)
         .describedAs("Sending package " + (index + 1) + " of " + bars.size())
-        .waitingUpTo(SLOW_STEP);
-  }
-
-  /** The question that moves the device on, and that asks how far it is: a form with no fields. */
-  private static CgiRequest poll() {
-    return CgiRequest.Form.to(Endpoint.UPDATE)
-        .describedAs("Waiting for the device to install the package")
         .waitingUpTo(SLOW_STEP);
   }
 
@@ -308,19 +318,11 @@ final class InstallConversation implements Conversation<InstallResult> {
     return bars.stream().mapToLong(BarInfo::sizeBytes).sum();
   }
 
-  private static int percentOf(ResponseEnvelope answer) {
-    return answer
-        .payload()
-        .childText("Progress")
-        .flatMap(
-            text -> {
-              try {
-                return Optional.of(Integer.parseInt(text.strip()));
-              } catch (NumberFormatException _) {
-                return Optional.empty();
-              }
-            })
-        .map(value -> Math.clamp(value, 0, 100))
-        .orElse(0);
+  private enum Stage {
+    CHECKING_SPACE,
+    STARTING,
+    SENDING,
+    WAITING,
+    FINISHING
   }
 }

@@ -10,12 +10,13 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Installs applications from bars. The bars have been read already ({@link BarSelection}), so that
- * the conversation with the device is a pure state machine that does no file reading of its own.
+ * Installs packages from bars. The bars have been read already ({@link BarSelection}), so that the
+ * conversation with the device is a pure state machine that does no file reading of its own.
  *
- * <p>Only applications are installed for now. Firmware, which the device installs through the same
- * program but in another mode and which ends with a restart, is read and recognised, and refused
- * with a message that says so.
+ * <p>Applications are installed in mode {@code bar}; firmware (the operating system and the radio)
+ * is installed in mode {@code os}, and each file is uploaded as {@code type=bar} (the operating
+ * system) or {@code type=radio}. A single command installs either applications or firmware, never
+ * both.
  *
  * <p>The command changes the device, so it is never repeated after a dropped connection.
  *
@@ -32,7 +33,8 @@ public record InstallPackages(List<BarInfo> bars, Duration pollInterval)
    * Validates the command.
    *
    * @throws InvalidArgumentException naming {@code files} or {@code files[n]} if there is no bar,
-   *     if a bar is not an application, or if two bars are the same package
+   *     if a bar cannot be installed, if applications and firmware are mixed, or if two bars are
+   *     the same package
    */
   public InstallPackages {
     bars = List.copyOf(bars);
@@ -41,11 +43,18 @@ public record InstallPackages(List<BarInfo> bars, Duration pollInterval)
       throw new InvalidArgumentException("files", "must name at least one bar");
     }
     var seen = new HashMap<String, Integer>();
+    boolean hasApplication = false;
+    boolean hasFirmware = false;
     for (var index = 0; index < bars.size(); index++) {
       var bar = bars.get(index);
       var refusal = refusal(bar);
       if (refusal != null) {
         throw new InvalidArgumentException("files[" + index + "]", refusal);
+      }
+      if (bar.kind().isFirmware()) {
+        hasFirmware = true;
+      } else {
+        hasApplication = true;
       }
       if (bar.packageId() != null) {
         var earlier = seen.putIfAbsent(bar.packageId(), index);
@@ -54,6 +63,10 @@ public record InstallPackages(List<BarInfo> bars, Duration pollInterval)
               "files[" + index + "]", "is the same package as files[" + earlier + "]");
         }
       }
+    }
+    if (hasApplication && hasFirmware) {
+      throw new InvalidArgumentException(
+          "files", "mixes applications and firmware; install them in separate commands");
     }
   }
 
@@ -68,13 +81,19 @@ public record InstallPackages(List<BarInfo> bars, Duration pollInterval)
     return new InstallPackages(bars, DEFAULT_POLL_INTERVAL);
   }
 
+  /**
+   * Tells whether this command installs firmware rather than applications.
+   *
+   * @return {@code true} for an operating system or radio install
+   */
+  public boolean isFirmware() {
+    return bars.getFirst().kind().isFirmware();
+  }
+
   /** Returns why a bar cannot be installed, or {@code null} if it can. */
   private static String refusal(BarInfo bar) {
     return switch (bar.kind()) {
-      case APPLICATION -> null;
-      case OPERATING_SYSTEM ->
-          "is an operating system image; installing firmware is not supported yet";
-      case RADIO -> "is a radio image; installing firmware is not supported yet";
+      case APPLICATION, OPERATING_SYSTEM, RADIO -> null;
       case OTHER ->
           "is a package of type '" + bar.packageType() + "', which cannot be installed this way";
     };
@@ -91,7 +110,7 @@ public record InstallPackages(List<BarInfo> bars, Duration pollInterval)
 
   @Override
   public Conversation<InstallResult> conversation() {
-    return new InstallConversation(bars, pollInterval);
+    return new InstallConversation(bars, isFirmware(), pollInterval);
   }
 
   @Override

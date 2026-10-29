@@ -41,6 +41,7 @@ import com.jbraddockm.link.endpoint.update.InspectPackage;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
 import com.jbraddockm.link.endpoint.update.InstallResult;
 import com.jbraddockm.link.endpoint.update.UninstallPackages;
+import com.jbraddockm.link.transport.cgi.ConnectionPath;
 import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import java.nio.file.Path;
@@ -345,7 +346,17 @@ enum LinkMethod {
                           case BarSelection.Refused(var error) -> CommandOutcome.failed(error);
                           case BarSelection.Selected(var bars) -> {
                             try {
-                              yield session.execute(InstallPackages.of(bars), reply);
+                              var command = InstallPackages.of(bars);
+                              if (command.isFirmware()
+                                  && session.connectionPath() != ConnectionPath.USB) {
+                                yield CommandOutcome.<InstallResult>failed(
+                                    new ServiceError(
+                                        CoreErrorCode.COMMAND_FAILED,
+                                        "Installing firmware is only available over the USB"
+                                            + " connection; connect the device by USB and try"
+                                            + " again"));
+                              }
+                              yield session.execute(command, reply);
                             } catch (InvalidArgumentException invalid) {
                               yield CommandOutcome.<InstallResult>failed(invalid.toServiceError());
                             }

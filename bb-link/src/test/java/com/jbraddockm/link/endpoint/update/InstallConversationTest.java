@@ -427,7 +427,8 @@ class InstallConversationTest {
 
     @Test
     @DisplayName(
-        "an answer that is not XML while waiting fails the installation, which has installed nothing")
+        "an answer that is not XML while waiting fails the installation, which has installed"
+            + " nothing")
     void notXmlWhileWaiting() {
       var step = waiting(first).answerWithText("update--not-xml.txt");
 
@@ -599,6 +600,94 @@ class InstallConversationTest {
                   assertThat(result.installed())
                       .extracting(InstalledPackage::packageId)
                       .containsExactly("idFirst"));
+    }
+  }
+
+  @Nested
+  @DisplayName("firmware: mode and upload kind")
+  class Firmware {
+
+    private BarInfo os;
+    private BarInfo radio;
+    private long osSize;
+    private long radioSize;
+
+    @BeforeEach
+    void readFirmwareBars() throws Exception {
+      os = BarResources.inspect("system--operating-system.bar", folder);
+      radio = BarResources.inspect("system--radio.bar", folder);
+      osSize = Files.size(os.file());
+      radioSize = Files.size(radio.file());
+    }
+
+    private Dialogue<InstallResult> installingFirmware(BarInfo... bars) {
+      return new Dialogue<>(
+          new InstallPackages(List.of(bars), Duration.ofSeconds(1)).conversation());
+    }
+
+    @Test
+    @DisplayName("starts in mode os, not bar, when installing an operating system bar")
+    void startsInModeOs() {
+      var dialogue = installingFirmware(os);
+      dialogue.start();
+
+      var request = form(dialogue.answerWithFreeSpace(osSize * 2));
+
+      assertThat(request.encodedBody()).isEqualTo("mode=os&size=" + osSize);
+    }
+
+    @Test
+    @DisplayName("starts in mode os when installing a radio bar")
+    void startsInModeOsForRadio() {
+      var dialogue = installingFirmware(radio);
+      dialogue.start();
+
+      var request = form(dialogue.answerWithFreeSpace(radioSize * 2));
+
+      assertThat(request.encodedBody()).isEqualTo("mode=os&size=" + radioSize);
+    }
+
+    @Test
+    @DisplayName("uploads a radio bar with type=radio, not type=bar")
+    void uploadsRadioWithTypeRadio() {
+      var dialogue = installingFirmware(radio);
+      dialogue.start();
+      dialogue.answerWithFreeSpace(radioSize * 2);
+
+      var step = dialogue.answer("UpdateStart", "Success");
+
+      var upload = (CgiRequest.Upload) sent(step);
+      assertThat(upload.pathAndQuery()).isEqualTo("/cgi-bin/update.cgi?type=radio");
+    }
+
+    @Test
+    @DisplayName("uploads an operating system bar with type=bar")
+    void uploadsOsWithTypeBar() {
+      var dialogue = installingFirmware(os);
+      dialogue.start();
+      dialogue.answerWithFreeSpace(osSize * 2);
+
+      var step = dialogue.answer("UpdateStart", "Success");
+
+      var upload = (CgiRequest.Upload) sent(step);
+      assertThat(upload.pathAndQuery()).isEqualTo("/cgi-bin/update.cgi?type=bar");
+    }
+
+    @Test
+    @DisplayName(
+        "installs an operating system and a radio together: the os is type=bar, the radio is"
+            + " type=radio")
+    void installsOsAndRadioTogether() {
+      var dialogue = installingFirmware(os, radio);
+      dialogue.start();
+      dialogue.answerWithFreeSpace((osSize + radioSize) * 2);
+
+      var firstUpload = (CgiRequest.Upload) sent(dialogue.answer("UpdateStart", "Success"));
+      assertThat(firstUpload.pathAndQuery()).isEqualTo("/cgi-bin/update.cgi?type=bar");
+
+      dialogue.answer("UpdateSend", "Success");
+      var secondUpload = (CgiRequest.Upload) sent(dialogue.answer("UpdateProgress", "Success"));
+      assertThat(secondUpload.pathAndQuery()).isEqualTo("/cgi-bin/update.cgi?type=radio");
     }
   }
 

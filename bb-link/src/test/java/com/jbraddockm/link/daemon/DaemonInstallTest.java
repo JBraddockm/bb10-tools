@@ -9,11 +9,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.link.endpoint.pairing.CertificateRetrieval;
 import com.jbraddockm.link.endpoint.pairing.Pairing;
-import com.jbraddockm.link.transport.cgi.ExchangeObserver;
-import com.jbraddockm.link.transport.cgi.TransportScheme;
+import com.jbraddockm.link.endpoint.update.InstallPackages;
 import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.testing.Resources;
-import com.jbraddockm.link.endpoint.update.InstallPackages;
+import com.jbraddockm.link.transport.cgi.ExchangeObserver;
+import com.jbraddockm.link.transport.cgi.TransportScheme;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -127,8 +127,8 @@ class DaemonInstallTest {
   }
 
   @Test
-  @DisplayName("refuses firmware among the files, naming the file by its position")
-  void refusesFirmware() throws Exception {
+  @DisplayName("refuses mixing applications and firmware in one command, naming files")
+  void refusesMixingApplicationsAndFirmware() throws Exception {
     var done =
         install(
             302,
@@ -140,7 +140,7 @@ class DaemonInstallTest {
                 bar("system--operating-system.bar").toString()));
 
     assertThat(errorCode(done)).isEqualTo("INVALID_ARGUMENT");
-    assertThat(errorDetails(done)).containsEntry("param", "files[1]");
+    assertThat(errorDetails(done)).containsEntry("param", "files");
   }
 
   @Test

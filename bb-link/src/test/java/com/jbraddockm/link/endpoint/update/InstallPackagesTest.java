@@ -98,26 +98,40 @@ class InstallPackagesTest {
   }
 
   @Test
-  @DisplayName(
-      "refuses an operating system image, with the words for it, naming the position of the file")
-  void refusesAnOperatingSystem() throws Exception {
+  @DisplayName("takes an operating system bar as firmware")
+  void takesAnOperatingSystem() throws Exception {
+    var command = InstallPackages.of(List.of(bar("system--operating-system.bar")));
+
+    assertThat(command.bars()).hasSize(1);
+    assertThat(command.isFirmware()).isTrue();
+  }
+
+  @Test
+  @DisplayName("takes a radio bar as firmware")
+  void takesARadio() throws Exception {
+    var command = InstallPackages.of(List.of(bar("system--radio.bar")));
+
+    assertThat(command.bars()).hasSize(1);
+    assertThat(command.isFirmware()).isTrue();
+  }
+
+  @Test
+  @DisplayName("tells that applications are not firmware")
+  void applicationsAreNotFirmware() throws Exception {
+    var command = InstallPackages.of(List.of(bar("application--first.bar")));
+
+    assertThat(command.isFirmware()).isFalse();
+  }
+
+  @Test
+  @DisplayName("refuses to mix applications and firmware in the same command, naming files")
+  void refusesMixingApplicationsAndFirmware() throws Exception {
     var list = List.of(bar("application--first.bar"), bar("system--operating-system.bar"));
 
     assertRefused(
         () -> InstallPackages.of(list),
-        "files[1]",
-        "is an operating system image; installing firmware is not supported yet");
-  }
-
-  @Test
-  @DisplayName("refuses a radio image, with the words for it")
-  void refusesARadio() throws Exception {
-    var list = List.of(bar("system--radio.bar"));
-
-    assertRefused(
-        () -> InstallPackages.of(list),
-        "files[0]",
-        "is a radio image; installing firmware is not supported yet");
+        "files",
+        "mixes applications and firmware; install them in separate commands");
   }
 
   @Test
