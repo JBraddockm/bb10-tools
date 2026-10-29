@@ -24,7 +24,10 @@ public enum PimCommand implements WireValue {
   DELETE_ACCOUNT("delete_account", "deleteAccount"),
 
   /** Sets the account's default calendar object. Changes the device. */
-  DEFAULT("default", "setDefaultCalendar");
+  DEFAULT("default", "setDefaultCalendar"),
+
+  /** Removes one item of a service. Changes the device. */
+  DELETE("delete", "delete");
 
   private final String wireName;
   private final String jsonName;

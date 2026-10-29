@@ -157,7 +157,7 @@ class LinkServiceTest {
     void hasACommandForEachMethod() {
       assertThat(service.commands())
           .extracting(CommandSpec::wireName)
-          .hasSize(22)
+          .hasSize(23)
           .first()
           .isEqualTo("getDeviceProperties");
     }

@@ -12,6 +12,7 @@ createPimAccount
 updatePimAccount
 deletePimAccount
 setDefaultCalendar
+deletePimItem
 pairDevice
 removePairing
 getAuthenticationCertificate

@@ -38,6 +38,7 @@ import com.jbraddockm.link.endpoint.pimsync.account.FindPimAccount;
 import com.jbraddockm.link.endpoint.pimsync.account.ListPimAccounts;
 import com.jbraddockm.link.endpoint.pimsync.account.SetDefaultCalendar;
 import com.jbraddockm.link.endpoint.pimsync.account.UpdatePimAccount;
+import com.jbraddockm.link.endpoint.pimsync.item.DeletePimItem;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.BarSelection;
@@ -98,6 +99,9 @@ enum LinkMethod {
 
   /** Sets the account's default calendar object. Changes the device. */
   SET_DEFAULT_CALENDAR("setDefaultCalendar"),
+
+  /** Removes one item of a service from a workstation's account. Changes the device. */
+  DELETE_PIM_ITEM("deletePimItem"),
 
   /**
    * Pairs this computer with the device, as BlackBerry Link does: the device lists it in Device
@@ -284,6 +288,11 @@ enum LinkMethod {
           argument == null
               ? Optional.of(new SetDefaultCalendar(REPLAY_WORKSTATION, "replay.object"))
               : Optional.empty();
+      case DELETE_PIM_ITEM ->
+          argument != null
+              ? Optional.of(
+                  new DeletePimItem(REPLAY_WORKSTATION, PimService.of(argument), "replay.object"))
+              : Optional.empty();
       case INSTALL_PACKAGES ->
           argument == null
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
@@ -356,6 +365,13 @@ enum LinkMethod {
               params ->
                   new SetDefaultCalendar(
                       params.requireString("workstationId"), params.requireString("objectId")));
+      case DELETE_PIM_ITEM ->
+          onSession(
+              params ->
+                  new DeletePimItem(
+                      params.requireString("workstationId"),
+                      PimService.of(params.requireString("service")),
+                      params.requireString("objectId")));
       case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
       case PAIR_DEVICE ->
           new CommandSpec.SessionScoped<>(wireName, params -> pairDevice(params, pairing));

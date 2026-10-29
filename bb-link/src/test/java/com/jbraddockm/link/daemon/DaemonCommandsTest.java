@@ -206,6 +206,22 @@ class DaemonCommandsTest {
     }
 
     @Test
+    @DisplayName("deletePimItem sends delete with the workstation, the service and the object")
+    void deletePimItem() throws Exception {
+      var id = ask("request--delete-pim-item.json", Map.of());
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id))
+          .containsEntry("command", "delete")
+          .containsEntry("service", "contacts");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=delete")
+          .contains("workstation_id=W1")
+          .contains("service=contacts")
+          .contains("object_id=OBJ1");
+    }
+
+    @Test
     @DisplayName(
         "getPimItems with every filter asks the device the request of the protocol, and passes on a"
             + " body that is not JSON as text, saying so")

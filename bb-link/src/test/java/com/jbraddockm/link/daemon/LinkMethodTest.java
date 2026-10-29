@@ -20,6 +20,7 @@ import com.jbraddockm.link.endpoint.pimsync.account.FindPimAccount;
 import com.jbraddockm.link.endpoint.pimsync.account.ListPimAccounts;
 import com.jbraddockm.link.endpoint.pimsync.account.SetDefaultCalendar;
 import com.jbraddockm.link.endpoint.pimsync.account.UpdatePimAccount;
+import com.jbraddockm.link.endpoint.pimsync.item.DeletePimItem;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
@@ -100,6 +101,7 @@ class LinkMethodTest {
       "UPDATE_PIM_ACCOUNT, updatePimAccount",
       "DELETE_PIM_ACCOUNT, deletePimAccount",
       "SET_DEFAULT_CALENDAR, setDefaultCalendar",
+      "DELETE_PIM_ITEM, deletePimItem",
       "PAIR_DEVICE, pairDevice",
       "GET_AUTHENTICATION_CERTIFICATE, getAuthenticationCertificate",
       "LIST_DEVICES, listDevices",
@@ -117,10 +119,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 22, and distinct")
-    void areTwentyTwoAndDistinct() {
+    @DisplayName("are 23, and distinct")
+    void areTwentyThreeAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(22)
+          .hasSize(23)
           .doesNotHaveDuplicates();
     }
 
@@ -173,6 +175,9 @@ class LinkMethodTest {
       assertThat(replay(LinkMethod.GET_PIM_ITEMS, service))
           .contains(new GetPimItems("replay", PimService.of(service), PimFilters.none()));
       assertThat(replay(LinkMethod.GET_PIM_ITEMS)).isEmpty();
+      assertThat(replay(LinkMethod.DELETE_PIM_ITEM, service))
+          .contains(new DeletePimItem("replay", PimService.of(service), "replay.object"));
+      assertThat(replay(LinkMethod.DELETE_PIM_ITEM)).isEmpty();
     }
 
     @Test

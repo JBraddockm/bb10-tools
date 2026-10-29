@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"deletePimItem","params":{"session":"{{session}}","workstationId":"W1","service":"contacts","objectId":"OBJ1"}}
