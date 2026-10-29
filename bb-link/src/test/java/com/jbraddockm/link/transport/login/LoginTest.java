@@ -27,7 +27,6 @@ import org.junit.jupiter.api.io.TempDir;
  * Tests for the login against the fake device: challenge and password-less logins, rejected and
  * locked accounts, and unusable answers.
  */
-@SuppressWarnings("deprecation")
 @DisplayName("Login: how a session logs in to a device")
 class LoginTest {
 
