@@ -3,6 +3,7 @@ package com.jbraddockm.link.daemon;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.jbraddockm.core.command.CommandListener;
 import com.jbraddockm.core.daemon.CommandSpec;
 import com.jbraddockm.core.daemon.Reply;
 import com.jbraddockm.core.daemon.RequestParams;
@@ -31,10 +32,13 @@ import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
 import com.jbraddockm.link.endpoint.update.UninstallPackages;
 import com.jbraddockm.link.transport.cgi.Authentication;
+import com.jbraddockm.link.transport.cgi.ConnectionPath;
 import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.cgi.DeviceTarget;
+import com.jbraddockm.link.transport.cgi.ExchangeObserver;
 import com.jbraddockm.link.transport.cgi.TransportScheme;
 import com.jbraddockm.link.transport.session.DeviceSession;
+import com.jbraddockm.link.transport.tunnel.TunnelBinding;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -89,6 +93,60 @@ class LinkMethodTest {
       var written = output.toString(StandardCharsets.UTF_8);
       assertThat(written).contains("COMMAND_FAILED").contains("getPin");
     }
+
+    @Test
+    @DisplayName(
+        "refuses a pimsync command over a tunnel as a tunnel, not as the LAN address given")
+    void refusesPimOverTunnelAsTunnel() throws Exception {
+      var scoped =
+          (CommandSpec.SessionScoped<DeviceSession>)
+              LinkMethod.LIST_PIM_ACCOUNTS.spec(_ -> {}, new Pairing(), new CertificateRetrieval());
+      var session =
+          DeviceSession.forTarget(
+              new DeviceTarget(
+                  "192.168.1.118", 8443, TransportScheme.HTTPS, new Authentication.NoPassword()),
+              ExchangeObserver.NONE,
+              null);
+      // A Wi-Fi LAN address the user gave, redirected to the tunnel's ULA. pimsync is not served
+      // over the tunnel, so it is refused — but judged by the tunnel it runs over, not the LAN
+      // address shown back: the message names the tunnel and USB, never "Wi-Fi LAN".
+      session.useTunnel(() -> new StubBinding());
+      session.establishTunnel(CommandListener.SILENT);
+      assertThat(session.connectionPath()).isEqualTo(ConnectionPath.TUNNEL);
+      var output = new ByteArrayOutputStream();
+      var reply = Reply.standalone(new PrintStream(output, true, StandardCharsets.UTF_8), 2L);
+
+      scoped.factory().apply(new RequestParams(java.util.Map.of())).run(session, reply);
+
+      var written = output.toString(StandardCharsets.UTF_8);
+      assertThat(written)
+          .contains("COMMAND_FAILED")
+          .contains("listPimAccounts")
+          .contains("Wi-Fi tunnel")
+          .contains("USB")
+          .doesNotContain("Wi-Fi LAN");
+    }
+  }
+
+  /** A tunnel binding with canned coordinates, for the guard-over-tunnel test. */
+  private static final class StubBinding implements TunnelBinding {
+    @Override
+    public String ula() {
+      return "fd00::1";
+    }
+
+    @Override
+    public String smbHost() {
+      return "169.254.1.1";
+    }
+
+    @Override
+    public boolean isDown() {
+      return false;
+    }
+
+    @Override
+    public void close() {}
   }
 
   @Nested

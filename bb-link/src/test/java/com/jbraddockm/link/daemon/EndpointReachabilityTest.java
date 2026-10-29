@@ -14,9 +14,13 @@ import org.junit.jupiter.params.provider.EnumSource;
 @DisplayName("EndpointReachability: refusing a method a path cannot reach")
 class EndpointReachabilityTest {
 
+  // wipe.cgi and pimsync.cgi do not answer over the tunnel, so the PIN read and every PIM method
+  // are served only over USB; the tunnel reaches everything else. The names are listed inline in
+  // each @EnumSource below (an annotation needs a literal array).
+
   @Nested
-  @DisplayName("over USB and the tunnel")
-  class FullSurface {
+  @DisplayName("over USB")
+  class UsbSurface {
 
     @ParameterizedTest(name = "{0}")
     @EnumSource(LinkMethod.class)
@@ -27,16 +31,70 @@ class EndpointReachabilityTest {
 
     @ParameterizedTest(name = "{0}")
     @EnumSource(LinkMethod.class)
-    @DisplayName("every method is allowed over the tunnel")
-    void everyMethodOverTunnel(LinkMethod method) {
+    @DisplayName("every method is allowed over an address of an unknown shape")
+    void everyMethodOverOther(LinkMethod method) {
+      assertThat(EndpointReachability.refusalFor(method, ConnectionPath.OTHER)).isEmpty();
+    }
+  }
+
+  @Nested
+  @DisplayName("over the Wi-Fi tunnel")
+  class TunnelSurface {
+
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(
+        value = LinkMethod.class,
+        mode = EnumSource.Mode.EXCLUDE,
+        names = {
+          "GET_PIN",
+          "LIST_PIM_ACCOUNTS",
+          "FIND_PIM_ACCOUNT",
+          "GET_PIM_ITEMS",
+          "CREATE_PIM_ACCOUNT",
+          "UPDATE_PIM_ACCOUNT",
+          "DELETE_PIM_ACCOUNT",
+          "SET_DEFAULT_CALENDAR",
+          "DELETE_PIM_ITEM",
+          "PUT_PIM_ITEM",
+          "SUMMARIZE_PIM_SYNC",
+          "FINISH_PIM_SYNC",
+          "GET_PIM_PHOTO",
+          "PUT_PIM_PHOTO"
+        })
+    @DisplayName(
+        "a method whose program the tunnel serves is allowed (backup, install, pairing, …)")
+    void tunnelServedMethodsAllowed(LinkMethod method) {
       assertThat(EndpointReachability.refusalFor(method, ConnectionPath.TUNNEL)).isEmpty();
     }
 
     @ParameterizedTest(name = "{0}")
-    @EnumSource(LinkMethod.class)
-    @DisplayName("every method is allowed over an address of an unknown shape")
-    void everyMethodOverOther(LinkMethod method) {
-      assertThat(EndpointReachability.refusalFor(method, ConnectionPath.OTHER)).isEmpty();
+    @EnumSource(
+        value = LinkMethod.class,
+        mode = EnumSource.Mode.INCLUDE,
+        names = {
+          "GET_PIN",
+          "LIST_PIM_ACCOUNTS",
+          "FIND_PIM_ACCOUNT",
+          "GET_PIM_ITEMS",
+          "CREATE_PIM_ACCOUNT",
+          "UPDATE_PIM_ACCOUNT",
+          "DELETE_PIM_ACCOUNT",
+          "SET_DEFAULT_CALENDAR",
+          "DELETE_PIM_ITEM",
+          "PUT_PIM_ITEM",
+          "SUMMARIZE_PIM_SYNC",
+          "FINISH_PIM_SYNC",
+          "GET_PIM_PHOTO",
+          "PUT_PIM_PHOTO"
+        })
+    @DisplayName(
+        "the PIN read and every PIM method are refused: their programs do not answer there")
+    void usbOnlyMethodsRefusedOverTunnel(LinkMethod method) {
+      var refusal = EndpointReachability.refusalFor(method, ConnectionPath.TUNNEL);
+
+      assertThat(refusal).isPresent();
+      assertThat(refusal.orElseThrow().code()).isEqualTo(CoreErrorCode.COMMAND_FAILED);
+      assertThat(refusal.orElseThrow().message()).contains("Wi-Fi tunnel").contains("USB");
     }
   }
 

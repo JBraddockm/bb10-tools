@@ -368,8 +368,10 @@ enum LinkMethod {
 
   /**
    * Wraps a session-scoped specification so the command is refused before it runs when the
-   * session's path cannot reach the program the method needs. A standalone method has no session
-   * and is returned unchanged.
+   * session's path cannot reach the program the method needs. The path checked is the one commands
+   * actually run over ({@link DeviceSession#connectionPath()}) — the tunnel's ULA on a tunnel
+   * connect, not the Wi-Fi LAN address the user gave — so a tunnel reaches the whole management
+   * interface, as it should. A standalone method has no session and is returned unchanged.
    */
   private CommandSpec<DeviceSession> guarded(CommandSpec<DeviceSession> spec) {
     if (spec instanceof CommandSpec.SessionScoped<DeviceSession>(var name, var factory)) {
@@ -378,7 +380,7 @@ enum LinkMethod {
           params -> {
             var command = factory.apply(params);
             return (session, reply) ->
-                EndpointReachability.refusalFor(this, session.target().path())
+                EndpointReachability.refusalFor(this, session.connectionPath())
                     .ifPresentOrElse(reply::fail, () -> command.run(session, reply));
           });
     }

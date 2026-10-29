@@ -28,14 +28,19 @@ import java.util.Set;
 final class EndpointReachability {
 
   /**
-   * The programs each path reaches. USB and the tunnel reach the whole interface; a plain Wi-Fi LAN
-   * address reaches only the login, and an address of an unknown shape is not refused by its shape
-   * (it is left to the connection itself), so it is treated as reaching everything.
+   * The programs each path reaches. USB reaches the whole interface. The tunnel reaches all of it
+   * <em>except</em> {@code wipe.cgi} and {@code pimsync.cgi}: the device accepts a connection to
+   * those over the tunnel but never sends an HTTP response, so a PIN read or a PIM command made
+   * over the tunnel is refused up front with a clear message instead of being left to time out as a
+   * lost connection (observed on a Passport; {@code connect} already reads the PIN from {@code
+   * discovery.cgi} rather than {@code wipe.cgi} for the same reason). A plain Wi-Fi LAN address
+   * reaches only the login; an address of an unknown shape is not refused by its shape (it is left
+   * to the connection itself), so it is treated as reaching everything.
    */
   private static final Map<ConnectionPath, Set<Endpoint>> REACHABLE_BY_PATH =
       Map.of(
           ConnectionPath.USB, EnumSet.allOf(Endpoint.class),
-          ConnectionPath.TUNNEL, EnumSet.allOf(Endpoint.class),
+          ConnectionPath.TUNNEL, EnumSet.complementOf(EnumSet.of(Endpoint.WIPE, Endpoint.PIM_SYNC)),
           ConnectionPath.LAN, EnumSet.of(Endpoint.LOGIN),
           ConnectionPath.OTHER, EnumSet.allOf(Endpoint.class));
 
