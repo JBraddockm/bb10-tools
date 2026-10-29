@@ -9,6 +9,9 @@ listPimAccounts
 findPimAccount
 getPimItems
 createPimAccount
+updatePimAccount
+deletePimAccount
+setDefaultCalendar
 pairDevice
 removePairing
 getAuthenticationCertificate

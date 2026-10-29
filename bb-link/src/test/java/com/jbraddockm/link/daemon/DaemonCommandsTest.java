@@ -167,6 +167,45 @@ class DaemonCommandsTest {
     }
 
     @Test
+    @DisplayName("updatePimAccount sends update_account with the workstation and its name")
+    void updatePimAccount() throws Exception {
+      var id = ask("request--update-pim-account.json", Map.of());
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id)).containsEntry("command", "updateAccount");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=update_account")
+          .contains("workstation_id=W1")
+          .contains("workstation_name=My%20PC");
+    }
+
+    @Test
+    @DisplayName("deletePimAccount sends delete_account with the workstation")
+    void deletePimAccount() throws Exception {
+      var id = ask("request--delete-pim-account.json", Map.of());
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id)).containsEntry("command", "deleteAccount");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=delete_account")
+          .contains("workstation_id=W1");
+    }
+
+    @Test
+    @DisplayName("setDefaultCalendar sends default on the calendars service with the object")
+    void setDefaultCalendar() throws Exception {
+      var id = ask("request--set-default-calendar.json", Map.of());
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id)).containsEntry("command", "setDefaultCalendar");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=default")
+          .contains("workstation_id=W1")
+          .contains("service=calendars")
+          .contains("object_id=C1");
+    }
+
+    @Test
     @DisplayName(
         "getPimItems with every filter asks the device the request of the protocol, and passes on a"
             + " body that is not JSON as text, saying so")

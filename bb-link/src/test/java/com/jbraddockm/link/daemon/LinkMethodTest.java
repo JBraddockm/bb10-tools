@@ -15,8 +15,11 @@ import com.jbraddockm.link.endpoint.pairing.Pairing;
 import com.jbraddockm.link.endpoint.pimsync.PimFilters;
 import com.jbraddockm.link.endpoint.pimsync.PimService;
 import com.jbraddockm.link.endpoint.pimsync.account.CreatePimAccount;
+import com.jbraddockm.link.endpoint.pimsync.account.DeletePimAccount;
 import com.jbraddockm.link.endpoint.pimsync.account.FindPimAccount;
 import com.jbraddockm.link.endpoint.pimsync.account.ListPimAccounts;
+import com.jbraddockm.link.endpoint.pimsync.account.SetDefaultCalendar;
+import com.jbraddockm.link.endpoint.pimsync.account.UpdatePimAccount;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
@@ -94,6 +97,9 @@ class LinkMethodTest {
       "FIND_PIM_ACCOUNT, findPimAccount",
       "GET_PIM_ITEMS, getPimItems",
       "CREATE_PIM_ACCOUNT, createPimAccount",
+      "UPDATE_PIM_ACCOUNT, updatePimAccount",
+      "DELETE_PIM_ACCOUNT, deletePimAccount",
+      "SET_DEFAULT_CALENDAR, setDefaultCalendar",
       "PAIR_DEVICE, pairDevice",
       "GET_AUTHENTICATION_CERTIFICATE, getAuthenticationCertificate",
       "LIST_DEVICES, listDevices",
@@ -111,10 +117,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 19, and distinct")
-    void areNineteenAndDistinct() {
+    @DisplayName("are 22, and distinct")
+    void areTwentyTwoAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(19)
+          .hasSize(22)
           .doesNotHaveDuplicates();
     }
 
@@ -150,6 +156,12 @@ class LinkMethodTest {
       assertThat(replay(LinkMethod.CREATE_PIM_ACCOUNT))
           .contains(new CreatePimAccount("replay", "Replay"));
       assertThat(replay(LinkMethod.CREATE_PIM_ACCOUNT, "x")).isEmpty();
+      assertThat(replay(LinkMethod.UPDATE_PIM_ACCOUNT))
+          .contains(new UpdatePimAccount("replay", "Replay"));
+      assertThat(replay(LinkMethod.DELETE_PIM_ACCOUNT)).contains(new DeletePimAccount("replay"));
+      assertThat(replay(LinkMethod.SET_DEFAULT_CALENDAR))
+          .contains(new SetDefaultCalendar("replay", "replay.object"));
+      assertThat(replay(LinkMethod.SET_DEFAULT_CALENDAR, "x")).isEmpty();
     }
 
     @ParameterizedTest(name = "{0}")

@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"setDefaultCalendar","params":{"session":"{{session}}","workstationId":"W1","objectId":"C1"}}

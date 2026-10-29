@@ -33,8 +33,11 @@ import com.jbraddockm.link.endpoint.pairing.RenewRequest;
 import com.jbraddockm.link.endpoint.pimsync.PimFilters;
 import com.jbraddockm.link.endpoint.pimsync.PimService;
 import com.jbraddockm.link.endpoint.pimsync.account.CreatePimAccount;
+import com.jbraddockm.link.endpoint.pimsync.account.DeletePimAccount;
 import com.jbraddockm.link.endpoint.pimsync.account.FindPimAccount;
 import com.jbraddockm.link.endpoint.pimsync.account.ListPimAccounts;
+import com.jbraddockm.link.endpoint.pimsync.account.SetDefaultCalendar;
+import com.jbraddockm.link.endpoint.pimsync.account.UpdatePimAccount;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.BarSelection;
@@ -86,6 +89,15 @@ enum LinkMethod {
 
   /** Registers a workstation as a PIM account on the device. Changes the device. */
   CREATE_PIM_ACCOUNT("createPimAccount"),
+
+  /** Updates the account of a workstation. Changes the device. */
+  UPDATE_PIM_ACCOUNT("updatePimAccount"),
+
+  /** Removes the account of a workstation. Changes the device. */
+  DELETE_PIM_ACCOUNT("deletePimAccount"),
+
+  /** Sets the account's default calendar object. Changes the device. */
+  SET_DEFAULT_CALENDAR("setDefaultCalendar"),
 
   /**
    * Pairs this computer with the device, as BlackBerry Link does: the device lists it in Device
@@ -260,6 +272,18 @@ enum LinkMethod {
           argument == null
               ? Optional.of(new CreatePimAccount(REPLAY_WORKSTATION, "Replay"))
               : Optional.empty();
+      case UPDATE_PIM_ACCOUNT ->
+          argument == null
+              ? Optional.of(new UpdatePimAccount(REPLAY_WORKSTATION, "Replay"))
+              : Optional.empty();
+      case DELETE_PIM_ACCOUNT ->
+          argument == null
+              ? Optional.of(new DeletePimAccount(REPLAY_WORKSTATION))
+              : Optional.empty();
+      case SET_DEFAULT_CALENDAR ->
+          argument == null
+              ? Optional.of(new SetDefaultCalendar(REPLAY_WORKSTATION, "replay.object"))
+              : Optional.empty();
       case INSTALL_PACKAGES ->
           argument == null
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
@@ -319,6 +343,19 @@ enum LinkMethod {
                   new CreatePimAccount(
                       params.requireString("workstationId"),
                       params.requireString("workstationName")));
+      case UPDATE_PIM_ACCOUNT ->
+          onSession(
+              params ->
+                  new UpdatePimAccount(
+                      params.requireString("workstationId"),
+                      params.requireString("workstationName")));
+      case DELETE_PIM_ACCOUNT ->
+          onSession(params -> new DeletePimAccount(params.requireString("workstationId")));
+      case SET_DEFAULT_CALENDAR ->
+          onSession(
+              params ->
+                  new SetDefaultCalendar(
+                      params.requireString("workstationId"), params.requireString("objectId")));
       case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
       case PAIR_DEVICE ->
           new CommandSpec.SessionScoped<>(wireName, params -> pairDevice(params, pairing));

@@ -120,4 +120,104 @@ class PimAccountCommandsTest {
               invalid -> assertThat(invalid.parameter()).isEqualTo("workstationName"));
     }
   }
+
+  @Nested
+  @DisplayName("UpdatePimAccount")
+  class Updating {
+
+    @Test
+    @DisplayName("asks for update_account with the workstation and its name, both encoded")
+    void asksToUpdate() {
+      var request = requestOf(new UpdatePimAccount("WS1", "My PC"));
+
+      assertThat(request.pathAndQuery())
+          .isEqualTo(
+              "/cgi-bin/pimsync.cgi?command=update_account&workstation_id=WS1"
+                  + "&workstation_name=My%20PC");
+      assertThat(request.describe()).isEqualTo("Updating the PIM account of a workstation");
+    }
+
+    @Test
+    @DisplayName("changes the device, so it is not read-only")
+    void changesTheDevice() {
+      assertThat(new UpdatePimAccount("WS1", "My PC").readOnly()).isFalse();
+    }
+
+    @ParameterizedTest(name = "\"{0}\" is not a name")
+    @NullAndEmptySource
+    @ValueSource(strings = {" "})
+    @DisplayName("needs a name that is not blank, naming workstationName")
+    void needsAName(String name) {
+      assertThatThrownBy(() -> new UpdatePimAccount("WS1", name))
+          .isInstanceOfSatisfying(
+              InvalidArgumentException.class,
+              invalid -> assertThat(invalid.parameter()).isEqualTo("workstationName"));
+    }
+  }
+
+  @Nested
+  @DisplayName("DeletePimAccount")
+  class Deleting {
+
+    @Test
+    @DisplayName("asks for delete_account with the workstation")
+    void asksToDelete() {
+      var request = requestOf(new DeletePimAccount("WS1"));
+
+      assertThat(request.pathAndQuery())
+          .isEqualTo("/cgi-bin/pimsync.cgi?command=delete_account&workstation_id=WS1");
+      assertThat(request.describe()).isEqualTo("Removing the PIM account of a workstation");
+    }
+
+    @Test
+    @DisplayName("changes the device, so it is not read-only")
+    void changesTheDevice() {
+      assertThat(new DeletePimAccount("WS1").readOnly()).isFalse();
+    }
+
+    @ParameterizedTest(name = "\"{0}\" is not a workstation")
+    @NullAndEmptySource
+    @ValueSource(strings = {" "})
+    @DisplayName("needs a workstation that is not blank, naming workstationId")
+    void needsAWorkstation(String workstation) {
+      assertThatThrownBy(() -> new DeletePimAccount(workstation))
+          .isInstanceOfSatisfying(
+              InvalidArgumentException.class,
+              invalid -> assertThat(invalid.parameter()).isEqualTo("workstationId"));
+    }
+  }
+
+  @Nested
+  @DisplayName("SetDefaultCalendar")
+  class SettingDefault {
+
+    @Test
+    @DisplayName("asks for default on the calendars service with the workstation and the object")
+    void asksToSetDefault() {
+      var request = requestOf(new SetDefaultCalendar("WS1", "C1"));
+
+      assertThat(request.pathAndQuery())
+          .isEqualTo(
+              "/cgi-bin/pimsync.cgi?command=default&workstation_id=WS1&service=calendars"
+                  + "&object_id=C1");
+      assertThat(request.describe()).isEqualTo("Setting the default calendar of a workstation");
+    }
+
+    @Test
+    @DisplayName("changes the device, so it is not read-only")
+    void changesTheDevice() {
+      assertThat(new SetDefaultCalendar("WS1", "C1").readOnly()).isFalse();
+    }
+
+    @ParameterizedTest(name = "\"{0}\" is not an object")
+    @NullAndEmptySource
+    @ValueSource(strings = {" "})
+    @DisplayName("needs an object that is not blank, naming objectId")
+    void needsAnObject(String object) {
+      assertThatThrownBy(() -> new SetDefaultCalendar("WS1", object))
+          .isInstanceOfSatisfying(
+              InvalidArgumentException.class,
+              invalid -> assertThat(invalid.parameter()).isEqualTo("objectId"));
+    }
+  }
 }

@@ -54,7 +54,10 @@ class PimTypesTest {
       "LIST_ACCOUNTS, list_accounts, listAccounts",
       "FIND_ACCOUNT_ID, find_accountId, findAccount",
       "GET, get, get",
-      "CREATE_ACCOUNT, create_account, createAccount"
+      "CREATE_ACCOUNT, create_account, createAccount",
+      "UPDATE_ACCOUNT, update_account, updateAccount",
+      "DELETE_ACCOUNT, delete_account, deleteAccount",
+      "DEFAULT, default, setDefaultCalendar"
     })
     @DisplayName(
         "each command has the name that the device is asked with, and the name that the daemon"

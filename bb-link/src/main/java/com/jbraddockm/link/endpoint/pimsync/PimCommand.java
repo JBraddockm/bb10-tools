@@ -15,7 +15,16 @@ public enum PimCommand implements WireValue {
   GET("get", "get"),
 
   /** Registers a workstation as a BlackBerry Link account. Changes the device. */
-  CREATE_ACCOUNT("create_account", "createAccount");
+  CREATE_ACCOUNT("create_account", "createAccount"),
+
+  /** Updates the account of a workstation. Changes the device. */
+  UPDATE_ACCOUNT("update_account", "updateAccount"),
+
+  /** Removes the account of a workstation. Changes the device. */
+  DELETE_ACCOUNT("delete_account", "deleteAccount"),
+
+  /** Sets the account's default calendar object. Changes the device. */
+  DEFAULT("default", "setDefaultCalendar");
 
   private final String wireName;
   private final String jsonName;

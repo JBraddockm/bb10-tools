@@ -15,6 +15,9 @@ public enum QueryParameter implements WireValue {
   /** The human-readable name of the client, sent when an account is created or updated. */
   WORKSTATION_NAME("workstation_name"),
 
+  /** The identifier of a single item within a service, such as the calendar to make the default. */
+  OBJECT_ID("object_id"),
+
   /** Only items changed since this time. */
   UPDATED_TIME("updated_time"),
 
