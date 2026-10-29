@@ -325,7 +325,7 @@ class DaemonConnectTest {
 
       assertThat(errorCode(done)).isEqualTo("PASSWORD_REQUIRED");
       assertThat(device.loginRequests.get()).isEqualTo(1);
-      assertThat(device.failedAttempts).isZero();
+      assertThat(device.failedAttempts.get()).isZero();
     }
   }
 

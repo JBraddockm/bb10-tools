@@ -345,7 +345,7 @@ class LinkServiceTest {
         "is rejected as AUTH_LOCKED when the wrong password was the last attempt that the device"
             + " allows")
     void aLockedDevice() {
-      device.failedAttempts = 4;
+      device.failedAttempts.set(4);
 
       var establishment = establish("link-service--connect-wrong-password.json");
 

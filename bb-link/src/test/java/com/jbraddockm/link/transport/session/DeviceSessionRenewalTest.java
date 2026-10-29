@@ -195,7 +195,7 @@ class DeviceSessionRenewalTest {
       device.authority = new TestAuthority();
       succeeded(session.execute(new GetPin(), CommandListener.SILENT));
       var before = device.cgiRequests.get();
-      device.afterNextCgiRequest = () -> device.dropNext = 1;
+      device.afterNextCgiRequest = () -> device.dropNext.set(1);
 
       var outcome = failed(session.execute(confirmedRequest(), CommandListener.SILENT));
 
@@ -224,7 +224,7 @@ class DeviceSessionRenewalTest {
             + " through")
     void aReadIsRepeated() {
       succeeded(session.execute(new GetPin(), CommandListener.SILENT));
-      device.dropNext = 1;
+      device.dropNext.set(1);
       var logs = new Logs();
 
       succeeded(session.execute(new GetDeviceProperties(), logs));
@@ -239,7 +239,7 @@ class DeviceSessionRenewalTest {
     void aReadIsRepeatedOnce() {
       succeeded(session.execute(new GetPin(), CommandListener.SILENT));
       var before = device.cgiRequests.get();
-      device.dropNext = 2;
+      device.dropNext.set(2);
 
       var failure = failed(session.execute(new GetDeviceProperties(), CommandListener.SILENT));
 
@@ -254,7 +254,7 @@ class DeviceSessionRenewalTest {
     void aWriteIsNeverRepeated() {
       succeeded(session.execute(new GetPin(), CommandListener.SILENT));
       var before = device.cgiRequests.get();
-      device.dropNext = 1;
+      device.dropNext.set(1);
       var request = Resources.text(DeviceSessionRenewalTest.class, "device-session--request.pem");
 
       var failure =

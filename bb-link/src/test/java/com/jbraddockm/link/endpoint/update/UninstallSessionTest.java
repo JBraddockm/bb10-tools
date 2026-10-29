@@ -315,7 +315,7 @@ class UninstallSessionTest {
     void aDroppedRemoval() {
       session.execute(new GetDeviceProperties(), CommandListener.SILENT);
       // the third request of the command is the removal; it is dropped without an answer
-      device.afterNextCgiRequest = () -> device.afterNextCgiRequest = () -> device.dropNext = 1;
+      device.afterNextCgiRequest = () -> device.afterNextCgiRequest = () -> device.dropNext.set(1);
 
       var outcome = failed(session.execute(new UninstallPackages(List.of(FIRST)), new Logs()));
 

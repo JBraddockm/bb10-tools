@@ -197,7 +197,7 @@ class DeviceSessionTest {
     @Test
     @DisplayName("the last wrong password is AUTH_LOCKED")
     void aLockedDevice() {
-      device.failedAttempts = 4;
+      device.failedAttempts.set(4);
       var wrong = sessionFor(device.port(), new Authentication.Password("wrong"));
 
       var failure = failed(wrong.execute(new GetPin(), CommandListener.SILENT));

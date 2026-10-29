@@ -115,7 +115,7 @@ class DaemonAuthenticationTest {
       assertThat(errorCode(refusal)).isEqualTo("AUTH_FAILED");
       assertThat(errorMessage(refusal)).contains("client certificate");
       assertThat(device.loginRequests.get()).isEqualTo(logins + 2);
-      assertThat(device.failedAttempts).isZero();
+      assertThat(device.failedAttempts.get()).isZero();
       assertThat(daemon.events(152, "log"))
           .anyMatch(
               event ->

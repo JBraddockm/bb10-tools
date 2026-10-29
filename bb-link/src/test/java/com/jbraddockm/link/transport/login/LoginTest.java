@@ -122,7 +122,7 @@ class LoginTest {
     @Test
     @DisplayName("the last wrong password locks the device, and the rejection says so")
     void theLastWrongPassword() {
-      device.failedAttempts = 4;
+      device.failedAttempts.set(4);
 
       assertThatThrownBy(() -> Login.perform(openDevice(new Authentication.Password("wrong"))))
           .isInstanceOfSatisfying(
