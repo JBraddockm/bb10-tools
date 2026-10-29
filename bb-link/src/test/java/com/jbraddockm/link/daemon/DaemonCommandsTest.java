@@ -238,6 +238,37 @@ class DaemonCommandsTest {
     }
 
     @Test
+    @DisplayName("summarizePimSync opens a round with the workstation and the service")
+    void summarizePimSync() throws Exception {
+      var id = ask("request--summarize-pim-sync.json", Map.of());
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id))
+          .containsEntry("command", "summary")
+          .containsEntry("service", "contacts");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=summary")
+          .contains("workstation_id=W1")
+          .contains("service=contacts");
+    }
+
+    @Test
+    @DisplayName("finishPimSync posts done with the round payload as the data field")
+    void finishPimSync() throws Exception {
+      var id = ask("request--finish-pim-sync.json", Map.of());
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id))
+          .containsEntry("command", "done")
+          .containsEntry("service", "events");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=done")
+          .contains("service=events")
+          .contains("workstation_id=W1")
+          .contains("data=");
+    }
+
+    @Test
     @DisplayName(
         "getPimItems with every filter asks the device the request of the protocol, and passes on a"
             + " body that is not JSON as text, saying so")

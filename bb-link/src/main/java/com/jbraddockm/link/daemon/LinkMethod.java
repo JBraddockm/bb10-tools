@@ -39,8 +39,10 @@ import com.jbraddockm.link.endpoint.pimsync.account.ListPimAccounts;
 import com.jbraddockm.link.endpoint.pimsync.account.SetDefaultCalendar;
 import com.jbraddockm.link.endpoint.pimsync.account.UpdatePimAccount;
 import com.jbraddockm.link.endpoint.pimsync.item.DeletePimItem;
+import com.jbraddockm.link.endpoint.pimsync.item.FinishPimSync;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.pimsync.item.PutPimItem;
+import com.jbraddockm.link.endpoint.pimsync.item.SummarizePimSync;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.BarSelection;
 import com.jbraddockm.link.endpoint.update.InspectPackage;
@@ -107,6 +109,12 @@ enum LinkMethod {
 
   /** Creates or updates one item of a service in a workstation's account. Changes the device. */
   PUT_PIM_ITEM("putPimItem"),
+
+  /** Opens a sync round for a workstation's account and asks what changed. Part of a sync round. */
+  SUMMARIZE_PIM_SYNC("summarizePimSync"),
+
+  /** Closes a sync round, submitting the reconciled result. Changes the device. */
+  FINISH_PIM_SYNC("finishPimSync"),
 
   /**
    * Pairs this computer with the device, as BlackBerry Link does: the device lists it in Device
@@ -304,6 +312,16 @@ enum LinkMethod {
                   new PutPimItem(
                       REPLAY_WORKSTATION, PimService.of(argument), Map.of("replay", "item")))
               : Optional.empty();
+      case SUMMARIZE_PIM_SYNC ->
+          argument != null
+              ? Optional.of(new SummarizePimSync(REPLAY_WORKSTATION, PimService.of(argument)))
+              : Optional.empty();
+      case FINISH_PIM_SYNC ->
+          argument != null
+              ? Optional.of(
+                  new FinishPimSync(
+                      REPLAY_WORKSTATION, PimService.of(argument), Map.of("replay", "item")))
+              : Optional.empty();
       case INSTALL_PACKAGES ->
           argument == null
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
@@ -390,6 +408,19 @@ enum LinkMethod {
                       params.requireString("workstationId"),
                       PimService.of(params.requireString("service")),
                       params.requireObjectMap("item")));
+      case SUMMARIZE_PIM_SYNC ->
+          onSession(
+              params ->
+                  new SummarizePimSync(
+                      params.requireString("workstationId"),
+                      PimService.of(params.requireString("service"))));
+      case FINISH_PIM_SYNC ->
+          onSession(
+              params ->
+                  new FinishPimSync(
+                      params.requireString("workstationId"),
+                      PimService.of(params.requireString("service")),
+                      params.requireObjectMap("payload")));
       case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
       case PAIR_DEVICE ->
           new CommandSpec.SessionScoped<>(wireName, params -> pairDevice(params, pairing));

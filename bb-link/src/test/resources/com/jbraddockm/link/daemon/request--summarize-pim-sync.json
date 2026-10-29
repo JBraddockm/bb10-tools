@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"summarizePimSync","params":{"session":"{{session}}","workstationId":"W1","service":"contacts"}}

@@ -30,7 +30,13 @@ public enum PimCommand implements WireValue {
   DELETE("delete", "delete"),
 
   /** Creates or updates one item of a service. Changes the device. */
-  PUT("put", "put");
+  PUT("put", "put"),
+
+  /** Opens a sync round and asks the device what changed. Part of a sync round. */
+  SUMMARY("summary", "summary"),
+
+  /** Closes a sync round, submitting the reconciled result. Changes the device. */
+  DONE("done", "done");
 
   private final String wireName;
   private final String jsonName;

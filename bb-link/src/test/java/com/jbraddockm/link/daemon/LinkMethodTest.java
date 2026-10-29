@@ -21,8 +21,10 @@ import com.jbraddockm.link.endpoint.pimsync.account.ListPimAccounts;
 import com.jbraddockm.link.endpoint.pimsync.account.SetDefaultCalendar;
 import com.jbraddockm.link.endpoint.pimsync.account.UpdatePimAccount;
 import com.jbraddockm.link.endpoint.pimsync.item.DeletePimItem;
+import com.jbraddockm.link.endpoint.pimsync.item.FinishPimSync;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
 import com.jbraddockm.link.endpoint.pimsync.item.PutPimItem;
+import com.jbraddockm.link.endpoint.pimsync.item.SummarizePimSync;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
 import com.jbraddockm.link.endpoint.update.UninstallPackages;
@@ -105,6 +107,8 @@ class LinkMethodTest {
       "SET_DEFAULT_CALENDAR, setDefaultCalendar",
       "DELETE_PIM_ITEM, deletePimItem",
       "PUT_PIM_ITEM, putPimItem",
+      "SUMMARIZE_PIM_SYNC, summarizePimSync",
+      "FINISH_PIM_SYNC, finishPimSync",
       "PAIR_DEVICE, pairDevice",
       "GET_AUTHENTICATION_CERTIFICATE, getAuthenticationCertificate",
       "LIST_DEVICES, listDevices",
@@ -122,10 +126,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 24, and distinct")
-    void areTwentyFourAndDistinct() {
+    @DisplayName("are 26, and distinct")
+    void areTwentySixAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(24)
+          .hasSize(26)
           .doesNotHaveDuplicates();
     }
 
@@ -184,6 +188,18 @@ class LinkMethodTest {
       assertThat(replay(LinkMethod.PUT_PIM_ITEM, service))
           .contains(new PutPimItem("replay", PimService.of(service), Map.of("replay", "item")));
       assertThat(replay(LinkMethod.PUT_PIM_ITEM)).isEmpty();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"contacts", "events"})
+    @DisplayName("a sync round takes the service as its argument, and has none without it")
+    void syncRound(String service) {
+      assertThat(replay(LinkMethod.SUMMARIZE_PIM_SYNC, service))
+          .contains(new SummarizePimSync("replay", PimService.of(service)));
+      assertThat(replay(LinkMethod.SUMMARIZE_PIM_SYNC)).isEmpty();
+      assertThat(replay(LinkMethod.FINISH_PIM_SYNC, service))
+          .contains(new FinishPimSync("replay", PimService.of(service), Map.of("replay", "item")));
+      assertThat(replay(LinkMethod.FINISH_PIM_SYNC)).isEmpty();
     }
 
     @Test

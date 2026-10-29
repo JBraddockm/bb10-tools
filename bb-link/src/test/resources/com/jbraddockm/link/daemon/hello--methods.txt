@@ -14,6 +14,8 @@ deletePimAccount
 setDefaultCalendar
 deletePimItem
 putPimItem
+summarizePimSync
+finishPimSync
 pairDevice
 removePairing
 getAuthenticationCertificate

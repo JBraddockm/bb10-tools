@@ -7,12 +7,12 @@ import static com.jbraddockm.link.testing.Steps.sent;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.core.error.CoreErrorCode;
+import com.jbraddockm.link.testing.Resources;
 import com.jbraddockm.link.transport.cgi.BodyFormat;
 import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.CgiResponse;
 import com.jbraddockm.link.transport.cgi.QueryParameter;
 import com.jbraddockm.link.transport.cgi.Step;
-import com.jbraddockm.link.testing.Resources;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.DisplayName;
@@ -125,6 +125,16 @@ class PimSyncConversationTest {
 
       assertThat(result.code()).isEqualTo(2000);
       assertThat(result.message()).isEqualTo("something else went wrong");
+    }
+
+    @Test
+    @DisplayName(
+        "of 1016 No Changes is a normal result, not a refusal — it is how a quiet round ends")
+    void noChangesIsAnAnswer() {
+      var result = finished(answer("pim--no-changes.json"));
+
+      assertThat(result.code()).isEqualTo(1016);
+      assertThat(result.message()).isEqualTo("No Changes");
     }
 
     @Test
