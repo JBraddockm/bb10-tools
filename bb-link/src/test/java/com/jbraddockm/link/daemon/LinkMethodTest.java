@@ -22,6 +22,7 @@ import com.jbraddockm.link.endpoint.pimsync.account.SetDefaultCalendar;
 import com.jbraddockm.link.endpoint.pimsync.account.UpdatePimAccount;
 import com.jbraddockm.link.endpoint.pimsync.item.DeletePimItem;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
+import com.jbraddockm.link.endpoint.pimsync.item.PutPimItem;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
 import com.jbraddockm.link.endpoint.update.UninstallPackages;
@@ -36,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
@@ -102,6 +104,7 @@ class LinkMethodTest {
       "DELETE_PIM_ACCOUNT, deletePimAccount",
       "SET_DEFAULT_CALENDAR, setDefaultCalendar",
       "DELETE_PIM_ITEM, deletePimItem",
+      "PUT_PIM_ITEM, putPimItem",
       "PAIR_DEVICE, pairDevice",
       "GET_AUTHENTICATION_CERTIFICATE, getAuthenticationCertificate",
       "LIST_DEVICES, listDevices",
@@ -119,10 +122,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 23, and distinct")
-    void areTwentyThreeAndDistinct() {
+    @DisplayName("are 24, and distinct")
+    void areTwentyFourAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(23)
+          .hasSize(24)
           .doesNotHaveDuplicates();
     }
 
@@ -178,6 +181,9 @@ class LinkMethodTest {
       assertThat(replay(LinkMethod.DELETE_PIM_ITEM, service))
           .contains(new DeletePimItem("replay", PimService.of(service), "replay.object"));
       assertThat(replay(LinkMethod.DELETE_PIM_ITEM)).isEmpty();
+      assertThat(replay(LinkMethod.PUT_PIM_ITEM, service))
+          .contains(new PutPimItem("replay", PimService.of(service), Map.of("replay", "item")));
+      assertThat(replay(LinkMethod.PUT_PIM_ITEM)).isEmpty();
     }
 
     @Test

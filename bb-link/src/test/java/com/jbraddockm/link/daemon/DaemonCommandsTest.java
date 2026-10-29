@@ -222,6 +222,22 @@ class DaemonCommandsTest {
     }
 
     @Test
+    @DisplayName("putPimItem posts the item it is given as the json field, verbatim")
+    void putPimItem() throws Exception {
+      var id = ask("request--put-pim-item.json", Map.of());
+
+      assertThat(daemon.done(id).get("ok")).isEqualTo(true);
+      assertThat(daemon.data(id))
+          .containsEntry("command", "put")
+          .containsEntry("service", "contacts");
+      assertThat(device.pimRequests().getLast())
+          .contains("command=put")
+          .contains("service=contacts")
+          .contains("workstation_id=W1")
+          .contains("json=");
+    }
+
+    @Test
     @DisplayName(
         "getPimItems with every filter asks the device the request of the protocol, and passes on a"
             + " body that is not JSON as text, saying so")

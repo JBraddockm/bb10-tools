@@ -40,6 +40,7 @@ import com.jbraddockm.link.endpoint.pimsync.account.SetDefaultCalendar;
 import com.jbraddockm.link.endpoint.pimsync.account.UpdatePimAccount;
 import com.jbraddockm.link.endpoint.pimsync.item.DeletePimItem;
 import com.jbraddockm.link.endpoint.pimsync.item.GetPimItems;
+import com.jbraddockm.link.endpoint.pimsync.item.PutPimItem;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
 import com.jbraddockm.link.endpoint.update.BarSelection;
 import com.jbraddockm.link.endpoint.update.InspectPackage;
@@ -54,6 +55,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -102,6 +104,9 @@ enum LinkMethod {
 
   /** Removes one item of a service from a workstation's account. Changes the device. */
   DELETE_PIM_ITEM("deletePimItem"),
+
+  /** Creates or updates one item of a service in a workstation's account. Changes the device. */
+  PUT_PIM_ITEM("putPimItem"),
 
   /**
    * Pairs this computer with the device, as BlackBerry Link does: the device lists it in Device
@@ -293,6 +298,12 @@ enum LinkMethod {
               ? Optional.of(
                   new DeletePimItem(REPLAY_WORKSTATION, PimService.of(argument), "replay.object"))
               : Optional.empty();
+      case PUT_PIM_ITEM ->
+          argument != null
+              ? Optional.of(
+                  new PutPimItem(
+                      REPLAY_WORKSTATION, PimService.of(argument), Map.of("replay", "item")))
+              : Optional.empty();
       case INSTALL_PACKAGES ->
           argument == null
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
@@ -372,6 +383,13 @@ enum LinkMethod {
                       params.requireString("workstationId"),
                       PimService.of(params.requireString("service")),
                       params.requireString("objectId")));
+      case PUT_PIM_ITEM ->
+          onSession(
+              params ->
+                  new PutPimItem(
+                      params.requireString("workstationId"),
+                      PimService.of(params.requireString("service")),
+                      params.requireObjectMap("item")));
       case UNINSTALL_PACKAGES -> onSession(LinkMethod::uninstallPackages);
       case PAIR_DEVICE ->
           new CommandSpec.SessionScoped<>(wireName, params -> pairDevice(params, pairing));

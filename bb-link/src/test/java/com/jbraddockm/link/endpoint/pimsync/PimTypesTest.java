@@ -58,7 +58,8 @@ class PimTypesTest {
       "UPDATE_ACCOUNT, update_account, updateAccount",
       "DELETE_ACCOUNT, delete_account, deleteAccount",
       "DEFAULT, default, setDefaultCalendar",
-      "DELETE, delete, delete"
+      "DELETE, delete, delete",
+      "PUT, put, put"
     })
     @DisplayName(
         "each command has the name that the device is asked with, and the name that the daemon"

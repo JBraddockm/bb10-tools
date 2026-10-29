@@ -56,7 +56,19 @@ public enum FormField implements WireValue {
   TOTAL_SIZE("totalsize"),
 
   /** The package types to sub-select within the app category on a rev2 backup. */
-  PKGTYPE("pkgtype");
+  PKGTYPE("pkgtype"),
+
+  /** The operation a PIM write performs, when it is carried in the body rather than the query. */
+  COMMAND("command"),
+
+  /** The kind of items a PIM write works on. */
+  SERVICE("service"),
+
+  /** The client the PIM write is for. */
+  WORKSTATION_ID("workstation_id"),
+
+  /** A PIM item as its own JSON, forwarded to the device verbatim. */
+  JSON("json");
 
   private final String wireName;
 

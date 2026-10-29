@@ -27,7 +27,10 @@ public enum PimCommand implements WireValue {
   DEFAULT("default", "setDefaultCalendar"),
 
   /** Removes one item of a service. Changes the device. */
-  DELETE("delete", "delete");
+  DELETE("delete", "delete"),
+
+  /** Creates or updates one item of a service. Changes the device. */
+  PUT("put", "put");
 
   private final String wireName;
   private final String jsonName;

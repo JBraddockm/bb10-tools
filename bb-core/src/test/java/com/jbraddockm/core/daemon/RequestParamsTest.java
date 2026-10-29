@@ -71,6 +71,21 @@ class RequestParamsTest {
       assertRefused(() -> params.requireObject("missing"), "missing", "is required");
       assertRefused(() -> params.optionalObject("text"), "text", "must be an object");
     }
+
+    @Test
+    @DisplayName("is read as a map of its members for a command that forwards it verbatim")
+    void asAMap() {
+      assertThat(params.requireObjectMap("object"))
+          .containsEntry("inner", "x")
+          .containsEntry("flag", true);
+    }
+
+    @Test
+    @DisplayName("as a map, is refused when absent or not an object")
+    void asAMapRefusals() {
+      assertRefused(() -> params.requireObjectMap("missing"), "missing", "is required");
+      assertRefused(() -> params.requireObjectMap("text"), "text", "must be an object");
+    }
   }
 
   @Nested

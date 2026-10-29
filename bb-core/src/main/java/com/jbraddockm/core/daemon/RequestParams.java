@@ -4,6 +4,7 @@ import com.jbraddockm.core.error.InvalidArgumentException;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,26 @@ public final class RequestParams {
   public RequestParams requireObject(String name) {
     return optionalObject(name)
         .orElseThrow(() -> new InvalidArgumentException(name, "is required"));
+  }
+
+  /**
+   * Reads a required nested object as a map of its members, keyed by name. For a command that
+   * forwards the object to the device verbatim rather than interpreting its shape.
+   *
+   * @param name the parameter name
+   * @return the members, in the order they were sent
+   * @throws InvalidArgumentException if the parameter is absent or not an object
+   */
+  public Map<String, Object> requireObjectMap(String name) {
+    return switch (values.get(name)) {
+      case null -> throw new InvalidArgumentException(name, "is required");
+      case Map<?, ?> members -> {
+        var copy = new LinkedHashMap<String, Object>();
+        members.forEach((key, value) -> copy.put(String.valueOf(key), value));
+        yield copy;
+      }
+      default -> throw new InvalidArgumentException(name, "must be an object");
+    };
   }
 
   /**

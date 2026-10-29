@@ -1,0 +1,1 @@
+{"id":{{id}},"method":"putPimItem","params":{"session":"{{session}}","workstationId":"W1","service":"contacts","item":{"firstName":"Test","lastName":"Contact"}}}

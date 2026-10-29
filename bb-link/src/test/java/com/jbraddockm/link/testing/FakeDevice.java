@@ -123,89 +123,121 @@ public final class FakeDevice implements AutoCloseable {
   private final List<AuthenticationRequest> authenticationRequests =
       Collections.synchronizedList(new ArrayList<>());
   private final AtomicInteger backupCookie = new AtomicInteger();
+
   /**
    * When set, the device signs a certificate request that is posted to {@code login.cgi}, as the
    * real one does; when not, it answers that it cannot.
    */
   public volatile TestAuthority authority;
+
   /** When set, what a certificate request to {@code login.cgi} is answered, whatever it was. */
   public volatile String authenticationAnswer;
+
   /** When set, the certificate that the device signs is for another key than the request's. */
   public volatile boolean authenticationForAnotherKey;
+
   /** When set, what {@code pairing.cgi} answers a request that has a session, whatever it was. */
   public volatile String pairingAnswer;
+
   /** Whether the login answer carries file share credentials. */
   public volatile boolean offersShare = true;
+
   /** How the device answers the login. */
   public volatile LoginMode loginMode = LoginMode.CHALLENGE;
+
   /** How the cookie of a successful login is written. */
   public volatile CookieStyle cookieStyle = CookieStyle.NORMAL;
+
   /** What the CGI programs do with the session cookie in their answers. */
   public volatile CgiCookie cgiCookie = CgiCookie.RENEW;
+
   /** How the CGI programs reject a request without a valid session. */
   public volatile StaleStyle staleStyle = StaleStyle.EMPTY;
+
   /** The properties answer of the device. */
   public volatile String propertiesXml = DEFAULT_PROPERTIES;
+
   /** The PIN answer of the device. */
   public volatile String pinXml = DEFAULT_PIN;
+
   /** The {@code discovery.cgi} answer of the device. */
   public volatile String discoveryXml = DEFAULT_DISCOVERY;
+
   /** The number of failed password attempts that the login reports. */
   public final AtomicInteger failedAttempts = new AtomicInteger();
+
   /** The number of upcoming CGI requests to drop without an answer. */
   public final AtomicInteger dropNext = new AtomicInteger();
+
   /** Run once while the next CGI request is answered, before the answer is sent; then cleared. */
   public volatile Runnable afterNextCgiRequest;
+
   /** Whether the device rejects every cookie, never accepting a session. */
   public volatile boolean alwaysRejectCookie;
+
   /**
    * The percentages that update.cgi reports as {@code InProgress} for the successive polls of a
    * package; the next poll reports {@code Success}. A real device reports {@code InProgress} with
    * 100 once before {@code Success}.
    */
   public volatile List<Integer> updateProgress = List.of(3, 100);
+
   /** The status that update.cgi puts in {@code UpdateEnd}; empty for an end without a status. */
   public volatile String updateEndStatus = "Success";
+
   /**
    * The stage at which update.cgi fails: {@code start}, {@code send}, {@code progress}, {@code
    * finish}, or empty.
    */
   public volatile String updateFailsAt = "";
+
   /** If not negative, update.cgi drops the connection after reading this many upload bytes. */
   public volatile int updateDropUploadAfter = -1;
+
   /** Whether update.cgi takes a whole upload and then closes the connection without an answer. */
   public volatile boolean updateDropAfterUpload;
+
   /** If set, update.cgi answers every request with this text. */
   public volatile String updateAnswer;
+
   /**
    * The element that update.cgi answers the start of a removal with. A real device answers {@code
    * UpdateStart}.
    */
   public volatile String deleteStartElement = "UpdateStart";
+
   /**
    * The element that update.cgi answers every removal with. When {@code null}, the behavior of a
    * real device is used: {@code DeleteRequest} for the first removal of a conversation and {@code
    * DeleteProgress} for the others.
    */
   public volatile String deleteAnswerElement = null;
+
   /** The status that update.cgi gives in the answer to a removal. */
   public volatile String deleteAnswerStatus = "Success";
+
   /**
    * What update.cgi answers to the end of a removal: {@code UpdateEnd}, {@code empty} (nothing at
    * all), {@code DeleteProgress} or {@code Surprise}.
    */
   public volatile String deleteEnd = "UpdateEnd";
+
   /** If set, update.cgi answers every poll with this text. */
   public volatile String updatePollAnswer;
+
   /** The {@code BackupList} answer backup.cgi gives. */
   public volatile String backupListXml =
       Resources.text(FakeDevice.class, "fake-device--backup-list.xml").strip();
+
   /** How many activity polls report {@code InProgress} before the device reports {@code Ready}. */
   public volatile int backupPreparePolls = 1;
+
   /** If greater than zero, a backup data step answers this error id instead of the archive. */
   public volatile int backupDataErrorId;
+
   /** The {@code ResetRequired} value the device reports after a restore upload. */
   public volatile String restoreResetRequired = "True";
+
   private final AtomicInteger removalsSinceStart = new AtomicInteger();
   private final AtomicInteger pollIndex = new AtomicInteger();
   private final AtomicInteger backupPollIndex = new AtomicInteger();
@@ -322,7 +354,6 @@ public final class FakeDevice implements AutoCloseable {
   public void expireSessions() {
     token = "TOKEN-" + System.nanoTime();
   }
-
 
   /**
    * Returns the method, path and query of every request to pimsync.
@@ -565,7 +596,8 @@ public final class FakeDevice implements AutoCloseable {
                         "fake-device--login-counts.xml",
                         Map.of(
                             "failedAttempts", String.valueOf(failedAttempts.get()),
-                            "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts.get())))
+                            "retriesRemaining",
+                                String.valueOf(MAX_ATTEMPTS - failedAttempts.get())))
                     .strip()),
             null);
       }
@@ -608,16 +640,21 @@ public final class FakeDevice implements AutoCloseable {
       return null;
     }
 
-    /** pimsync: a GET with a command; a real device's answer when there is no valid session. */
+    /**
+     * pimsync: a command carried in the query of a GET or the body of a POST; a real device's
+     * answer when there is no valid session.
+     */
     void handle(HttpExchange exchange) throws IOException {
       cgiRequests.incrementAndGet();
       var query = exchange.getRequestURI().getRawQuery();
       var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+      var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
       pimRequests.add(
           exchange.getRequestMethod()
               + " "
               + exchange.getRequestURI().getPath()
-              + (query == null ? "" : "?" + query));
+              + (query == null ? "" : "?" + query)
+              + (body.isEmpty() ? "" : " " + body));
       cookiesSeen.add(cookie == null ? "" : cookie);
       if (dropNext.get() > 0) {
         dropNext.decrementAndGet();
@@ -629,6 +666,9 @@ public final class FakeDevice implements AutoCloseable {
         return;
       }
       var command = commandOf(query);
+      if (command == null) {
+        command = commandOf(body);
+      }
       if (command == null) {
         respond(
             exchange, 200, "", null,

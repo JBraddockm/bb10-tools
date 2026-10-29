@@ -36,12 +36,13 @@ public final class PimSyncConversation implements Conversation<PimAnswer> {
   private static final Set<Integer> REJECTIONS =
       Set.of(INVALID_PARAMETERS, UNAUTHORIZED, UNSUPPORTED);
 
-  private final CgiRequest.Get request;
+  private final CgiRequest request;
   private final PimCommand command;
   private final PimService service;
 
   /**
-   * Creates the conversation.
+   * Creates a conversation for a command carried in the query of a GET, which is how the readers
+   * and the account writers are sent.
    *
    * @param command the command to send
    * @param service the kind of items, or {@code null}
@@ -53,16 +54,30 @@ public final class PimSyncConversation implements Conversation<PimAnswer> {
       PimService service,
       String purpose,
       UnaryOperator<CgiRequest.Get> parameters) {
-    this.command = command;
-    this.service = service;
     // An empty answer is an answer: this program answers a request without a command with
     // nothing, and says in words when there is no session.
-    this.request =
+    this(
+        command,
+        service,
         parameters.apply(
             CgiRequest.Get.to(Endpoint.PIM_SYNC)
                 .with(QueryParameter.COMMAND, command)
                 .describedAs(purpose)
-                .expectingNoBody());
+                .expectingNoBody()));
+  }
+
+  /**
+   * Creates a conversation for a request that is already built, which is how a command with a body
+   * (a {@code put}) is sent.
+   *
+   * @param command the command the request carries
+   * @param service the kind of items, or {@code null}
+   * @param request the request to send
+   */
+  public PimSyncConversation(PimCommand command, PimService service, CgiRequest request) {
+    this.command = command;
+    this.service = service;
+    this.request = request;
   }
 
   @Override
