@@ -22,9 +22,9 @@ class LinkErrorCodeTest {
   }
 
   @Test
-  @DisplayName("are seven, and are errors of the protocol")
-  void areSeven() {
-    assertThat(LinkErrorCode.values()).hasSize(7).allMatch(ErrorCode.class::isInstance);
+  @DisplayName("are nine, and are errors of the protocol")
+  void areNine() {
+    assertThat(LinkErrorCode.values()).hasSize(9).allMatch(ErrorCode.class::isInstance);
   }
 
   @Test

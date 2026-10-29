@@ -11,6 +11,11 @@ import com.jbraddockm.core.error.CoreErrorCode;
 import com.jbraddockm.core.error.InvalidArgumentException;
 import com.jbraddockm.core.error.ServiceError;
 import com.jbraddockm.link.endpoint.actions.GetPin;
+import com.jbraddockm.link.endpoint.backup.BackupCategory;
+import com.jbraddockm.link.endpoint.backup.BackupRequest;
+import com.jbraddockm.link.endpoint.backup.DeviceBackup;
+import com.jbraddockm.link.endpoint.backup.DeviceRestore;
+import com.jbraddockm.link.endpoint.backup.RestoreRequest;
 import com.jbraddockm.link.endpoint.characteristics.GetDeviceCharacteristics;
 import com.jbraddockm.link.endpoint.discovery.DeviceDiscovery;
 import com.jbraddockm.link.endpoint.discovery.DeviceScanner;
@@ -125,7 +130,20 @@ enum LinkMethod {
   UNINSTALL_PACKAGES("uninstallPackages"),
 
   /** Says what a certificate file holds and how long it has left. Needs no session or device. */
-  INSPECT_CERTIFICATE("inspectCertificate");
+  INSPECT_CERTIFICATE("inspectCertificate"),
+
+  /**
+   * Backs the device up into a {@code .bbb} file. Reaches {@code backup.cgi}, so only over USB or
+   * the tunnel. The device must already hold a backup-and-restore key for the data to stream.
+   */
+  BACKUP_DEVICE("backupDevice"),
+
+  /**
+   * Restores a {@code .bbb} file onto the device, which resets to apply it. Destructive: it sends
+   * nothing unless the request confirms it. Reaches {@code backup.cgi}, so only over USB or the
+   * tunnel.
+   */
+  RESTORE_DEVICE("restoreDevice");
 
   /** The package that a replayed installation is attributed to; what the recording says is kept. */
   private static final BarInfo REPLAY_BAR =
@@ -237,6 +255,10 @@ enum LinkMethod {
               ? Optional.of(new InstallPackages(List.of(REPLAY_BAR), Duration.ZERO))
               : Optional.empty();
       case UNINSTALL_PACKAGES -> replayedRemoval(argument);
+      case BACKUP_DEVICE ->
+          argument == null ? Optional.of(DeviceBackup.replayCommand()) : Optional.empty();
+      case RESTORE_DEVICE ->
+          argument == null ? Optional.of(DeviceRestore.replayCommand()) : Optional.empty();
       case GET_SMB_CREDENTIALS,
               LIST_DEVICES,
               INSPECT_PACKAGE,
@@ -366,6 +388,33 @@ enum LinkMethod {
                 var validate = params.flag("validate");
                 return reply ->
                     reply.complete(wireName, InspectPackage.inspect(file, validate), false);
+              });
+      case BACKUP_DEVICE ->
+          new CommandSpec.SessionScoped<>(
+              wireName,
+              params -> {
+                var request =
+                    new BackupRequest(
+                        params.requirePath("outputFile"),
+                        BackupCategory.select(params.optionalStrings("categories")));
+                var includeRaw = params.flag("raw");
+                return (session, reply) ->
+                    reply.complete(
+                        wireName, new DeviceBackup().run(session, request, reply), includeRaw);
+              });
+      case RESTORE_DEVICE ->
+          new CommandSpec.SessionScoped<>(
+              wireName,
+              params -> {
+                var request =
+                    new RestoreRequest(
+                        params.requirePath("inputFile"),
+                        BackupCategory.select(params.optionalStrings("categories")),
+                        params.flag("confirm"));
+                var includeRaw = params.flag("raw");
+                return (session, reply) ->
+                    reply.complete(
+                        wireName, new DeviceRestore().run(session, request, reply), includeRaw);
               });
     };
   }

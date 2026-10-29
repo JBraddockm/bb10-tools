@@ -38,7 +38,12 @@ class ArchitectureBoundaryTest {
    * pairing reads and confirms the device PIN through {@code actions}; install and uninstall read
    * the installed-package list through {@code properties}. Any other cross-domain edge is a bug.
    */
-  private static final Set<String> APPROVED_DOMAIN_EDGES = Set.of("pairing->actions", "update->properties");
+  private static final Set<String> APPROVED_DOMAIN_EDGES =
+      Set.of(
+          "pairing->actions",
+          "update->properties",
+          "backup->actions",
+          "backup->properties");
 
   private record JavaFile(String pkg, String name, List<String> imports) {}
 

@@ -6,6 +6,7 @@ import com.jbraddockm.link.transport.tls.FixedClientKeyManager;
 import com.jbraddockm.link.transport.tls.PemIdentity;
 import com.jbraddockm.link.transport.tls.TrustAllTls;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -108,6 +109,7 @@ public final class CgiTransport implements AutoCloseable {
         yield execute(post, "POST " + body.pathAndQuery(), body.text(), body.readTimeout());
       }
       case CgiRequest.Upload upload -> upload(upload, observer);
+      case CgiRequest.Download download -> download(download, observer);
     };
   }
 
@@ -133,6 +135,81 @@ public final class CgiTransport implements AutoCloseable {
               + ")",
           upload.readTimeout());
     }
+  }
+
+  /**
+   * Sends a form post whose answer is streamed to a file. When the device answers with octet-stream
+   * — the archive — it is written to the request's destination and the response body is left empty;
+   * when it answers with anything else — an XML error envelope — that is kept in the body as usual,
+   * so the conversation can read the error.
+   */
+  private CgiResponse download(CgiRequest.Download download, UploadObserver observer)
+      throws IOException {
+    var body = download.encodedBody();
+    var post = new HttpPost(checkedUrl(download.endpoint().path()));
+    post.getParams().setBooleanParameter("http.protocol.expect-continue", false);
+    var entity = new ByteArrayEntity(body.getBytes(StandardCharsets.US_ASCII));
+    entity.setContentType("application/x-www-form-urlencoded");
+    post.setEntity(entity);
+    HttpConnectionParams.setSoTimeout(post.getParams(), (int) download.readTimeout().toMillis());
+    var requestLine = "POST " + download.endpoint().path();
+    var cookieNames =
+        cookies.getCookies().stream().map(cookie -> cookie.getName()).sorted().toList();
+    try {
+      var response = client.execute(post, context);
+      var contentType = valueOf(response.getFirstHeader("Content-Type"));
+      var setCookie = valueOf(response.getFirstHeader("Set-Cookie"));
+      var status = response.getStatusLine().getStatusCode();
+      HttpEntity httpEntity = response.getEntity();
+      CgiResponse result;
+      if (isOctetStream(contentType)) {
+        var written = streamToFile(httpEntity, download, observer);
+        result =
+            new CgiResponse(
+                status,
+                contentType,
+                "",
+                setCookie,
+                new CgiResponse.Downloaded(download.destination(), written));
+      } else {
+        // Not the data stream: an error envelope the device sent as XML. Keep it so the
+        // conversation can read the error, exactly as an ordinary answer would be kept.
+        var bytes = httpEntity == null ? new byte[0] : EntityUtils.toByteArray(httpEntity);
+        result = new CgiResponse(status, contentType, new String(bytes, StandardCharsets.UTF_8), setCookie);
+      }
+      this.observer.onExchange(requestLine, body, cookieNames, result);
+      return result;
+    } catch (IOException failure) {
+      this.observer.onFailedExchange(requestLine, body, cookieNames, failure);
+      throw failure;
+    }
+  }
+
+  private static boolean isOctetStream(String contentType) {
+    return contentType != null
+        && contentType.toLowerCase(java.util.Locale.ROOT).contains("octet-stream");
+  }
+
+  /** Copies the answer to the download's file, reporting bytes the way an upload reports them. */
+  private static long streamToFile(
+      HttpEntity entity, CgiRequest.Download download, UploadObserver observer) throws IOException {
+    var step = Math.max(64 * 1024L, download.expectedLength() / 100);
+    long total = 0;
+    long lastReported = 0;
+    var buffer = new byte[64 * 1024];
+    try (var in = entity == null ? InputStream.nullInputStream() : entity.getContent();
+        var out = Files.newOutputStream(download.destination())) {
+      int read;
+      while ((read = in.read(buffer)) >= 0) {
+        out.write(buffer, 0, read);
+        total += read;
+        if (total - lastReported >= step) {
+          lastReported = total;
+          observer.sent(total);
+        }
+      }
+    }
+    return total;
   }
 
   private String checkedUrl(String pathAndQuery) {

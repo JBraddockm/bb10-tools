@@ -40,6 +40,7 @@ final class StaleSession {
     }
     if (response.statusCode() == OK
         && response.body().isBlank()
+        && response.downloaded() == null
         && !request.emptyAnswerIsNormal()) {
       return true;
     }

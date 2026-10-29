@@ -83,7 +83,7 @@ final class ConversationRunner {
     }
   }
 
-  /** Turns the bytes of an upload that have gone out into progress events. */
+  /** Turns the bytes of an upload or a download that have moved into progress events. */
   private static UploadObserver observerFor(CgiRequest request, CommandListener listener) {
     if (request instanceof CgiRequest.Upload upload) {
       return bytes ->
@@ -94,6 +94,17 @@ final class ConversationRunner {
                   bytes,
                   upload.length(),
                   upload.item()));
+    }
+    if (request instanceof CgiRequest.Download download) {
+      var total = download.expectedLength();
+      return bytes ->
+          listener.onProgress(
+              new Progress(
+                  total == 0 ? 100 : (int) Math.min(100, bytes * 100 / total),
+                  download.phase(),
+                  bytes,
+                  total == 0 ? null : total,
+                  download.item()));
     }
     return UploadObserver.NONE;
   }

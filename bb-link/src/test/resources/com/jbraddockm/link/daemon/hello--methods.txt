@@ -17,3 +17,5 @@ inspectPackage
 installPackages
 uninstallPackages
 inspectCertificate
+backupDevice
+restoreDevice

@@ -87,6 +87,12 @@ public final class FakeDevice implements AutoCloseable {
   public final List<String> updateRequests = Collections.synchronizedList(new ArrayList<>());
   /** The user agent of every request to update.cgi. */
   public final List<String> updateAgents = Collections.synchronizedList(new ArrayList<>());
+  /** The archive bytes backup.cgi streams for each category, by wire name. */
+  public final Map<String, byte[]> backupCategoryBytes = new ConcurrentHashMap<>();
+  /** The bytes backup.cgi received for each category during a restore, by wire name. */
+  public final Map<String, byte[]> restoreUploads = new ConcurrentHashMap<>();
+  /** What backup.cgi was asked, one line per request, in order. */
+  public final List<String> backupRequests = Collections.synchronizedList(new ArrayList<>());
   private final HttpServer server;
   private final String password;
   private final List<String> cgiBodies = Collections.synchronizedList(new ArrayList<>());
@@ -170,8 +176,20 @@ public final class FakeDevice implements AutoCloseable {
   public volatile String deleteEnd = "UpdateEnd";
   /** If set, update.cgi answers every poll with this text. */
   public volatile String updatePollAnswer;
+  /** The {@code BackupList} answer backup.cgi gives. */
+  public volatile String backupListXml =
+      Resources.text(FakeDevice.class, "fake-device--backup-list.xml").strip();
+  /** How many activity polls report {@code InProgress} before the device reports {@code Ready}. */
+  public volatile int backupPreparePolls = 1;
+  /** If greater than zero, a backup data step answers this error id instead of the archive. */
+  public volatile int backupDataErrorId;
+  /** The {@code ResetRequired} value the device reports after a restore upload. */
+  public volatile String restoreResetRequired = "True";
   private volatile int removalsSinceStart;
   private volatile int pollIndex;
+  private volatile int backupPollIndex;
+  private volatile String backupMode = "";
+  private final AtomicInteger backupCookie = new AtomicInteger();
   private volatile String token = "TOKEN-1";
 
   /**
@@ -192,6 +210,7 @@ public final class FakeDevice implements AutoCloseable {
     server.createContext("/cgi-bin/discovery.cgi", this::discovery);
     server.createContext("/cgi-bin/pimsync.cgi", new PimSyncEndpoint()::handle);
     server.createContext("/cgi-bin/update.cgi", new UpdateEndpoint()::handle);
+    server.createContext("/cgi-bin/backup.cgi", new BackupEndpoint()::handle);
     server.start();
   }
 
@@ -218,6 +237,26 @@ public final class FakeDevice implements AutoCloseable {
     exchange.sendResponseHeaders(status, bytes.length);
     try (var stream = exchange.getResponseBody()) {
       stream.write(bytes);
+    }
+  }
+
+  private static void respondBytes(
+      HttpExchange exchange, int status, byte[] body, String setCookie, String contentType)
+      throws IOException {
+    if (contentType != null) {
+      exchange.getResponseHeaders().add("Content-Type", contentType);
+    }
+    if (setCookie != null) {
+      exchange.getResponseHeaders().add("Set-Cookie", setCookie);
+    }
+    if (body.length == 0) {
+      exchange.sendResponseHeaders(status, -1);
+      exchange.close();
+      return;
+    }
+    exchange.sendResponseHeaders(status, body.length);
+    try (var stream = exchange.getResponseBody()) {
+      stream.write(body);
     }
   }
 
@@ -757,6 +796,131 @@ public final class FakeDevice implements AutoCloseable {
       }
       fireHook();
       respond(exchange, 200, answer, setCookie);
+    }
+  }
+
+  /** Handles backup and restore requests. */
+  final class BackupEndpoint {
+
+    private static String response(String element, String inner) {
+      return "<RimTabletResponse><" + element + ">" + inner + "</" + element + "></RimTabletResponse>";
+    }
+
+    private static String error(String element, int identifier, String description) {
+      return response(
+          element,
+          "<Status>Error</Status><Error><ErrorIdentifier>"
+              + identifier
+              + "</ErrorIdentifier><ErrorDescription>"
+              + description
+              + "</ErrorDescription></Error>");
+    }
+
+    private static String fieldOf(String text, String key) {
+      for (var pair : text.split("&")) {
+        var parts = pair.split("=", 2);
+        if (parts[0].equals(key)) {
+          return parts.length == 2 ? parts[1] : "";
+        }
+      }
+      return null;
+    }
+
+    private long totalOfMode() {
+      long total = 0;
+      for (var part : backupMode.split("_")) {
+        total += backupCategoryBytes.getOrDefault(part, new byte[0]).length;
+      }
+      return total;
+    }
+
+    void handle(HttpExchange exchange) throws IOException {
+      cgiRequests.incrementAndGet();
+      var cookie = exchange.getRequestHeaders().getFirst("Cookie");
+      var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+      var query = exchange.getRequestURI().getRawQuery();
+      cookiesSeen.add(cookie == null ? "" : cookie);
+      if (dropNext > 0) {
+        dropNext--;
+        backupRequests.add("dropped, not answered");
+        exchange.close();
+        return;
+      }
+      var bodyBytes = exchange.getRequestBody().readAllBytes();
+      if (alwaysRejectCookie || cookie == null || !cookie.contains("dtmauth=" + token)) {
+        backupRequests.add("no session");
+        fireHook();
+        respond(exchange, 200, "", null);
+        return;
+      }
+      var renewal = "backup=" + backupCookie.incrementAndGet() + "; " + FUTURE;
+
+      // The restore data step is an octet-stream body, with its parameters in the query string.
+      if (contentType != null && contentType.startsWith("application/octet-stream")) {
+        var type = query == null ? null : fieldOf(query, "type");
+        backupRequests.add("restore upload type=" + type + " bytes=" + bodyBytes.length);
+        if (type != null) {
+          restoreUploads.put(type, bodyBytes);
+        }
+        fireHook();
+        respond(
+            exchange,
+            200,
+            response(
+                "RestoreSend",
+                "<Status>Success</Status><ResetRequired>" + restoreResetRequired + "</ResetRequired>"),
+            renewal);
+        return;
+      }
+
+      var form = new String(bodyBytes, StandardCharsets.US_ASCII);
+      if (form.contains("query=list")) {
+        backupRequests.add("list");
+        fireHook();
+        respond(exchange, 200, backupListXml, renewal);
+      } else if (form.contains("action=Restore")) {
+        backupRequests.add("restore start " + form);
+        fireHook();
+        respond(exchange, 200, response("RestoreStart", "<Status>Ready</Status>"), renewal);
+      } else if (form.contains("query=activity")) {
+        var ready = backupPollIndex >= backupPreparePolls;
+        backupRequests.add("activity poll=" + backupPollIndex + (ready ? " ready" : " inProgress"));
+        backupPollIndex++;
+        var inner =
+            ready
+                ? "<Status>Ready</Status><TotalSize>" + totalOfMode() + "</TotalSize>"
+                : "<Status>InProgress</Status>";
+        fireHook();
+        respond(exchange, 200, response("BackupStartActivity", inner), renewal);
+      } else if (form.contains("status=success")) {
+        backupRequests.add("finish");
+        fireHook();
+        respond(exchange, 200, response("BackupEnd", "<Status>Success</Status>"), renewal);
+      } else if (form.contains("mode=")) {
+        backupMode = fieldOf(form, "mode");
+        backupPollIndex = 0;
+        backupRequests.add("backup start " + form);
+        fireHook();
+        respond(exchange, 200, response("BackupStart", "<Status>Success</Status>"), renewal);
+      } else if (form.startsWith("type=") || form.contains("&type=")) {
+        var type = fieldOf(form, "type");
+        backupRequests.add("backup type=" + type);
+        fireHook();
+        if (backupDataErrorId > 0) {
+          respond(exchange, 200, error("BackupGet", backupDataErrorId, "data error"), renewal);
+        } else {
+          respondBytes(
+              exchange,
+              200,
+              backupCategoryBytes.getOrDefault(type, new byte[0]),
+              renewal,
+              "application/octet-stream");
+        }
+      } else {
+        backupRequests.add("unexpected " + form);
+        fireHook();
+        respond(exchange, 400, error("Backup", 8, "invalid request, status missing"), renewal);
+      }
     }
   }
 

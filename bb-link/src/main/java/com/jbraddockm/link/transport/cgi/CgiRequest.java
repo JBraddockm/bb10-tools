@@ -497,4 +497,146 @@ public sealed interface CgiRequest {
       return purpose.isEmpty() ? "POST a text to " + endpoint.fileName() : purpose;
     }
   }
+
+  /**
+   * A form post whose answer is a data stream, written straight to a file rather than held in
+   * memory: the device's answer to a backup {@code type=<category>} step is the archive itself, tens
+   * to hundreds of megabytes of {@code application/octet-stream}. When the device answers with XML
+   * instead — an error envelope — the transport keeps that in {@link CgiResponse#body()} as usual,
+   * so the conversation can read the error.
+   *
+   * @param endpoint the CGI program
+   * @param fields the form fields in the order they are sent
+   * @param destination the file the data answer is written to
+   * @param expectedLength the number of bytes the answer is expected to have, for progress; may be
+   *     {@code 0} when it is not known yet
+   * @param phase what progress events of the download are called
+   * @param item what progress events of the download name, for example the category
+   * @param purpose what the request does, in a few words, for log messages; may be empty
+   * @param readTimeout how long the device may stay silent while it streams the answer
+   */
+  record Download(
+      Endpoint endpoint,
+      SequencedMap<FormField, String> fields,
+      Path destination,
+      long expectedLength,
+      ProgressPhase phase,
+      String item,
+      String purpose,
+      Duration readTimeout)
+      implements CgiRequest {
+
+    /** Takes an immutable copy of the fields. */
+    public Download {
+      Objects.requireNonNull(endpoint, "endpoint");
+      Objects.requireNonNull(destination, "destination");
+      Objects.requireNonNull(phase, "phase");
+      Objects.requireNonNull(item, "item");
+      Objects.requireNonNull(purpose, "purpose");
+      Objects.requireNonNull(readTimeout, "readTimeout");
+      if (expectedLength < 0) {
+        throw new IllegalArgumentException("a download cannot have a negative length");
+      }
+      fields = Collections.unmodifiableSequencedMap(new LinkedHashMap<>(fields));
+    }
+
+    /**
+     * Starts a download to a file.
+     *
+     * @param endpoint the CGI program
+     * @param destination the file the answer is written to
+     * @param expectedLength the bytes the answer is expected to have, for progress; {@code 0} if
+     *     unknown
+     * @param phase what progress events of the download are called
+     * @param item what progress events of the download name
+     * @return a download without fields
+     */
+    public static Download to(
+        Endpoint endpoint, Path destination, long expectedLength, ProgressPhase phase, String item) {
+      return new Download(
+          endpoint,
+          new LinkedHashMap<>(),
+          destination,
+          expectedLength,
+          phase,
+          item,
+          "",
+          DEFAULT_READ_TIMEOUT);
+    }
+
+    /**
+     * Adds a field whose value is one of the device's fixed words.
+     *
+     * @param field the field
+     * @param value the value
+     * @return a new download with the field appended
+     */
+    public Download with(FormField field, WireValue value) {
+      return withText(field, value.wireName());
+    }
+
+    /**
+     * Adds a field with free text as value.
+     *
+     * @param field the field
+     * @param text the value
+     * @return a new download with the field appended
+     */
+    public Download withText(FormField field, String text) {
+      var copy = new LinkedHashMap<>(fields);
+      copy.put(field, text);
+      return new Download(
+          endpoint, copy, destination, expectedLength, phase, item, purpose, readTimeout);
+    }
+
+    /**
+     * Says what the request does, for log messages.
+     *
+     * @param what a few words in the present participle, for example {@code Downloading the
+     *     settings}
+     * @return a new download with the purpose set
+     */
+    public Download describedAs(String what) {
+      return new Download(
+          endpoint, fields, destination, expectedLength, phase, item, what, readTimeout);
+    }
+
+    /**
+     * Sets how long the device may stay silent while it streams the answer.
+     *
+     * @param longest the longest silence that is waited for
+     * @return the download with that limit
+     */
+    public Download waitingUpTo(Duration longest) {
+      return new Download(
+          endpoint, fields, destination, expectedLength, phase, item, purpose, longest);
+    }
+
+    /**
+     * Returns the request body.
+     *
+     * @return the percent-encoded {@code name=value} pairs joined by {@code &}
+     */
+    public String encodedBody() {
+      return fields.entrySet().stream()
+          .map(
+              entry ->
+                  FormEncoding.encode(entry.getKey().wireName())
+                      + '='
+                      + FormEncoding.encode(entry.getValue()))
+          .collect(Collectors.joining("&"));
+    }
+
+    @Override
+    public boolean emptyAnswerIsNormal() {
+      // A streamed answer leaves the body empty by design; the conversation reads the file, not the
+      // body, so an empty body here is never a sign of a lost session.
+      return true;
+    }
+
+    @Override
+    public String describe() {
+      return purpose.isEmpty() ? "Downloading from " + endpoint.fileName() : purpose;
+    }
+  }
 }

@@ -40,7 +40,34 @@ public enum ResponseElement {
   DELETE_REQUEST("DeleteRequest"),
 
   /** The device has removed a package. */
-  DELETE_PROGRESS("DeleteProgress");
+  DELETE_PROGRESS("DeleteProgress"),
+
+  /** The categories available for backup, with their sizes. */
+  BACKUP_LIST("BackupList"),
+
+  /** A backup conversation was accepted, and the device is preparing the archive. */
+  BACKUP_START("BackupStart"),
+
+  /** How far the device is with preparing a backup; carries the total size when ready. */
+  BACKUP_START_ACTIVITY("BackupStartActivity"),
+
+  /** The device has finished a backup or restore conversation. */
+  BACKUP_END("BackupEnd"),
+
+  /** A restore conversation was accepted, and the device is ready for the first category. */
+  RESTORE_START("RestoreStart"),
+
+  /** The device has taken a restored category; carries whether a reset is required. */
+  RESTORE_SEND("RestoreSend"),
+
+  /** The element a failed backup data step reports its error under. */
+  BACKUP_GET("BackupGet"),
+
+  /** The element a failed backup integrity check reports its error under. */
+  BACKUP_CHECK("BackupCheck"),
+
+  /** The element a backup step reports an out-of-order or cancelled error under. */
+  BACKUP("Backup");
 
   private final String elementName;
 

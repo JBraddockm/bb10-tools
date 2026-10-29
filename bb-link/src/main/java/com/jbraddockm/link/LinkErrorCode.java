@@ -36,7 +36,16 @@ public enum LinkErrorCode implements ErrorCode {
   IDENTITY_EXISTS,
 
   /** The device returned a certificate that cannot be used: it is not X.509, or not for our key. */
-  CERTIFICATE_REJECTED;
+  CERTIFICATE_REJECTED,
+
+  /**
+   * The device streamed an empty backup for a category. This means the device has no
+   * backup-and-restore key in its session, or is in the wrong state; nothing usable was saved.
+   */
+  NO_BACKUP_DATA,
+
+  /** The backup file to restore could not be read: it is not a {@code .bbb}, or it is damaged. */
+  BBB_UNREADABLE;
 
   @Override
   public String wireName() {

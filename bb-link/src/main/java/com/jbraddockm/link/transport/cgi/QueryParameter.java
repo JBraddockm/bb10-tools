@@ -34,7 +34,13 @@ public enum QueryParameter implements WireValue {
   REQUEST_VERSION("request_version"),
 
   /** Asks {@code login.cgi} for the authentication by certificate. */
-  CGI_AUTH("cgiauth");
+  CGI_AUTH("cgiauth"),
+
+  /** The action to perform, such as {@code Restore} on a backup upload. */
+  ACTION("action"),
+
+  /** The number of bytes of the category uploaded in a restore step. */
+  SIZE("size");
 
   private final String wireName;
 

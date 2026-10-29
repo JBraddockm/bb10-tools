@@ -43,8 +43,17 @@ public enum FormField implements WireValue {
   /** The package to uninstall. */
   PACKAGE_ID("packageid"),
 
-  /** The end of an update conversation. */
-  STATUS("status");
+  /** The end of an update or backup conversation. */
+  STATUS("status"),
+
+  /** What a backup conversation is asked for: the category list or the progress of preparing. */
+  QUERY("query"),
+
+  /** A backup option, such as {@code rev2} for the richer category list. */
+  OPT("opt"),
+
+  /** The total number of bytes a restore will upload across all categories. */
+  TOTAL_SIZE("totalsize");
 
   private final String wireName;
 

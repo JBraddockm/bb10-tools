@@ -24,7 +24,9 @@ class QueryParameterTest {
     "OFFSET, offset",
     "TYPE, type",
     "REQUEST_VERSION, request_version",
-    "CGI_AUTH, cgiauth"
+    "CGI_AUTH, cgiauth",
+    "ACTION, action",
+    "SIZE, size"
   })
   @DisplayName("each parameter is written with the name that the device reads")
   void eachParameterHasItsWireName(QueryParameter parameter, String wireName) {
@@ -33,9 +35,9 @@ class QueryParameterTest {
 
   @Test
   @DisplayName("no two parameters have the same name, and there are no others than these")
-  void thereAreElevenDistinctParameters() {
+  void thereAreThirteenDistinctParameters() {
     assertThat(Arrays.stream(QueryParameter.values()).map(QueryParameter::wireName))
         .doesNotHaveDuplicates()
-        .hasSize(11);
+        .hasSize(13);
   }
 }

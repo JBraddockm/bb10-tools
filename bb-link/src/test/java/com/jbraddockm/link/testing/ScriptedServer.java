@@ -93,9 +93,10 @@ public final class ScriptedServer implements AutoCloseable {
    *
    * @param status the HTTP status
    * @param body the bytes of the body
+   * @param headers pairs of header names and values
    */
-  public void answerBytes(int status, byte[] body) {
-    answers.add(new Answer(status, Map.of(), body.clone(), Duration.ZERO, false));
+  public void answerBytes(int status, byte[] body, String... headers) {
+    answers.add(new Answer(status, pairs(headers), body.clone(), Duration.ZERO, false));
   }
 
   /**

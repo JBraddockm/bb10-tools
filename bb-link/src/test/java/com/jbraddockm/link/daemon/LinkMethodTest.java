@@ -98,7 +98,9 @@ class LinkMethodTest {
       "INSPECT_PACKAGE, inspectPackage",
       "INSTALL_PACKAGES, installPackages",
       "UNINSTALL_PACKAGES, uninstallPackages",
-      "INSPECT_CERTIFICATE, inspectCertificate"
+      "INSPECT_CERTIFICATE, inspectCertificate",
+      "BACKUP_DEVICE, backupDevice",
+      "RESTORE_DEVICE, restoreDevice"
     })
     @DisplayName("each method has the name that the protocol gives it, and is found by it")
     void eachMethodHasItsName(LinkMethod method, String name) {
@@ -107,10 +109,10 @@ class LinkMethodTest {
     }
 
     @Test
-    @DisplayName("are 16, and distinct")
-    void areSixteenAndDistinct() {
+    @DisplayName("are 18, and distinct")
+    void areEighteenAndDistinct() {
       assertThat(Arrays.stream(LinkMethod.values()).map(LinkMethod::wireName))
-          .hasSize(16)
+          .hasSize(18)
           .doesNotHaveDuplicates();
     }
 
