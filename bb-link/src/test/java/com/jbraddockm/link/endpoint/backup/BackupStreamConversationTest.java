@@ -3,6 +3,7 @@ package com.jbraddockm.link.endpoint.backup;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.link.LinkErrorCode;
+import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.CgiResponse;
 import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.Step;
@@ -17,20 +18,78 @@ class BackupStreamConversationTest {
 
   private static final Path FILE = Path.of("settings.tar");
 
-  private BackupStreamConversation settingsBackup() {
-    return new BackupStreamConversation(
-        List.of(new CategoryTarget(BackupCategory.SETTINGS, FILE)), Duration.ofMillis(1));
-  }
-
   private static Step<BackupStreamResult> xml(BackupStreamConversation c, String body) {
-    return c.onAnswer(
-        new CgiResponse(200, "text/xml", body, null), ResponseEnvelope.parse(body));
+    return c.onAnswer(new CgiResponse(200, "text/xml", body, null), ResponseEnvelope.parse(body));
   }
 
   private static Step<BackupStreamResult> downloaded(BackupStreamConversation c, long bytes) {
     return c.onAnswer(
-        new CgiResponse(200, "application/octet-stream", "", null, new CgiResponse.Downloaded(FILE, bytes)),
+        new CgiResponse(
+            200, "application/octet-stream", "", null, new CgiResponse.Downloaded(FILE, bytes)),
         null);
+  }
+
+  private static String sent(Step<BackupStreamResult> step) {
+    var request = ((Step.Send<BackupStreamResult>) step).request();
+    return switch (request) {
+      case CgiRequest.Form form -> form.encodedBody();
+      case CgiRequest.Download download -> download.encodedBody();
+      default -> throw new AssertionError("unexpected request: " + request);
+    };
+  }
+
+  private BackupStreamConversation settingsBackup() {
+    return new BackupStreamConversation(
+        List.of(new CategoryTarget(BackupCategory.SETTINGS, FILE)),
+        List.of(),
+        Duration.ofMillis(1));
+  }
+
+  @Test
+  @DisplayName(
+      "a package-type sub-selection sends opt=rev2 on every step and pkgtype on the app data step")
+  void rev2SubSelection() {
+    var c =
+        new BackupStreamConversation(
+            List.of(new CategoryTarget(BackupCategory.APP, Path.of("app.tar"))),
+            List.of(PackageType.DATA),
+            Duration.ofMillis(1));
+
+    assertThat(sent(c.start())).contains("mode=app").contains("opt=rev2");
+    var activity =
+        xml(
+            c,
+            "<RimTabletResponse><BackupStart><Status>Success</Status></BackupStart></RimTabletResponse>");
+    // opt=rev2 is on the start only; the data step carries pkgtype but not opt (the device returns
+    // an empty stream if opt=rev2 is repeated on type=).
+    assertThat(sent(activity)).contains("query=activity").doesNotContain("opt=rev2");
+    var download =
+        xml(
+            c,
+            "<RimTabletResponse><BackupStartActivity><Status>Ready</Status><TotalSize>1</TotalSize></BackupStartActivity></RimTabletResponse>");
+    assertThat(sent(download))
+        .contains("type=app")
+        .contains("pkgtype=data")
+        .doesNotContain("opt=rev2");
+  }
+
+  @Test
+  @DisplayName("without a sub-selection no step carries opt=rev2 or pkgtype")
+  void categoryLevelHasNoRev2() {
+    var c = settingsBackup();
+
+    assertThat(sent(c.start())).doesNotContain("opt=rev2");
+    var download =
+        xml(
+            c,
+            "<RimTabletResponse><BackupStart><Status>Success</Status></BackupStart></RimTabletResponse>");
+    // start -> activity; feed Ready to get the download request
+    assertThat(sent(download)).doesNotContain("opt=rev2");
+    var data =
+        xml(
+            c,
+            "<RimTabletResponse><BackupStartActivity><Status>Ready</Status><TotalSize>1</TotalSize></BackupStartActivity></RimTabletResponse>");
+    assertThat(sent(data)).doesNotContain("opt=rev2").doesNotContain("pkgtype");
   }
 
   @Test
@@ -39,7 +98,10 @@ class BackupStreamConversationTest {
     var c = settingsBackup();
     c.start();
 
-    assertThat(xml(c, "<RimTabletResponse><BackupStart><Status>Success</Status></BackupStart></RimTabletResponse>"))
+    assertThat(
+            xml(
+                c,
+                "<RimTabletResponse><BackupStart><Status>Success</Status></BackupStart></RimTabletResponse>"))
         .isInstanceOf(Step.Send.class);
     assertThat(
             xml(
@@ -54,10 +116,13 @@ class BackupStreamConversationTest {
     assertThat(downloaded(c, 4096)).isInstanceOf(Step.Send.class);
 
     var end =
-        xml(c, "<RimTabletResponse><BackupEnd><Status>Success</Status></BackupEnd></RimTabletResponse>");
+        xml(
+            c,
+            "<RimTabletResponse><BackupEnd><Status>Success</Status></BackupEnd></RimTabletResponse>");
     assertThat(end).isInstanceOf(Step.Finish.class);
     var result = ((Step.Finish<BackupStreamResult>) end).result();
-    assertThat(result.categories()).extracting(DownloadedCategory::category)
+    assertThat(result.categories())
+        .extracting(DownloadedCategory::category)
         .containsExactly(BackupCategory.SETTINGS);
     assertThat(result.categories().getFirst().bytes()).isEqualTo(4096);
     assertThat(result.totalSize()).isEqualTo(4096);
@@ -68,7 +133,9 @@ class BackupStreamConversationTest {
   void emptyArchiveFails() {
     var c = settingsBackup();
     c.start();
-    xml(c, "<RimTabletResponse><BackupStart><Status>Success</Status></BackupStart></RimTabletResponse>");
+    xml(
+        c,
+        "<RimTabletResponse><BackupStart><Status>Success</Status></BackupStart></RimTabletResponse>");
     xml(
         c,
         "<RimTabletResponse><BackupStartActivity><Status>Ready</Status><TotalSize>0</TotalSize></BackupStartActivity></RimTabletResponse>");
@@ -85,7 +152,9 @@ class BackupStreamConversationTest {
   void errorOnDataStep() {
     var c = settingsBackup();
     c.start();
-    xml(c, "<RimTabletResponse><BackupStart><Status>Success</Status></BackupStart></RimTabletResponse>");
+    xml(
+        c,
+        "<RimTabletResponse><BackupStart><Status>Success</Status></BackupStart></RimTabletResponse>");
     xml(
         c,
         "<RimTabletResponse><BackupStartActivity><Status>Ready</Status><TotalSize>4096</TotalSize></BackupStartActivity></RimTabletResponse>");

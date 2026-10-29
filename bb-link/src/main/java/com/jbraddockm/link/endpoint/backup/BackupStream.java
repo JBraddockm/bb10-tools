@@ -9,17 +9,25 @@ import java.util.Objects;
 
 /**
  * Downloads the selected categories from the device into files, one form-driven conversation on one
- * connection: the device prepares the archive, reports when it is ready, then streams each category.
- * The conversation does no file handling of its own; each category is streamed to the destination
- * its {@link CategoryTarget} names.
+ * connection: the device prepares the archive, reports when it is ready, then streams each
+ * category. The conversation does no file handling of its own; each category is streamed to the
+ * destination its {@link CategoryTarget} names.
+ *
+ * <p>When {@code appPackageTypes} is non-empty the conversation runs the rev2 variant: the
+ * {@code mode=} start carries {@code opt=rev2} and the {@code app} data step carries
+ * {@code pkgtype}, so only those package types of the app category are streamed. {@code opt=rev2}
+ * is not repeated on the activity/data steps (that empties the stream on this firmware). Other
+ * categories are unaffected.
  *
  * <p>The command changes nothing on the device, but it is not marked read-only: the cookie-stateful
  * backup session must not be replayed from the start after a dropped connection.
  *
  * @param targets the categories to download and where to write each, in the order they are sent
+ * @param appPackageTypes the package types to sub-select within the app category; empty = whole
  * @param pollInterval how long to wait between two questions about whether the archive is ready
  */
-record BackupStream(List<CategoryTarget> targets, Duration pollInterval)
+record BackupStream(
+    List<CategoryTarget> targets, List<PackageType> appPackageTypes, Duration pollInterval)
     implements DeviceCommand<BackupStreamResult> {
 
   /** How often the device is asked whether the archive is ready. */
@@ -33,6 +41,7 @@ record BackupStream(List<CategoryTarget> targets, Duration pollInterval)
    */
   BackupStream {
     targets = List.copyOf(targets);
+    appPackageTypes = List.copyOf(appPackageTypes);
     Objects.requireNonNull(pollInterval, "pollInterval");
     if (targets.isEmpty()) {
       throw new InvalidArgumentException("categories", "must name at least one category");
@@ -47,15 +56,16 @@ record BackupStream(List<CategoryTarget> targets, Duration pollInterval)
    * archive.
    *
    * @param targets the categories to download and where to write each
+   * @param appPackageTypes the package types to sub-select within the app category; empty = whole
    * @return the command
    */
-  static BackupStream of(List<CategoryTarget> targets) {
-    return new BackupStream(targets, DEFAULT_POLL_INTERVAL);
+  static BackupStream of(List<CategoryTarget> targets, List<PackageType> appPackageTypes) {
+    return new BackupStream(targets, appPackageTypes, DEFAULT_POLL_INTERVAL);
   }
 
   @Override
   public Conversation<BackupStreamResult> conversation() {
-    return new BackupStreamConversation(targets, pollInterval);
+    return new BackupStreamConversation(targets, appPackageTypes, pollInterval);
   }
 
   @Override

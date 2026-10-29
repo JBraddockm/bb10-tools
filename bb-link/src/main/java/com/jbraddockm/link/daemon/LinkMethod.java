@@ -15,6 +15,7 @@ import com.jbraddockm.link.endpoint.backup.BackupCategory;
 import com.jbraddockm.link.endpoint.backup.BackupRequest;
 import com.jbraddockm.link.endpoint.backup.DeviceBackup;
 import com.jbraddockm.link.endpoint.backup.DeviceRestore;
+import com.jbraddockm.link.endpoint.backup.PackageType;
 import com.jbraddockm.link.endpoint.backup.RestoreRequest;
 import com.jbraddockm.link.endpoint.characteristics.GetDeviceCharacteristics;
 import com.jbraddockm.link.endpoint.discovery.DeviceDiscovery;
@@ -35,13 +36,13 @@ import com.jbraddockm.link.endpoint.pimsync.ListPimAccounts;
 import com.jbraddockm.link.endpoint.pimsync.PimFilters;
 import com.jbraddockm.link.endpoint.pimsync.PimService;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
-import com.jbraddockm.link.transport.cgi.DeviceCommand;
-import com.jbraddockm.link.transport.session.DeviceSession;
 import com.jbraddockm.link.endpoint.update.BarSelection;
 import com.jbraddockm.link.endpoint.update.InspectPackage;
 import com.jbraddockm.link.endpoint.update.InstallPackages;
 import com.jbraddockm.link.endpoint.update.InstallResult;
 import com.jbraddockm.link.endpoint.update.UninstallPackages;
+import com.jbraddockm.link.transport.cgi.DeviceCommand;
+import com.jbraddockm.link.transport.session.DeviceSession;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -260,11 +261,11 @@ enum LinkMethod {
       case RESTORE_DEVICE ->
           argument == null ? Optional.of(DeviceRestore.replayCommand()) : Optional.empty();
       case GET_SMB_CREDENTIALS,
-              LIST_DEVICES,
-              INSPECT_PACKAGE,
-              INSPECT_CERTIFICATE,
-              REMOVE_PAIRING,
-              RENEW_PAIRING ->
+          LIST_DEVICES,
+          INSPECT_PACKAGE,
+          INSPECT_CERTIFICATE,
+          REMOVE_PAIRING,
+          RENEW_PAIRING ->
           Optional.empty();
     };
   }
@@ -396,7 +397,8 @@ enum LinkMethod {
                 var request =
                     new BackupRequest(
                         params.requirePath("outputFile"),
-                        BackupCategory.select(params.optionalStrings("categories")));
+                        BackupCategory.select(params.optionalStrings("categories")),
+                        PackageType.select(params.optionalStrings("packageTypes")));
                 var includeRaw = params.flag("raw");
                 return (session, reply) ->
                     reply.complete(

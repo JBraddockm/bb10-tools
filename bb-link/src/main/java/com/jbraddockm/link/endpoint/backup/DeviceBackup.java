@@ -11,6 +11,7 @@ import com.jbraddockm.link.endpoint.actions.DevicePin;
 import com.jbraddockm.link.endpoint.actions.GetPin;
 import com.jbraddockm.link.endpoint.properties.DeviceProperties;
 import com.jbraddockm.link.endpoint.properties.GetDeviceProperties;
+import com.jbraddockm.link.endpoint.properties.InstalledPackage;
 import com.jbraddockm.link.transport.session.DeviceSession;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -19,9 +20,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Backs the device up into a {@code .bbb} file: it reads the categories, downloads the selected ones
- * to temporary files, records the device's PIN and software version, and writes the archive. The
- * temporary files are removed whether it succeeds or fails.
+ * Backs the device up into a {@code .bbb} file: it reads the categories, downloads the selected
+ * ones to temporary files, records the device's PIN and software version, and writes the archive.
+ * The temporary files are removed whether it succeeds or fails.
  *
  * <p>The device must hold a backup-and-restore key in its session for the data to stream; how the
  * key gets there is outside bb-link (see the backup analysis). Without it, a category streams empty
@@ -40,6 +41,63 @@ public final class DeviceBackup {
    */
   public static com.jbraddockm.link.transport.cgi.DeviceCommand<?> replayCommand() {
     return new ListCategories();
+  }
+
+  /** Decides which categories to back up: the request's, or all offered when none were named. */
+  private static Resolution resolve(BackupRequest request, BackupInventory inventory) {
+    var offered = inventory.categories().stream().map(AvailableCategory::category).toList();
+    if (request.categories().isEmpty()) {
+      if (offered.isEmpty()) {
+        return new Resolution.Refused(
+            new ServiceError(
+                CoreErrorCode.COMMAND_FAILED, "The device offered no categories to back up"));
+      }
+      return new Resolution.Selected(offered);
+    }
+    var missing =
+        request.categories().stream().filter(category -> !offered.contains(category)).toList();
+    if (!missing.isEmpty()) {
+      return new Resolution.Refused(
+          new ServiceError(
+              CoreErrorCode.COMMAND_FAILED,
+              "The device does not offer "
+                  + missing.stream().map(BackupCategory::wireName).toList()
+                  + " to back up",
+              Json.object("offered", offered.stream().map(BackupCategory::wireName).toList())));
+    }
+    return new Resolution.Selected(request.categories());
+  }
+
+  private static String readPin(DeviceSession session, CommandListener listener) {
+    return switch (session.execute(new GetPin(), listener)) {
+      case CommandOutcome.Succeeded<DevicePin>(var pin, _) -> pin.pin();
+      case CommandOutcome.Failed<DevicePin> _ -> null;
+    };
+  }
+
+  private static String readSoftwareVersion(DeviceSession session, CommandListener listener) {
+    return switch (session.execute(new GetDeviceProperties(), listener)) {
+      case CommandOutcome.Succeeded<DeviceProperties>(var properties, _) ->
+          properties.operatingSystem().map(InstalledPackage::version).orElse(null);
+      case CommandOutcome.Failed<DeviceProperties> _ -> null;
+    };
+  }
+
+  private static void deleteQuietly(List<Path> files, Path directory, CommandListener listener) {
+    for (var file : files) {
+      try {
+        Files.deleteIfExists(file);
+      } catch (IOException failure) {
+        listener.onLog(
+            LogLevel.DEBUG, "Could not remove a temporary backup file: " + failure.getMessage());
+      }
+    }
+    try {
+      Files.deleteIfExists(directory);
+    } catch (IOException failure) {
+      listener.onLog(
+          LogLevel.DEBUG, "Could not remove the temporary backup folder: " + failure.getMessage());
+    }
   }
 
   /**
@@ -83,7 +141,7 @@ public final class DeviceBackup {
 
     try {
       BackupStreamResult streamed;
-      switch (session.execute(BackupStream.of(targets), listener)) {
+      switch (session.execute(BackupStream.of(targets, request.appPackageTypes()), listener)) {
         case CommandOutcome.Succeeded<BackupStreamResult>(var result, _) -> streamed = result;
         case CommandOutcome.Failed<BackupStreamResult>(var error, _, _) -> {
           return CommandOutcome.failed(error);
@@ -93,7 +151,8 @@ public final class DeviceBackup {
       listener.onProgress(Progress.ofPercent(0, BackupPhase.PACKAGING));
       var pin = readPin(session, listener);
       var softwareVersion = readSoftwareVersion(session, listener);
-      var manifest = BackupManifest.of(pin, softwareVersion, streamed.categories());
+      var manifest =
+          BackupManifest.of(pin, softwareVersion, streamed.categories(), request.appPackageTypes());
       var entries =
           streamed.categories().stream()
               .map(
@@ -120,70 +179,12 @@ public final class DeviceBackup {
                   java.util.stream.Collectors.toMap(
                       downloaded -> downloaded.category().wireName(),
                       DownloadedCategory::bytes,
-                      (a, b) -> a,
+                      (a, _) -> a,
                       java.util.LinkedHashMap::new));
       return CommandOutcome.succeeded(
           new BackupResult(request.outputFile(), totalBytes, pin, softwareVersion, categoryBytes));
     } finally {
       deleteQuietly(targets.stream().map(CategoryTarget::destination).toList(), tempDir, listener);
-    }
-  }
-
-  /** Decides which categories to back up: the request's, or all offered when none were named. */
-  private static Resolution resolve(BackupRequest request, BackupInventory inventory) {
-    var offered = inventory.categories().stream().map(AvailableCategory::category).toList();
-    if (request.categories().isEmpty()) {
-      if (offered.isEmpty()) {
-        return new Resolution.Refused(
-            new ServiceError(
-                CoreErrorCode.COMMAND_FAILED, "The device offered no categories to back up"));
-      }
-      return new Resolution.Selected(offered);
-    }
-    var missing =
-        request.categories().stream().filter(category -> !offered.contains(category)).toList();
-    if (!missing.isEmpty()) {
-      return new Resolution.Refused(
-          new ServiceError(
-              CoreErrorCode.COMMAND_FAILED,
-              "The device does not offer "
-                  + missing.stream().map(BackupCategory::wireName).toList()
-                  + " to back up",
-              Json.object(
-                  "offered", offered.stream().map(BackupCategory::wireName).toList())));
-    }
-    return new Resolution.Selected(request.categories());
-  }
-
-  private static String readPin(DeviceSession session, CommandListener listener) {
-    return switch (session.execute(new GetPin(), listener)) {
-      case CommandOutcome.Succeeded<DevicePin>(var pin, _) -> pin.pin();
-      case CommandOutcome.Failed<DevicePin> _ -> null;
-    };
-  }
-
-  private static String readSoftwareVersion(DeviceSession session, CommandListener listener) {
-    return switch (session.execute(new GetDeviceProperties(), listener)) {
-      case CommandOutcome.Succeeded<DeviceProperties>(var properties, _) ->
-          properties.operatingSystem().map(os -> os.version()).orElse(null);
-      case CommandOutcome.Failed<DeviceProperties> _ -> null;
-    };
-  }
-
-  private static void deleteQuietly(List<Path> files, Path directory, CommandListener listener) {
-    for (var file : files) {
-      try {
-        Files.deleteIfExists(file);
-      } catch (IOException failure) {
-        listener.onLog(
-            LogLevel.DEBUG, "Could not remove a temporary backup file: " + failure.getMessage());
-      }
-    }
-    try {
-      Files.deleteIfExists(directory);
-    } catch (IOException failure) {
-      listener.onLog(
-          LogLevel.DEBUG, "Could not remove the temporary backup folder: " + failure.getMessage());
     }
   }
 

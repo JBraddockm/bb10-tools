@@ -14,11 +14,50 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Asks the device for the categories it can back up: a form post of {@code query=list&opt=rev2}, and
- * the reading of the {@code BackupList} answer. The richer {@code rev2} list carries sub-packages;
- * those are ignored, as selection here is by whole category.
+ * Asks the device for the categories it can back up: a form post of {@code query=list&opt=rev2},
+ * and the reading of the {@code BackupList} answer. The richer {@code rev2} list carries
+ * sub-packages; those are ignored, as selection here is by whole category.
  */
 final class ListCategoriesConversation extends XmlConversation<BackupInventory> {
+
+  /** Reads the {@code <SubCategories>} of a category (rev2); empty when there are none. */
+  private static List<SubPackage> subPackagesOf(XmlElement category) {
+    var packages = new ArrayList<SubPackage>();
+    for (var element : category.at("SubCategories").map(XmlElement::children).orElse(List.of())) {
+      if (!element.name().equals("SubCategory")) {
+        continue;
+      }
+      var pkgid = element.attribute("pkgid").orElse("");
+      element
+          .attribute("type")
+          .flatMap(PackageType::fromWire)
+          .ifPresent(
+              type ->
+                  packages.add(
+                      new SubPackage(
+                          pkgid,
+                          type,
+                          longAttribute(element, "bytesize"),
+                          (int) longAttribute(element, "count"),
+                          element.attribute("name").orElse(""))));
+    }
+    return packages;
+  }
+
+  private static long longAttribute(XmlElement element, String name) {
+    return element
+        .attribute(name)
+        .map(String::strip)
+        .flatMap(
+            text -> {
+              try {
+                return Optional.of(Long.parseLong(text));
+              } catch (NumberFormatException _) {
+                return Optional.empty();
+              }
+            })
+        .orElse(0L);
+  }
 
   @Override
   public Step<BackupInventory> start() {
@@ -54,23 +93,9 @@ final class ListCategoriesConversation extends XmlConversation<BackupInventory> 
                           longAttribute(element, "bytesize"),
                           (int) longAttribute(element, "count"),
                           element.attribute("readystate").orElse("").strip().equals("1"),
-                          element.attribute("perimetertype").orElse(null))));
+                          element.attribute("perimetertype").orElse(null),
+                          subPackagesOf(element))));
     }
     return new Step.Finish<>(new BackupInventory(categories));
-  }
-
-  private static long longAttribute(XmlElement element, String name) {
-    return element
-        .attribute(name)
-        .map(String::strip)
-        .flatMap(
-            text -> {
-              try {
-                return Optional.of(Long.parseLong(text));
-              } catch (NumberFormatException _) {
-                return Optional.<Long>empty();
-              }
-            })
-        .orElse(0L);
   }
 }

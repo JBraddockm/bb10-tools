@@ -37,31 +37,40 @@ public final class FakeDevice implements AutoCloseable {
 
   /** The start of the file share password; the device appends the number of the login. */
   public static final String SHARE_PASSWORD_PREFIX = "FAKE-SHARE-PASSWORD-";
+
   /** The form body that requests the properties of the device. */
   public static final String PROPERTIES_BODY =
       "Get%20Dynamic%20Properties=Get%20Dynamic%20Properties";
+
   /** The form body that requests the PIN of the device. */
   public static final String PIN_BODY = "wipe=getpin";
+
   /** The properties that the device answers by default. */
   public static final String DEFAULT_PROPERTIES =
       Resources.text(FakeDevice.class, "fake-device--properties.xml");
+
   /**
    * What a real device answers to pimsync without a session; not valid JSON, {@code data} is not
    * quoted.
    */
   public static final String UNAUTHENTICATED_PIM_SYNC =
       Resources.text(FakeDevice.class, "fake-device--pim-unauthenticated.json").strip();
+
   /** The PIN answer that the device gives by default. */
   public static final String DEFAULT_PIN = Resources.text(FakeDevice.class, "fake-device--pin.xml");
+
   /** The {@code discovery.cgi} answer that the device gives by default. */
   public static final String DEFAULT_DISCOVERY =
       Resources.text(FakeDevice.class, "fake-device--discovery.xml");
+
   /** What a real device answers to dynamicProperties.cgi when the request has no valid session. */
   public static final String UNAUTHORIZED_PROPERTIES =
       Resources.text(FakeDevice.class, "fake-device--properties-unauthorized.xml");
+
   /** The answer to a command that has no entry in {@link #pimResponses}. */
   public static final String DEFAULT_PIM_ANSWER =
       Resources.text(FakeDevice.class, "fake-device--pim-answer.json").strip();
+
   private static final String SALT = "4EB86E31B720EAFF";
   private static final int ITERATIONS = 6000;
   private static final String CHALLENGE =
@@ -69,39 +78,51 @@ public final class FakeDevice implements AutoCloseable {
   private static final int MAX_ATTEMPTS = 5;
   private static final String FUTURE = "expires=Fri, 01-Jan-2100 00:00:00 GMT; path=/";
   private static final String PAST = "expires=Thu, 01-Jan-1970 00:00:10 GMT; path=/";
+
   /** A moment in the past, written as a device writes the date of a cookie. */
   private static final String EXPIRED =
       DateTimeFormatter.ofPattern("EEE, dd-MMM-yyyy HH:mm:ss 'GMT'", Locale.ENGLISH)
           .format(ZonedDateTime.now(ZoneOffset.UTC).minusYears(1));
+
   /** What pimsync answers to a request with a valid session, by command; the default otherwise. */
   public final Map<String, String> pimResponses = new ConcurrentHashMap<>();
+
   /** Counts requests to the login program. */
   public final AtomicInteger loginRequests = new AtomicInteger();
+
   /** Counts successful logins; the file share password changes with each one. */
   public final AtomicInteger successfulLogins = new AtomicInteger();
+
   /** Counts requests to the CGI programs, including rejected and dropped ones. */
   public final AtomicInteger cgiRequests = new AtomicInteger();
+
   /** The package ids that update.cgi refuses to remove. */
   public final Set<String> updateUnremovable = ConcurrentHashMap.newKeySet();
+
   /** What update.cgi was asked, one line per request, in order. */
   public final List<String> updateRequests = Collections.synchronizedList(new ArrayList<>());
+
   /** The user agent of every request to update.cgi. */
   public final List<String> updateAgents = Collections.synchronizedList(new ArrayList<>());
+
   /** The archive bytes backup.cgi streams for each category, by wire name. */
   public final Map<String, byte[]> backupCategoryBytes = new ConcurrentHashMap<>();
+
   /** The bytes backup.cgi received for each category during a restore, by wire name. */
   public final Map<String, byte[]> restoreUploads = new ConcurrentHashMap<>();
+
   /** What backup.cgi was asked, one line per request, in order. */
   public final List<String> backupRequests = Collections.synchronizedList(new ArrayList<>());
+
   private final HttpServer server;
   private final String password;
-  private final List<String> cgiBodies = Collections.synchronizedList(new ArrayList<>());
   private final List<String> cookiesSeen = Collections.synchronizedList(new ArrayList<>());
   private final List<String> pimRequests = Collections.synchronizedList(new ArrayList<>());
   private final List<String> pairingBodies = Collections.synchronizedList(new ArrayList<>());
   private final Map<String, String> pairings = new ConcurrentHashMap<>();
   private final List<AuthenticationRequest> authenticationRequests =
       Collections.synchronizedList(new ArrayList<>());
+  private final AtomicInteger backupCookie = new AtomicInteger();
   /**
    * When set, the device signs a certificate request that is posted to {@code login.cgi}, as the
    * real one does; when not, it answers that it cannot.
@@ -130,9 +151,9 @@ public final class FakeDevice implements AutoCloseable {
   /** The {@code discovery.cgi} answer of the device. */
   public volatile String discoveryXml = DEFAULT_DISCOVERY;
   /** The number of failed password attempts that the login reports. */
-  public volatile int failedAttempts;
+  public final AtomicInteger failedAttempts = new AtomicInteger();
   /** The number of upcoming CGI requests to drop without an answer. */
-  public volatile int dropNext;
+  public final AtomicInteger dropNext = new AtomicInteger();
   /** Run once while the next CGI request is answered, before the answer is sent; then cleared. */
   public volatile Runnable afterNextCgiRequest;
   /** Whether the device rejects every cookie, never accepting a session. */
@@ -185,11 +206,10 @@ public final class FakeDevice implements AutoCloseable {
   public volatile int backupDataErrorId;
   /** The {@code ResetRequired} value the device reports after a restore upload. */
   public volatile String restoreResetRequired = "True";
-  private volatile int removalsSinceStart;
-  private volatile int pollIndex;
-  private volatile int backupPollIndex;
+  private final AtomicInteger removalsSinceStart = new AtomicInteger();
+  private final AtomicInteger pollIndex = new AtomicInteger();
+  private final AtomicInteger backupPollIndex = new AtomicInteger();
   private volatile String backupMode = "";
-  private final AtomicInteger backupCookie = new AtomicInteger();
   private volatile String token = "TOKEN-1";
 
   /**
@@ -240,21 +260,19 @@ public final class FakeDevice implements AutoCloseable {
     }
   }
 
-  private static void respondBytes(
-      HttpExchange exchange, int status, byte[] body, String setCookie, String contentType)
+  /** Streams a 200 {@code application/octet-stream} body — the backup data answer. */
+  private static void respondBytes(HttpExchange exchange, byte[] body, String setCookie)
       throws IOException {
-    if (contentType != null) {
-      exchange.getResponseHeaders().add("Content-Type", contentType);
-    }
+    exchange.getResponseHeaders().add("Content-Type", "application/octet-stream");
     if (setCookie != null) {
       exchange.getResponseHeaders().add("Set-Cookie", setCookie);
     }
     if (body.length == 0) {
-      exchange.sendResponseHeaders(status, -1);
+      exchange.sendResponseHeaders(200, -1);
       exchange.close();
       return;
     }
-    exchange.sendResponseHeaders(status, body.length);
+    exchange.sendResponseHeaders(200, body.length);
     try (var stream = exchange.getResponseBody()) {
       stream.write(body);
     }
@@ -305,16 +323,6 @@ public final class FakeDevice implements AutoCloseable {
     token = "TOKEN-" + System.nanoTime();
   }
 
-  /**
-   * Returns the bodies of all CGI requests received.
-   *
-   * @return a snapshot
-   */
-  public List<String> cgiBodies() {
-    synchronized (cgiBodies) {
-      return List.copyOf(cgiBodies);
-    }
-  }
 
   /**
    * Returns the method, path and query of every request to pimsync.
@@ -351,10 +359,9 @@ public final class FakeDevice implements AutoCloseable {
     cgiRequests.incrementAndGet();
     var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.US_ASCII);
     var cookie = exchange.getRequestHeaders().getFirst("Cookie");
-    cgiBodies.add(body);
     cookiesSeen.add(cookie == null ? "" : cookie);
-    if (dropNext > 0) {
-      dropNext--;
+    if (dropNext.get() > 0) {
+      dropNext.decrementAndGet();
       exchange.close();
       return;
     }
@@ -392,8 +399,8 @@ public final class FakeDevice implements AutoCloseable {
     cgiRequests.incrementAndGet();
     var cookie = exchange.getRequestHeaders().getFirst("Cookie");
     cookiesSeen.add(cookie == null ? "" : cookie);
-    if (dropNext > 0) {
-      dropNext--;
+    if (dropNext.get() > 0) {
+      dropNext.decrementAndGet();
       exchange.close();
       return;
     }
@@ -529,8 +536,8 @@ public final class FakeDevice implements AutoCloseable {
                         "challenge", CHALLENGE,
                         "salt", SALT,
                         "iterations", String.valueOf(ITERATIONS),
-                        "failedAttempts", String.valueOf(failedAttempts),
-                        "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts))),
+                        "failedAttempts", String.valueOf(failedAttempts.get()),
+                        "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts.get()))),
                 "loginsession=PRELOGIN-TOKEN; expires=Fri, 01-Jan-2100 00:00:00 GMT; path=/");
           }
         }
@@ -547,7 +554,7 @@ public final class FakeDevice implements AutoCloseable {
       if (query.contains("challenge_data=" + expected)) {
         respond(exchange, 200, success(), cookieHeader());
       } else {
-        failedAttempts++;
+        failedAttempts.incrementAndGet();
         respond(
             exchange,
             200,
@@ -557,8 +564,8 @@ public final class FakeDevice implements AutoCloseable {
                         FakeDevice.class,
                         "fake-device--login-counts.xml",
                         Map.of(
-                            "failedAttempts", String.valueOf(failedAttempts),
-                            "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts)))
+                            "failedAttempts", String.valueOf(failedAttempts.get()),
+                            "retriesRemaining", String.valueOf(MAX_ATTEMPTS - failedAttempts.get())))
                     .strip()),
             null);
       }
@@ -612,8 +619,8 @@ public final class FakeDevice implements AutoCloseable {
               + exchange.getRequestURI().getPath()
               + (query == null ? "" : "?" + query));
       cookiesSeen.add(cookie == null ? "" : cookie);
-      if (dropNext > 0) {
-        dropNext--;
+      if (dropNext.get() > 0) {
+        dropNext.decrementAndGet();
         exchange.close();
         return;
       }
@@ -682,8 +689,8 @@ public final class FakeDevice implements AutoCloseable {
         exchange.close();
         return;
       }
-      if (dropNext > 0) {
-        dropNext--;
+      if (dropNext.get() > 0) {
+        dropNext.decrementAndGet();
         updateRequests.add("dropped, not answered");
         exchange.close();
         return;
@@ -708,7 +715,7 @@ public final class FakeDevice implements AutoCloseable {
         } else if (failure.equals("send")) {
           answer = updateError("UpdateSend", 12, "Cannot install bar file");
         } else {
-          pollIndex = 0;
+          pollIndex.set(0);
           answer = updateAnswerOf("UpdateSend", "Success", "");
         }
       } else if (form.contains("mode=")) {
@@ -726,7 +733,7 @@ public final class FakeDevice implements AutoCloseable {
         } else {
           // The cookie arrives already expired, as on a real device, so a client never keeps it.
           setCookie = "update=" + System.nanoTime() + "; expires=" + EXPIRED + "; path=/";
-          removalsSinceStart = 0;
+          removalsSinceStart.set(0);
           answer =
               updateAnswerOf(
                   form.contains("mode=app") ? deleteStartElement : "UpdateStart", "Ready", "");
@@ -737,7 +744,7 @@ public final class FakeDevice implements AutoCloseable {
         var element =
             deleteAnswerElement != null
                 ? deleteAnswerElement
-                : removalsSinceStart++ == 0 ? "DeleteRequest" : "DeleteProgress";
+                : removalsSinceStart.getAndIncrement() == 0 ? "DeleteRequest" : "DeleteProgress";
         answer =
             updateUnremovable.contains(packageId) || failure.equals("delete")
                 ? updateError(element, 8, "Cannot uninstall packageid")
@@ -776,10 +783,10 @@ public final class FakeDevice implements AutoCloseable {
           answer = updatePollAnswer;
         } else {
           var steps = updateProgress;
-          var working = pollIndex < steps.size();
-          var percent = working ? steps.get(pollIndex) : 100;
-          pollIndex++;
-          if (failure.equals("progress") && pollIndex >= 2) {
+          var current = pollIndex.getAndIncrement();
+          var working = current < steps.size();
+          var percent = working ? steps.get(current) : 100;
+          if (failure.equals("progress") && pollIndex.get() >= 2) {
             answer = updateError("UpdateProgress", 7, "Installer result code: 2");
           } else {
             answer =
@@ -803,7 +810,13 @@ public final class FakeDevice implements AutoCloseable {
   final class BackupEndpoint {
 
     private static String response(String element, String inner) {
-      return "<RimTabletResponse><" + element + ">" + inner + "</" + element + "></RimTabletResponse>";
+      return "<RimTabletResponse><"
+          + element
+          + ">"
+          + inner
+          + "</"
+          + element
+          + "></RimTabletResponse>";
     }
 
     private static String error(String element, int identifier, String description) {
@@ -840,8 +853,8 @@ public final class FakeDevice implements AutoCloseable {
       var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
       var query = exchange.getRequestURI().getRawQuery();
       cookiesSeen.add(cookie == null ? "" : cookie);
-      if (dropNext > 0) {
-        dropNext--;
+      if (dropNext.get() > 0) {
+        dropNext.decrementAndGet();
         backupRequests.add("dropped, not answered");
         exchange.close();
         return;
@@ -868,7 +881,9 @@ public final class FakeDevice implements AutoCloseable {
             200,
             response(
                 "RestoreSend",
-                "<Status>Success</Status><ResetRequired>" + restoreResetRequired + "</ResetRequired>"),
+                "<Status>Success</Status><ResetRequired>"
+                    + restoreResetRequired
+                    + "</ResetRequired>"),
             renewal);
         return;
       }
@@ -883,9 +898,9 @@ public final class FakeDevice implements AutoCloseable {
         fireHook();
         respond(exchange, 200, response("RestoreStart", "<Status>Ready</Status>"), renewal);
       } else if (form.contains("query=activity")) {
-        var ready = backupPollIndex >= backupPreparePolls;
-        backupRequests.add("activity poll=" + backupPollIndex + (ready ? " ready" : " inProgress"));
-        backupPollIndex++;
+        var poll = backupPollIndex.getAndIncrement();
+        var ready = poll >= backupPreparePolls;
+        backupRequests.add("activity poll=" + poll + (ready ? " ready" : " inProgress"));
         var inner =
             ready
                 ? "<Status>Ready</Status><TotalSize>" + totalOfMode() + "</TotalSize>"
@@ -898,23 +913,25 @@ public final class FakeDevice implements AutoCloseable {
         respond(exchange, 200, response("BackupEnd", "<Status>Success</Status>"), renewal);
       } else if (form.contains("mode=")) {
         backupMode = fieldOf(form, "mode");
-        backupPollIndex = 0;
+        backupPollIndex.set(0);
         backupRequests.add("backup start " + form);
         fireHook();
         respond(exchange, 200, response("BackupStart", "<Status>Success</Status>"), renewal);
       } else if (form.startsWith("type=") || form.contains("&type=")) {
         var type = fieldOf(form, "type");
-        backupRequests.add("backup type=" + type);
+        var pkgtype = fieldOf(form, "pkgtype");
+        // A pkgtype sub-selection streams a distinct, smaller archive, keyed "<type>:<pkgtype>".
+        var key = pkgtype == null ? type : type + ":" + pkgtype;
+        backupRequests.add("backup type=" + type + (pkgtype == null ? "" : " pkgtype=" + pkgtype));
         fireHook();
         if (backupDataErrorId > 0) {
           respond(exchange, 200, error("BackupGet", backupDataErrorId, "data error"), renewal);
         } else {
           respondBytes(
               exchange,
-              200,
-              backupCategoryBytes.getOrDefault(type, new byte[0]),
-              renewal,
-              "application/octet-stream");
+              backupCategoryBytes.getOrDefault(
+                  key, backupCategoryBytes.getOrDefault(type, new byte[0])),
+              renewal);
         }
       } else {
         backupRequests.add("unexpected " + form);
@@ -930,11 +947,12 @@ public final class FakeDevice implements AutoCloseable {
       return Resources.text(FakeDevice.class, "fake-device--pairing-not-authorized.xml").strip();
     }
 
-    private static String pairingError(int number, String description) {
+    /** The only pairing error the fake returns: error 7, insert-certificate-failed. */
+    private static String pairingError() {
       return Resources.text(
               FakeDevice.class,
               "fake-device--pairing-error.xml",
-              Map.of("number", String.valueOf(number), "description", description))
+              Map.of("number", "7", "description", "Error - insert certificate failed."))
           .strip();
     }
 
@@ -949,8 +967,8 @@ public final class FakeDevice implements AutoCloseable {
       var cookie = exchange.getRequestHeaders().getFirst("Cookie");
       pairingBodies.add(body);
       cookiesSeen.add(cookie == null ? "" : cookie);
-      if (dropNext > 0) {
-        dropNext--;
+      if (dropNext.get() > 0) {
+        dropNext.decrementAndGet();
         exchange.close();
         return;
       }
@@ -976,7 +994,7 @@ public final class FakeDevice implements AutoCloseable {
       var certdata = form.get("certdata");
       var deviceId = form.get("deviceid");
       if (authority == null || certdata == null || deviceId == null) {
-        return pairingError(7, "Error - insert certificate failed.");
+        return pairingError();
       }
       try {
         CertificateDetails.firstCertificate(certdata);
@@ -987,7 +1005,7 @@ public final class FakeDevice implements AutoCloseable {
                 Map.of("authority", authority.rootPem()))
             .strip();
       } catch (CertificateException _) {
-        return pairingError(7, "Error - insert certificate failed.");
+        return pairingError();
       } catch (GeneralSecurityException failure) {
         throw new IllegalStateException(failure);
       }
@@ -1017,8 +1035,8 @@ public final class FakeDevice implements AutoCloseable {
       var contentType = exchange.getRequestHeaders().getFirst("Content-Type");
       authenticationRequests.add(new AuthenticationRequest(query, contentType, body));
       cookiesSeen.add(cookie == null ? "" : cookie);
-      if (dropNext > 0) {
-        dropNext--;
+      if (dropNext.get() > 0) {
+        dropNext.decrementAndGet();
         exchange.close();
         return;
       }

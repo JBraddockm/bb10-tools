@@ -15,6 +15,14 @@ class BbbArchiveTest {
 
   @TempDir private Path folder;
 
+  private static byte[] bytes(int length) {
+    var data = new byte[length];
+    for (var index = 0; index < length; index++) {
+      data[index] = (byte) (index * 7 + 1);
+    }
+    return data;
+  }
+
   @Test
   @DisplayName("round-trips the manifest and the category archives, byte for byte")
   void roundTrip() throws Exception {
@@ -28,7 +36,8 @@ class BbbArchiveTest {
             "10.3.3.2639",
             List.of(
                 new DownloadedCategory(BackupCategory.APP, app, appBytes.length),
-                new DownloadedCategory(BackupCategory.SETTINGS, settings, settingsBytes.length)));
+                new DownloadedCategory(BackupCategory.SETTINGS, settings, settingsBytes.length)),
+            List.of());
     var out = folder.resolve("backup.bbb");
 
     BbbArchive.write(
@@ -72,13 +81,5 @@ class BbbArchiveTest {
 
     assertThatThrownBy(() -> BbbArchive.readManifest(out))
         .isInstanceOf(IllegalArgumentException.class);
-  }
-
-  private static byte[] bytes(int length) {
-    var data = new byte[length];
-    for (var index = 0; index < length; index++) {
-      data[index] = (byte) (index * 7 + 1);
-    }
-    return data;
   }
 }

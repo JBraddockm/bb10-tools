@@ -14,7 +14,6 @@ import com.jbraddockm.link.transport.cgi.ResponseEnvelope;
 import com.jbraddockm.link.transport.cgi.ResponseFailures;
 import com.jbraddockm.link.transport.cgi.Step;
 import com.jbraddockm.link.transport.cgi.StepEffect;
-import com.jbraddockm.link.transport.cgi.WireValue;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,16 +34,9 @@ final class RestoreStreamConversation implements Conversation<RestoreStreamResul
   /** How long the device may stay silent while it takes a category or works on one. */
   private static final Duration SLOW_STEP = Duration.ofMinutes(10);
 
-  private enum Stage {
-    BEGIN,
-    UPLOADING,
-    FINISHING
-  }
-
   private final List<UploadTarget> targets;
   private final long totalSize;
   private final List<BackupCategory> restored = new ArrayList<>();
-
   private Stage stage = Stage.BEGIN;
   private int index;
   private boolean resetRequired;
@@ -80,7 +72,8 @@ final class RestoreStreamConversation implements Conversation<RestoreStreamResul
   }
 
   private Step<RestoreStreamResult> begun(CgiResponse response, ResponseEnvelope envelope) {
-    return refused(response, envelope, ResponseElement.RESTORE_START)
+    return Refusals.check(response, envelope, ResponseElement.RESTORE_START)
+        .map(this::fail)
         .orElseGet(
             () -> {
               stage = Stage.UPLOADING;
@@ -90,7 +83,8 @@ final class RestoreStreamConversation implements Conversation<RestoreStreamResul
   }
 
   private Step<RestoreStreamResult> uploaded(CgiResponse response, ResponseEnvelope envelope) {
-    return refused(response, envelope, ResponseElement.RESTORE_SEND)
+    return Refusals.check(response, envelope, ResponseElement.RESTORE_SEND)
+        .map(this::fail)
         .orElseGet(() -> accepted(envelope));
   }
 
@@ -123,13 +117,8 @@ final class RestoreStreamConversation implements Conversation<RestoreStreamResul
       return fail(ResponseFailures.notXml(response));
     }
     var reported = ResponseFailures.reportedError(envelope);
-    if (reported.isPresent()) {
-      return fail(reported.get());
-    }
-    return finish();
+    return reported.map(this::fail).orElseGet(this::finish);
   }
-
-  // --- helpers ----------------------------------------------------------------------------------
 
   private CgiRequest upload(int at) {
     var target = targets.get(at);
@@ -141,29 +130,15 @@ final class RestoreStreamConversation implements Conversation<RestoreStreamResul
             target.category().wireName())
         .with(QueryParameter.ACTION, BackupAction.RESTORE)
         .with(QueryParameter.TYPE, target.category())
-        .with(QueryParameter.SIZE, (WireValue) () -> Long.toString(target.size()))
+        .with(QueryParameter.SIZE, () -> Long.toString(target.size()))
         .describedAs("Uploading the " + target.category().wireName() + " category")
         .waitingUpTo(SLOW_STEP);
   }
 
-  private Optional<Step<RestoreStreamResult>> refused(
-      CgiResponse response, ResponseEnvelope envelope, ResponseElement expected) {
-    if (envelope == null) {
-      return Optional.of(fail(ResponseFailures.notXml(response)));
-    }
-    var reported = ResponseFailures.reportedError(envelope);
-    if (reported.isPresent()) {
-      return Optional.of(fail(reported.get()));
-    }
-    if (envelope.element().orElse(null) != expected) {
-      return Optional.of(fail(ResponseFailures.notExpected(envelope, expected)));
-    }
-    return Optional.empty();
-  }
-
   private StepEffect.Report report(int percent) {
     var item = index < targets.size() ? targets.get(index).category().wireName() : null;
-    return new StepEffect.Report(new Progress(percent, BackupPhase.UPLOADING, null, totalSize, item));
+    return new StepEffect.Report(
+        new Progress(percent, BackupPhase.UPLOADING, null, totalSize, item));
   }
 
   private Step<RestoreStreamResult> finish() {
@@ -175,5 +150,11 @@ final class RestoreStreamConversation implements Conversation<RestoreStreamResul
     return new Step.Fail<>(
         error,
         Optional.of(new RestoreStreamResult(restored, resetRequired, ResponseBody.of(lastAnswer))));
+  }
+
+  private enum Stage {
+    BEGIN,
+    UPLOADING,
+    FINISHING
   }
 }

@@ -31,6 +31,14 @@ class RestoreSessionTest {
   private byte[] settingsBytes;
   private Path archive;
 
+  private static byte[] bytes(int length, int seed) {
+    var data = new byte[length];
+    for (var index = 0; index < length; index++) {
+      data[index] = (byte) (index * 17 + seed);
+    }
+    return data;
+  }
+
   @BeforeEach
   void start() throws Exception {
     device = new FakeDevice("secret");
@@ -40,8 +48,7 @@ class RestoreSessionTest {
                 InetAddress.getLoopbackAddress().getHostAddress(),
                 device.port(),
                 TransportScheme.HTTP,
-                new Authentication.Password("secret")),
-            (line, body, cookies, response) -> {});
+                new Authentication.Password("secret")));
     appBytes = bytes(2048, 1);
     settingsBytes = bytes(4096, 2);
     var app = Files.write(folder.resolve("app.tar"), appBytes);
@@ -54,7 +61,8 @@ class RestoreSessionTest {
             "10.3.3",
             List.of(
                 new DownloadedCategory(BackupCategory.APP, app, appBytes.length),
-                new DownloadedCategory(BackupCategory.SETTINGS, settings, settingsBytes.length))),
+                new DownloadedCategory(BackupCategory.SETTINGS, settings, settingsBytes.length)),
+            List.of()),
         List.of(
             new BbbArchive.ArchiveEntry("Archive/app.tar", app),
             new BbbArchive.ArchiveEntry("Archive/settings.tar", settings)));
@@ -84,7 +92,8 @@ class RestoreSessionTest {
   void restoresAll() {
     var result =
         succeeded(
-            new DeviceRestore().run(session, new RestoreRequest(archive, List.of(), true), new Logs()));
+            new DeviceRestore()
+                .run(session, new RestoreRequest(archive, List.of(), true), new Logs()));
 
     assertThat(result.restored()).containsExactly(BackupCategory.APP, BackupCategory.SETTINGS);
     assertThat(result.resetRequired()).isTrue();
@@ -97,17 +106,12 @@ class RestoreSessionTest {
   void restoresSelected() {
     succeeded(
         new DeviceRestore()
-            .run(session, new RestoreRequest(archive, List.of(BackupCategory.SETTINGS), true), new Logs()));
+            .run(
+                session,
+                new RestoreRequest(archive, List.of(BackupCategory.SETTINGS), true),
+                new Logs()));
 
     assertThat(device.restoreUploads).containsOnlyKeys("settings");
     assertThat(device.restoreUploads.get("settings")).isEqualTo(settingsBytes);
-  }
-
-  private static byte[] bytes(int length, int seed) {
-    var data = new byte[length];
-    for (var index = 0; index < length; index++) {
-      data[index] = (byte) (index * 17 + seed);
-    }
-    return data;
   }
 }

@@ -31,9 +31,9 @@ public enum FormField implements WireValue {
   DEVICE_ID("deviceid"),
 
   /**
-   * The computer's ecoid, sent at pairing (equal to {@link #DEVICE_ID}). The device folds the stored
-   * ecoid into the mDNS Friendly-name match, so setting it here is what lets the device map our advert
-   * to this pairing and show our name instead of the {@code Desktop-XXXX} fallback.
+   * The computer's ecoid, sent at pairing (equal to {@link #DEVICE_ID}). The device folds the
+   * stored ecoid into the mDNS Friendly-name match, so setting it here is what lets the device map
+   * our advert to this pairing and show our name instead of the {@code Desktop-XXXX} fallback.
    */
   ECOID("ecoid"),
 
@@ -53,7 +53,10 @@ public enum FormField implements WireValue {
   OPT("opt"),
 
   /** The total number of bytes a restore will upload across all categories. */
-  TOTAL_SIZE("totalsize");
+  TOTAL_SIZE("totalsize"),
+
+  /** The package types to sub-select within the app category on a rev2 backup. */
+  PKGTYPE("pkgtype");
 
   private final String wireName;
 

@@ -5,6 +5,7 @@ import static com.jbraddockm.link.testing.Outcomes.succeeded;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jbraddockm.core.command.Progress;
+import com.jbraddockm.core.command.ProgressPhase;
 import com.jbraddockm.link.LinkErrorCode;
 import com.jbraddockm.link.testing.FakeDevice;
 import com.jbraddockm.link.testing.Logs;
@@ -29,6 +30,14 @@ class BackupSessionTest {
   private FakeDevice device;
   private DeviceSession session;
 
+  private static byte[] bytes(int length, int seed) {
+    var data = new byte[length];
+    for (var index = 0; index < length; index++) {
+      data[index] = (byte) (index * 31 + seed);
+    }
+    return data;
+  }
+
   @BeforeEach
   void start() throws Exception {
     device = new FakeDevice("secret");
@@ -41,8 +50,7 @@ class BackupSessionTest {
                 InetAddress.getLoopbackAddress().getHostAddress(),
                 device.port(),
                 TransportScheme.HTTP,
-                new Authentication.Password("secret")),
-            (line, body, cookies, response) -> {});
+                new Authentication.Password("secret")));
   }
 
   @AfterEach
@@ -57,7 +65,7 @@ class BackupSessionTest {
     var out = folder.resolve("all.bbb");
 
     var result =
-        succeeded(new DeviceBackup().run(session, new BackupRequest(out, List.of()), new Logs()));
+        succeeded(new DeviceBackup().run(session, BackupRequest.of(out, List.of()), new Logs()));
 
     assertThat(Files.exists(out)).isTrue();
     assertThat(result.categoryBytes().keySet()).containsExactly("app", "media", "settings");
@@ -77,7 +85,7 @@ class BackupSessionTest {
 
     succeeded(
         new DeviceBackup()
-            .run(session, new BackupRequest(out, List.of(BackupCategory.SETTINGS)), new Logs()));
+            .run(session, BackupRequest.of(out, List.of(BackupCategory.SETTINGS)), new Logs()));
 
     assertThat(BbbArchive.readManifest(out).archives())
         .extracting(BackupManifest.Entry::category)
@@ -92,9 +100,10 @@ class BackupSessionTest {
 
     succeeded(
         new DeviceBackup()
-            .run(session, new BackupRequest(folder.resolve("p.bbb"), List.of()), logs));
+            .run(session, BackupRequest.of(folder.resolve("p.bbb"), List.of()), logs));
 
-    var phases = logs.progress().stream().map(Progress::phase).map(phase -> phase.wireName()).toList();
+    var phases =
+        logs.progress().stream().map(Progress::phase).map(ProgressPhase::wireName).toList();
     assertThat(phases).contains("downloading", "packaging");
   }
 
@@ -106,16 +115,37 @@ class BackupSessionTest {
     var failure =
         failed(
             new DeviceBackup()
-                .run(session, new BackupRequest(folder.resolve("x.bbb"), List.of(BackupCategory.SETTINGS)), new Logs()));
+                .run(
+                    session,
+                    BackupRequest.of(folder.resolve("x.bbb"), List.of(BackupCategory.SETTINGS)),
+                    new Logs()));
 
     assertThat(failure.error().code()).isEqualTo(LinkErrorCode.NO_BACKUP_DATA);
   }
 
-  private static byte[] bytes(int length, int seed) {
-    var data = new byte[length];
-    for (var index = 0; index < length; index++) {
-      data[index] = (byte) (index * 31 + seed);
-    }
-    return data;
+  @Test
+  @DisplayName("a package-type sub-selection backs up just that type and records pkgtype")
+  void backsUpByPackageType() throws Exception {
+    var dataBytes = bytes(65536, 9);
+    device.backupCategoryBytes.put("app:data", dataBytes);
+    var out = folder.resolve("app-data.bbb");
+
+    succeeded(
+        new DeviceBackup()
+            .run(
+                session,
+                new BackupRequest(out, List.of(BackupCategory.APP), List.of(PackageType.DATA)),
+                new Logs()));
+
+    var extracted = folder.resolve("x-app.tar");
+    BbbArchive.extract(out, "Archive/app.tar", extracted);
+    assertThat(Files.readAllBytes(extracted)).isEqualTo(dataBytes);
+    assertThat(BbbArchive.readManifest(out).archives())
+        .anySatisfy(
+            entry -> {
+              assertThat(entry.category()).isEqualTo(BackupCategory.APP);
+              assertThat(entry.pkgtype()).isEqualTo("data");
+            });
+    assertThat(device.backupRequests).anyMatch(line -> line.equals("backup type=app pkgtype=data"));
   }
 }

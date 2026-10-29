@@ -19,6 +19,13 @@ class ListCategoriesConversationTest {
       <Category id="settings" perimetertype="personal" name="Settings" bytesize="4096" count="3" readystate="1"/>\
       </Categories></BackupList></RimTabletResponse>""";
 
+  private static Step<BackupInventory> answer(String xml) {
+    var conversation = new ListCategoriesConversation();
+    conversation.start();
+    return conversation.onAnswer(
+        new CgiResponse(200, "text/xml", xml, null), ResponseEnvelope.parse(xml));
+  }
+
   @Test
   @DisplayName("reads every category with its size")
   void readsCategories() {
@@ -31,6 +38,32 @@ class ListCategoriesConversationTest {
         .containsExactly(BackupCategory.APP, BackupCategory.MEDIA, BackupCategory.SETTINGS);
     assertThat(inventory.find(BackupCategory.MEDIA).orElseThrow().bytesize()).isEqualTo(2097152);
     assertThat(inventory.find(BackupCategory.SETTINGS).orElseThrow().ready()).isTrue();
+  }
+
+  @Test
+  @DisplayName("reads the rev2 sub-packages of the app category")
+  void readsSubPackages() {
+    var rev2 =
+        """
+        <RimTabletResponse><Rev>2</Rev><BackupList><Status>Success</Status><Categories>\
+        <Category id="app" perimetertype="personal" name="Application Data" bytesize="247677952" count="232" readystate="1">\
+        <SubCategories>\
+        <SubCategory pkgid="systemapps" type="system" detail="default" count="228" bytesize="243062784" name="System Applications"/>\
+        <SubCategory pkgid="gYABgKAOw1czN6neiAT72SGO-ns" version="10.3.3.213" type="data" count="1" bytesize="1263616" name="BlackBerry Runtime"/>\
+        <SubCategory pkgid="andrBgJqi6F824h1CwDnH9pryMe8" type="bin" count="1" bytesize="3219456" name=""/>\
+        </SubCategories></Category>\
+        <Category id="settings" perimetertype="personal" name="Settings" bytesize="4096" count="3" readystate="1"/>\
+        </Categories></BackupList></RimTabletResponse>""";
+
+    var inventory = ((Step.Finish<BackupInventory>) answer(rev2)).result();
+
+    var app = inventory.find(BackupCategory.APP).orElseThrow();
+    assertThat(app.subPackages())
+        .extracting(SubPackage::type)
+        .containsExactly(PackageType.SYSTEM, PackageType.DATA, PackageType.BIN);
+    assertThat(app.subPackages().get(1).pkgid()).isEqualTo("gYABgKAOw1czN6neiAT72SGO-ns");
+    assertThat(app.subPackages().get(1).bytesize()).isEqualTo(1263616);
+    assertThat(inventory.find(BackupCategory.SETTINGS).orElseThrow().subPackages()).isEmpty();
   }
 
   @Test
@@ -53,12 +86,5 @@ class ListCategoriesConversationTest {
     var response = new CgiResponse(200, "text/plain", "not xml", null);
 
     assertThat(conversation.onAnswer(response, null)).isInstanceOf(Step.Fail.class);
-  }
-
-  private static Step<BackupInventory> answer(String xml) {
-    var conversation = new ListCategoriesConversation();
-    conversation.start();
-    return conversation.onAnswer(
-        new CgiResponse(200, "text/xml", xml, null), ResponseEnvelope.parse(xml));
   }
 }
