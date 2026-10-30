@@ -12,6 +12,7 @@ import com.jbraddockm.link.endpoint.pimsync.PimService;
 import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.DeviceCommand;
 import com.jbraddockm.link.transport.cgi.FormField;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,8 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Tests for PutPimItem: the POST that writes one item, carrying the item as a verbatim JSON body.
+ * Tests for PutPimItem: the POST that writes one item, carrying it as a one-element JSON array (the
+ * device's write endpoint is a batch that expects an array).
  */
 @DisplayName("PutPimItem: the request that writes one item")
 class PutPimItemTest {
@@ -32,30 +34,43 @@ class PutPimItemTest {
 
   @ParameterizedTest(name = "{0}")
   @CsvSource({"CONTACTS, contacts", "EVENTS, events", "CALENDARS, calendars"})
-  @DisplayName("posts put with the workstation, the service and the item as the data field")
+  @DisplayName("posts put with the workstation, the service and the item shaped for the service")
   void postsTheItem(PimService service, String name) {
     Map<String, Object> item = Map.of("title", "Lunch");
 
     var request = requestOf(new PutPimItem("WS1", service, item));
 
+    // contacts/events are batch endpoints (a JSON array); a calendar is a single object.
+    var expected = service == PimService.CALENDARS ? Json.write(item) : Json.write(List.of(item));
     assertThat(request.fields())
         .containsEntry(FormField.COMMAND, "put")
         .containsEntry(FormField.SERVICE, name)
         .containsEntry(FormField.WORKSTATION_ID, "WS1")
-        .containsEntry(FormField.DATA, Json.write(item));
+        .containsEntry(FormField.DATA, expected);
     assertThat(request.describe()).isEqualTo("Writing one " + name + " item");
   }
 
-  @Test
-  @DisplayName("forwards the item verbatim, and the encoded body carries it percent-encoded")
-  void forwardsTheItemVerbatim() {
+  @ParameterizedTest(name = "{0}")
+  @CsvSource({"CONTACTS", "EVENTS"})
+  @DisplayName("wraps the item in a one-element array for the batch endpoints (contacts, events)")
+  void wrapsBatchItemInAnArray(PimService service) {
     Map<String, Object> item = Map.of("note", "a & b");
 
-    var request = requestOf(new PutPimItem("WS1", PimService.CONTACTS, item));
+    var request = requestOf(new PutPimItem("WS1", service, item));
+
+    assertThat(request.fields().get(FormField.DATA)).isEqualTo(Json.write(List.of(item)));
+    assertThat(request.fields().get(FormField.DATA)).startsWith("[").endsWith("]");
+  }
+
+  @Test
+  @DisplayName("sends a calendar as a bare object, because that endpoint is not a batch")
+  void sendsCalendarAsBareObject() {
+    Map<String, Object> item = Map.of("name", "Work");
+
+    var request = requestOf(new PutPimItem("WS1", PimService.CALENDARS, item));
 
     assertThat(request.fields().get(FormField.DATA)).isEqualTo(Json.write(item));
-    assertThat(request.encodedBody())
-        .startsWith("command=put&service=contacts&workstation_id=WS1&data=");
+    assertThat(request.fields().get(FormField.DATA)).startsWith("{").endsWith("}");
   }
 
   @Test

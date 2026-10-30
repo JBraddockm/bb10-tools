@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.jbraddockm.core.error.InvalidArgumentException;
-import com.jbraddockm.core.json.Json;
 import com.jbraddockm.link.transport.cgi.CgiRequest;
 import com.jbraddockm.link.transport.cgi.QueryParameter;
 import java.nio.file.Path;
@@ -25,7 +24,7 @@ class PutPimPhotoTest {
   }
 
   @Test
-  @DisplayName("posts the file as upload_filename, with the identity in the data query field")
+  @DisplayName("posts the file as upload_filename, with the descriptor's inner fields in data")
   void postsTheFile() {
     var file = Path.of("photo.jpg");
     var request = requestOf(new PutPimPhoto("WS1", "ACC1", "OBJ1", file));
@@ -34,9 +33,10 @@ class PutPimPhotoTest {
         .containsEntry(QueryParameter.COMMAND, "put")
         .containsEntry(QueryParameter.SERVICE, "photos")
         .containsEntry(QueryParameter.WORKSTATION_ID, "WS1")
-        .containsEntry(
-            QueryParameter.DATA,
-            Json.write(Json.object("account_id", "ACC1", "object_id", "OBJ1")));
+        // the CGI wraps data as [{<data>,"filepath":…}], so data is the inner fields, braces-free,
+        // and the backend finds the contact by its id.
+        .containsEntry(QueryParameter.DATA, "\"id\":\"OBJ1\",\"account_id\":\"ACC1\"");
+    assertThat(request.query().get(QueryParameter.DATA)).doesNotStartWith("{").doesNotEndWith("}");
     assertThat(request.file()).isEqualTo(file);
     assertThat(request.fileField()).isEqualTo("upload_filename");
     assertThat(request.fileContentType()).isEqualTo("image/jpeg");

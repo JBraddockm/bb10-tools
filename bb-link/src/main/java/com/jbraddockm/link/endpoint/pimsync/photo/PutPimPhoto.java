@@ -13,14 +13,18 @@ import java.util.Objects;
 
 /**
  * Sends one contact photo to the device. The image is uploaded as the one part of a multipart form;
- * the contact it belongs to is named by {@code accountId} and {@code objectId}, which bb-link puts
- * into the {@code data} body the device expects ({@code {"account_id":…,"object_id":…}}). The
- * device refuses a photo over its size limit with status 1004. Changes the device, so it is never
- * repeated after a dropped connection.
+ * the contact it belongs to is named by its {@code objectId} (its device contact id). The device's
+ * photo endpoint is a <em>batch</em>: the CGI wraps the {@code data} field as {@code
+ * [{<data>,"filepath":"…"}]} (adding the uploaded file's path), and the backend iterates that array
+ * and finds each contact by its {@code id}. So {@code data} is the descriptor's inner fields with
+ * no enclosing braces ({@code "id":…,"account_id":…}); bb-link does not send a bare {@code
+ * {"account_id":…,"object_id":…}} object (that would wrap to malformed JSON). The device refuses a
+ * photo over its size limit with status 1004. Changes the device, so it is never repeated after a
+ * dropped connection.
  *
  * @param workstationId the client identifier whose account the photo belongs to
  * @param accountId the account the photo is stored under
- * @param objectId the contact the photo belongs to
+ * @param objectId the device contact id the photo belongs to
  * @param file the image file to send
  */
 public record PutPimPhoto(String workstationId, String accountId, String objectId, Path file)
@@ -50,7 +54,11 @@ public record PutPimPhoto(String workstationId, String accountId, String objectI
 
   @Override
   public Conversation<PimPhoto> conversation() {
-    var data = Json.write(Json.object("account_id", accountId, "object_id", objectId));
+    // The backend finds the contact by "id"; account_id is harmless context. The CGI wraps data as
+    // [{<data>,"filepath":"…"}], so data is the descriptor's inner fields with no enclosing
+    // braces — strip them from the serialized object.
+    var object = Json.write(Json.object("id", objectId, "account_id", accountId));
+    var data = object.substring(1, object.length() - 1);
     var request =
         CgiRequest.Multipart.of(
                 Endpoint.PIM_SYNC,

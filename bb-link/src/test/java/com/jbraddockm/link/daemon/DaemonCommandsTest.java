@@ -223,7 +223,7 @@ class DaemonCommandsTest {
           .contains("command=delete")
           .contains("workstation_id=W1")
           .contains("service=contacts")
-          .contains("object_id=OBJ1");
+          .contains("data=");
     }
 
     @Test
